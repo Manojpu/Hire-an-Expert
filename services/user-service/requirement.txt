@@ -1,0 +1,6 @@
+fastapi[all]
+uvicorn
+sqlalchemy
+psycopg2-binary # For PostgreSQL
+python-dotenv
+passlib[bcrypt] # For password hashing
