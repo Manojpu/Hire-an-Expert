@@ -6,7 +6,7 @@ services:
     container_name: postgres_container
     restart: always
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: userservice # ← your database name
       POSTGRES_USER: userservice # ← your database user
