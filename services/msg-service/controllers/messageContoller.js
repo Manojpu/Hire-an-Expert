@@ -7,7 +7,7 @@ exports.sendMessage = async (req, res) => {
   try {
     let convo = await Conversation.findById(conversationId);
     if (!convo) {
-      convo = new Conversation({ userId: senderId, expertId: receiverId });
+      convo = new Conversation({ senderId, receiverId });
       await convo.save();
     }
 
@@ -33,9 +33,14 @@ exports.sendMessage = async (req, res) => {
 
 exports.getMessages = async (req, res) => {
   try {
-    const messages = await Message.find({ conversationId: req.params.id });
+    // Load ALL messages for this conversation, sorted by timestamp (oldest first)
+    const messages = await Message.find({ conversationId: req.params.id })
+      .sort({ timestamp: 1 }); // 1 = ascending order (oldest first)
+    
+    console.log(`Loaded ${messages.length} messages for conversation ${req.params.id}`);
     res.json(messages);
   } catch (err) {
+    console.error("Error loading messages:", err);
     res.status(500).json({ error: err.message });
   }
 };

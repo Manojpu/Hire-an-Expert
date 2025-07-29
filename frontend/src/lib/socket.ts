@@ -8,6 +8,31 @@ export const initSocket = (senderId: string) => {
     auth: { senderId },
     transports: ["websocket"],
   });
+  
+  // Register user on connection
+  socket.on("connect", () => {
+    socket.emit("registerUser", senderId);
+  });
 };
 
 export const getSocket = (): Socket => socket;
+
+// Typing helpers
+export const startTyping = (conversationId: string, userId: string) => {
+  if (socket) {
+    socket.emit("startTyping", { conversationId, userId });
+  }
+};
+
+export const stopTyping = (conversationId: string, userId: string) => {
+  if (socket) {
+    socket.emit("stopTyping", { conversationId, userId });
+  }
+};
+
+// Message status helpers
+export const markMessagesAsRead = (conversationId: string, userId: string) => {
+  if (socket) {
+    socket.emit("markMessagesAsRead", { conversationId, userId });
+  }
+};
