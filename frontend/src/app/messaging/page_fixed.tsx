@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { initSocket, getSocket, startTyping, stopTyping, markMessagesAsRead } from "@/lib/socket";
+import { initSocket, getSocket } from "@/lib/socket";
 import { messageAPI, conversationAPI } from "@/lib/api";
 import { getCurrentUser, logout, getUserInfo } from "@/lib/auth";
 
@@ -13,8 +13,6 @@ interface Message {
   text: string;
   timestamp: string;
   conversationId: string;
-  status: 'sent' | 'delivered' | 'read';
-  readAt?: string;
 }
 
 interface Conversation {
@@ -22,11 +20,6 @@ interface Conversation {
   senderId: string;
   receiverId: string;
   lastMessage: string;
-  lastMessageId: string;
-  unreadCount: {
-    senderId: number;
-    receiverId: number;
-  };
   updatedAt: string;
 }
 
@@ -40,34 +33,29 @@ const MessagingPage = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeConversation, setActiveConversation] = useState<string>('');
   const [receiverId, setReceiverId] = useState('');
-  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
-  const [isTyping, setIsTyping] = useState(false);
-  const [activeUsersInChat, setActiveUsersInChat] = useState<string[]>([]);
   const router = useRouter();
 
   // Dynamic user IDs based on authentication
   const [senderId, setSenderId] = useState("");
   
-  // Refs for auto-scrolling and typing timeout
+  // Ref for auto-scrolling to bottom
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Check authentication
     const user = getCurrentUser();
     const userInfo = getUserInfo();
     
-    if (!user || !userInfo || !userInfo.userId) {
+    if (!user || !userInfo) {
       router.push('/login');
       return;
     }
 
-    console.log("Setting up user:", userInfo);
     setCurrentUser(userInfo);
-    setSenderId(userInfo.userId);
+    setSenderId(userInfo.userId || "");
 
     // Initialize socket connection
-    initSocket(userInfo.userId);
+    initSocket(userInfo.userId || "");
     const socket = getSocket();
 
     // Handle connection events
@@ -81,20 +69,15 @@ const MessagingPage = () => {
       setConnected(false);
     });
 
+    // Load user conversations
+    loadConversations(userInfo.userId || "");
+
     return () => {
       socket.disconnect();
     };
   }, [router]);
 
-  // Separate useEffect to load conversations after senderId is set
-  useEffect(() => {
-    if (senderId) {
-      console.log("Loading conversations for senderId:", senderId);
-      loadConversations(senderId);
-    }
-  }, [senderId]);
-
-  // Separate useEffect for handling incoming messages and events
+  // Separate useEffect for handling incoming messages
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -112,63 +95,10 @@ const MessagingPage = () => {
       }
     };
 
-    const handleUserTyping = (data: { userId: string; isTyping: boolean }) => {
-      console.log("User typing:", data);
-      setTypingUsers(prev => {
-        const newSet = new Set(prev);
-        if (data.isTyping) {
-          newSet.add(data.userId);
-        } else {
-          newSet.delete(data.userId);
-        }
-        return newSet;
-      });
-    };
-
-    const handleMessagesReadUpdate = (data: { conversationId: string; readBy: string; messages: Message[] }) => {
-      console.log("Messages read update:", data);
-      if (activeConversation === data.conversationId) {
-        setMessages(data.messages);
-      }
-    };
-
-    const handleMessagesDeliveredUpdate = (data: { conversationId: string; deliveredTo: string; messages: Message[] }) => {
-      console.log("Messages delivered update:", data);
-      if (activeConversation === data.conversationId) {
-        setMessages(data.messages);
-      }
-    };
-
-    const handleActiveUsersUpdate = (data: { conversationId: string; activeUsers: string[] }) => {
-      console.log("Active users update:", data);
-      if (activeConversation === data.conversationId) {
-        setActiveUsersInChat(data.activeUsers);
-      }
-    };
-
-    const handleConversationUpdated = (conversation: Conversation) => {
-      console.log("Conversation updated:", conversation);
-      setConversations(prev => 
-        prev.map(conv => 
-          conv._id === conversation._id ? conversation : conv
-        )
-      );
-    };
-
     socket.on("receiveMessage", handleReceiveMessage);
-    socket.on("userTyping", handleUserTyping);
-    socket.on("messagesReadUpdate", handleMessagesReadUpdate);
-    socket.on("messagesDeliveredUpdate", handleMessagesDeliveredUpdate);
-    socket.on("conversationUpdated", handleConversationUpdated);
-    socket.on("activeUsersUpdate", handleActiveUsersUpdate);
 
     return () => {
       socket.off("receiveMessage", handleReceiveMessage);
-      socket.off("userTyping", handleUserTyping);
-      socket.off("messagesReadUpdate", handleMessagesReadUpdate);
-      socket.off("messagesDeliveredUpdate", handleMessagesDeliveredUpdate);
-      socket.off("conversationUpdated", handleConversationUpdated);
-      socket.off("activeUsersUpdate", handleActiveUsersUpdate);
     };
   }, [activeConversation]);
 
@@ -182,19 +112,11 @@ const MessagingPage = () => {
   };
 
   const loadConversations = async (userId: string) => {
-    if (!userId) {
-      console.log("No userId provided to loadConversations");
-      return;
-    }
-    
     try {
       setConversationsLoading(true);
-      console.log("Loading conversations for userId:", userId);
-      
       const userConversations = await conversationAPI.getUserConversations(userId);
       console.log("Loaded conversations:", userConversations);
-      
-      setConversations(userConversations || []);
+      setConversations(userConversations);
     } catch (error) {
       console.error("Error loading conversations:", error);
       setConversations([]);
@@ -209,8 +131,6 @@ const MessagingPage = () => {
       
       // Clear existing messages first
       setMessages([]);
-      setTypingUsers(new Set());
-      setActiveUsersInChat([]);
       
       setActiveConversation(conversation._id);
       
@@ -224,32 +144,18 @@ const MessagingPage = () => {
         socket.emit("joinRoom", conversation._id);
       }
 
-      // Load ALL messages for this conversation from database
-      console.log(`🔍 Loading ALL messages for conversation: ${conversation._id}`);
+      // Load messages for this conversation
       const existingMessages = await messageAPI.getMessages(conversation._id);
-      console.log(`📨 Successfully loaded ${existingMessages.length} messages from database`);
+      console.log("Loaded messages for conversation:", existingMessages);
       
-      if (existingMessages.length > 0) {
-        console.log(`📅 Date range: ${new Date(existingMessages[0].timestamp).toLocaleString()} to ${new Date(existingMessages[existingMessages.length - 1].timestamp).toLocaleString()}`);
-      }
-      
-      // Messages should already be sorted by backend, but double-check
+      // Sort messages by timestamp to ensure proper order
       const sortedMessages = existingMessages.sort((a: Message, b: Message) => 
         new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
       
-      console.log(`✅ Displaying ${sortedMessages.length} messages in chronological order`);
       setMessages(sortedMessages);
-
-      // Mark messages as read after a short delay (to ensure UI is updated)
-      setTimeout(() => {
-        if (socket && senderId) {
-          markMessagesAsRead(conversation._id, senderId);
-        }
-      }, 500);
-
     } catch (error) {
-      console.error("❌ Error loading conversation messages:", error);
+      console.error("Error loading conversation messages:", error);
       setMessages([]);
     } finally {
       setLoading(false);
@@ -278,54 +184,12 @@ const MessagingPage = () => {
         senderId,
         receiverId,
         conversationId: activeConversation,
-        text: text.trim(),
+        text,
       };
       
       console.log("Sending message:", messageData);
       socket.emit("sendMessage", messageData);
       setText("");
-      
-      // Stop typing indicator
-      if (isTyping) {
-        setIsTyping(false);
-        stopTyping(activeConversation, senderId);
-        if (typingTimeoutRef.current) {
-          clearTimeout(typingTimeoutRef.current);
-        }
-      }
-    }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setText(value);
-
-    // Handle typing indicators
-    if (value.trim() && activeConversation && senderId) {
-      if (!isTyping) {
-        setIsTyping(true);
-        startTyping(activeConversation, senderId);
-      }
-
-      // Clear existing timeout
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-
-      // Set new timeout to stop typing after 2 seconds of inactivity
-      typingTimeoutRef.current = setTimeout(() => {
-        if (isTyping) {
-          setIsTyping(false);
-          stopTyping(activeConversation, senderId);
-        }
-      }, 2000);
-    } else if (isTyping) {
-      // Stop typing if input is empty
-      setIsTyping(false);
-      stopTyping(activeConversation, senderId);
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
     }
   };
 
@@ -341,71 +205,6 @@ const MessagingPage = () => {
       hour: '2-digit', 
       minute: '2-digit' 
     });
-  };
-
-  const getMessageStatusIcon = (message: Message) => {
-    if (message.senderId !== senderId) return null; // Only show status for sent messages
-    
-    switch (message.status) {
-      case 'sent':
-        return (
-          <span style={{ color: '#9ca3af', fontSize: '0.7rem' }} title="Sent">
-            ✓
-          </span>
-        );
-      case 'delivered':
-        return (
-          <span style={{ color: '#3b82f6', fontSize: '0.7rem' }} title="Delivered">
-            ✓✓
-          </span>
-        );
-      case 'read':
-        return (
-          <span style={{ color: '#10b981', fontSize: '0.7rem' }} title={`Read${message.readAt ? ' at ' + new Date(message.readAt).toLocaleTimeString() : ''}`}>
-            ✓✓
-          </span>
-        );
-      default:
-        return null;
-    }
-  };
-
-  const getUnreadCount = (conversation: Conversation) => {
-    // Don't show unread count if both users are active in the conversation
-    const otherUserId = conversation.senderId === senderId ? conversation.receiverId : conversation.senderId;
-    const bothUsersActive = activeUsersInChat.includes(senderId) && activeUsersInChat.includes(otherUserId);
-    
-    if (bothUsersActive && activeConversation === conversation._id) {
-      return 0; // Hide unread count when both users are actively chatting
-    }
-    
-    const unreadCount = conversation.senderId === senderId 
-      ? conversation.unreadCount?.senderId || 0
-      : conversation.unreadCount?.receiverId || 0;
-    return unreadCount;
-  };
-
-  const hasUnreadMessages = (conversation: Conversation) => {
-    return getUnreadCount(conversation) > 0;
-  };
-
-  const refreshMessages = async () => {
-    if (!activeConversation) return;
-    
-    try {
-      console.log(`🔄 Manually refreshing messages for conversation: ${activeConversation}`);
-      const refreshedMessages = await messageAPI.getMessages(activeConversation);
-      console.log(`🔄 Refreshed ${refreshedMessages.length} messages`);
-      
-      const sortedMessages = refreshedMessages.sort((a: Message, b: Message) => 
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-      );
-      
-      setMessages(sortedMessages);
-      console.log(`✅ Messages refreshed and displayed`);
-    } catch (error) {
-      console.error("❌ Error refreshing messages:", error);
-    }
   };
 
   const handleLogout = () => {
@@ -509,8 +308,6 @@ const MessagingPage = () => {
             conversations.map((conversation) => {
               const otherUserId = conversation.senderId === senderId ? conversation.receiverId : conversation.senderId;
               const isActive = activeConversation === conversation._id;
-              const unreadCount = getUnreadCount(conversation);
-              const hasUnread = hasUnreadMessages(conversation);
               
               return (
                 <div
@@ -524,8 +321,7 @@ const MessagingPage = () => {
                     borderRadius: '6px',
                     cursor: 'pointer',
                     border: isActive ? 'none' : '1px solid #e5e7eb',
-                    transition: 'all 0.2s',
-                    position: 'relative'
+                    transition: 'all 0.2s'
                   }}
                   onMouseEnter={(e) => {
                     if (!isActive) {
@@ -539,7 +335,7 @@ const MessagingPage = () => {
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ flex: 1 }}>
+                    <div>
                       <p style={{ fontWeight: '600', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
                         {otherUserId}
                       </p>
@@ -549,32 +345,15 @@ const MessagingPage = () => {
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
-                        maxWidth: '150px',
-                        fontWeight: hasUnread ? '600' : '400'
+                        maxWidth: '150px'
                       }}>
                         {conversation.lastMessage || 'No messages yet'}
                       </p>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                      <p style={{ fontSize: '0.7rem', opacity: 0.7, marginBottom: '0.25rem' }}>
+                    <div>
+                      <p style={{ fontSize: '0.7rem', opacity: 0.7 }}>
                         {new Date(conversation.updatedAt).toLocaleDateString()}
                       </p>
-                      {unreadCount > 0 && (
-                        <div style={{
-                          backgroundColor: '#ef4444',
-                          color: 'white',
-                          borderRadius: '50%',
-                          width: '18px',
-                          height: '18px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '0.6rem',
-                          fontWeight: '600'
-                        }}>
-                          {unreadCount > 9 ? '9+' : unreadCount}
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -617,47 +396,15 @@ const MessagingPage = () => {
               paddingBottom: '0.5rem', 
               marginBottom: '1rem' 
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.125rem', fontWeight: '600' }}>
-                    💬 Chat Conversation
-                  </h3>
-                  <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                    Status: {connected ? "🟢 Connected" : "🔴 Disconnected"}
-                  </p>
-                  <p style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-                    Chatting with {receiverId} • {messages.length} messages loaded
-                    {activeUsersInChat.includes(receiverId) && (
-                      <span style={{ color: '#10b981', marginLeft: '0.5rem' }}>
-                        🟢 Online
-                      </span>
-                    )}
-                  </p>
-                  {activeUsersInChat.length > 1 && (
-                    <p style={{ fontSize: '0.7rem', color: '#10b981' }}>
-                      👥 Both users active - Real-time chat mode
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={refreshMessages}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    backgroundColor: '#f3f4f6',
-                    color: '#374151',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem'
-                  }}
-                  title="Refresh all messages"
-                >
-                  🔄 Refresh
-                </button>
-              </div>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: '600' }}>
+                💬 Chat Conversation
+              </h3>
+              <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                Status: {connected ? "🟢 Connected" : "🔴 Disconnected"}
+              </p>
+              <p style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+                Chatting with {receiverId}
+              </p>
             </div>
 
             {/* Messages */}
@@ -698,89 +445,17 @@ const MessagingPage = () => {
                           border: msg.senderId === senderId ? 'none' : '1px solid #e5e7eb'
                         }}
                       >
-                        <p style={{ fontSize: '0.875rem', marginBottom: '0.25rem' }}>{msg.text}</p>
-                        <div style={{ 
-                          fontSize: '0.75rem', 
-                          opacity: 0.75,
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center'
-                        }}>
-                          <span>
-                            {formatTime(msg.timestamp)} • {msg.senderId}
-                          </span>
-                          {getMessageStatusIcon(msg)}
-                        </div>
+                        <p style={{ fontSize: '0.875rem' }}>{msg.text}</p>
+                        <p style={{ fontSize: '0.75rem', marginTop: '0.25rem', opacity: 0.75 }}>
+                          {formatTime(msg.timestamp)} • {msg.senderId}
+                        </p>
                       </div>
                     </div>
                   ))}
-                  
-                  {/* Typing Indicator */}
-                  {typingUsers.size > 0 && (
-                    <div style={{
-                      marginBottom: '0.75rem',
-                      display: 'flex',
-                      justifyContent: 'flex-start'
-                    }}>
-                      <div style={{
-                        maxWidth: '12rem',
-                        padding: '0.75rem 1rem',
-                        borderRadius: '0.5rem',
-                        backgroundColor: '#f3f4f6',
-                        color: '#6b7280',
-                        border: '1px solid #e5e7eb',
-                        fontStyle: 'italic'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <div style={{ display: 'flex', gap: '0.2rem' }}>
-                            <div style={{ 
-                              width: '6px', 
-                              height: '6px', 
-                              backgroundColor: '#6b7280', 
-                              borderRadius: '50%',
-                              animation: 'typing 1.4s infinite ease-in-out'
-                            }}></div>
-                            <div style={{ 
-                              width: '6px', 
-                              height: '6px', 
-                              backgroundColor: '#6b7280', 
-                              borderRadius: '50%',
-                              animation: 'typing 1.4s infinite ease-in-out 0.2s'
-                            }}></div>
-                            <div style={{ 
-                              width: '6px', 
-                              height: '6px', 
-                              backgroundColor: '#6b7280', 
-                              borderRadius: '50%',
-                              animation: 'typing 1.4s infinite ease-in-out 0.4s'
-                            }}></div>
-                          </div>
-                          <span style={{ fontSize: '0.75rem' }}>
-                            {Array.from(typingUsers)[0]} is typing...
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
                   {/* Auto-scroll anchor */}
                   <div ref={messagesEndRef} />
                 </>
               )}
-              
-              {/* Add CSS for typing animation */}
-              <style jsx>{`
-                @keyframes typing {
-                  0%, 60%, 100% {
-                    transform: translateY(0);
-                    opacity: 0.5;
-                  }
-                  30% {
-                    transform: translateY(-10px);
-                    opacity: 1;
-                  }
-                }
-              `}</style>
             </div>
 
             {/* Input */}
@@ -797,7 +472,7 @@ const MessagingPage = () => {
                 }}
                 placeholder="Type a message..."
                 value={text}
-                onChange={handleInputChange}
+                onChange={(e) => setText(e.target.value)}
                 onKeyPress={handleKeyPress}
                 disabled={!connected}
               />

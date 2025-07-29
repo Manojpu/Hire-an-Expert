@@ -42,6 +42,18 @@ export const conversationAPI = {
     const response = await api.get(`/conversations/${userId}`);
     return response.data;
   },
+
+  // Create or get conversation between two users
+  createConversation: async (senderId: string, receiverId: string) => {
+    const response = await api.post('/conversations', { senderId, receiverId });
+    return response.data;
+  },
+
+  // Get conversation by ID
+  getConversation: async (conversationId: string) => {
+    const response = await api.get(`/conversations/details/${conversationId}`);
+    return response.data;
+  },
 };
 
 export default api;
