@@ -1,15 +1,30 @@
-// src/app/page.tsx
-'use client'; // because we're using a client-side hook
+"use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React from "react";
+import { useRouter } from "next/navigation";
 
-export default function RedirectHome() {
+export default function Home() {
   const router = useRouter();
 
-  useEffect(() => {
-    router.replace('/messaging');
-  }, [router]);
+  const navigateToMessages = () => {
+    router.push("../messaging");
+  };
 
-  return null; // or a loading spinner
+  return (
+    <main style={{ padding: 20, fontFamily: "Arial, sans-serif" }}>
+      <h1>Hello World from Next.js!</h1>
+      <p>Welcome to your homepage.</p>
+      <button
+        onClick={navigateToMessages}
+        style={{
+          marginTop: 20,
+          padding: "10px 20px",
+          fontSize: 16,
+          cursor: "pointer",
+        }}
+      >
+        Messages
+      </button>
+    </main>
+  );
 }
