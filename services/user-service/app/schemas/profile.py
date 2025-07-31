@@ -4,11 +4,12 @@ from typing import Optional
 # --- Base Schema ---
 # Contains shared attributes that are common across different operations.
 class ProfileBase(BaseModel):
+    id: Optional[str] = None  # Firebase UID, optional for creation
     display_name: str
     bio: Optional[str] = None
     is_expert: bool = False
     phone_number: Optional[str] = None
-    profile_picture: Optional[str] = None
+    profile_pic: Optional[str] = None
     location: Optional[str] = None
     # expertise: Optional[str] = None
     social_links: Optional[dict] = None  # This can be a dict with keys like 'linkedin', 'twitter', etc.
