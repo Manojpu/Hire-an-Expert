@@ -77,8 +77,16 @@ async def create_access_token(user_data:LoginSchema):
         )
 
 @app.post('/ping')
-async def validate_token():
-    pass
+async def validate_token(request:Request):
+    headers = request.headers
+    jwt = headers.get('authorization')
+
+    user = auth.verify_id_token(jwt)
+
+    return user["user_id"]
+
+
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", reload=True)
