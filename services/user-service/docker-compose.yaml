@@ -14,5 +14,17 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  userservice:
+    build: ./services/user-service
+    command: uvicorn app.api.endpoints.profile:app --host localhost --port 8000 --reload
+    volumes:
+      - ./services/user-service:/app
+    ports:
+      - "8001:8000" # User Profile Service will be on port 8001
+    environment:
+      - DATABASE_URL=postgresql://userservice:userservice@postgres/userservice
+    depends_on:
+      - postgres
+
 volumes:
   postgres_data:
