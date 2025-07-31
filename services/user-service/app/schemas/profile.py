@@ -11,7 +11,6 @@ class ProfileBase(BaseModel):
     phone_number: Optional[str] = None
     profile_pic: Optional[str] = None
     location: Optional[str] = None
-    # expertise: Optional[str] = None
     social_links: Optional[dict] = None  # This can be a dict with keys like 'linkedin', 'twitter', etc.
 
 
