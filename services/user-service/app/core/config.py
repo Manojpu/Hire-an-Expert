@@ -1,8 +1,9 @@
 from pydantic import BaseSettings
+from dotenv import load_dotenv
+load_dotenv()
 
 class Settings(BaseSettings):
-    # This MUST BE THE SAME KEY as in the Auth Service
-    INTERNAL_JWT_SECRET_KEY: str = "b62a7a049fac33fe724a6e35f00624a012fa5980"
+    INTERNAL_JWT_SECRET_KEY: str
     ALGORITHM: str = "HS256"
     DATABASE_URL: str
 
