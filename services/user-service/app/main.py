@@ -1,19 +1,43 @@
-from fastapi import FastAPI
-from app.api.endpoints import profiles 
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from app.api.endpoints import profile
 from app.db.database import engine
 from app.models import profile as profile_model
 
-# Create the database tables based on your models/profile.py file
+# Create the database tables if they don't exist
 profile_model.Base.metadata.create_all(bind=engine)
 
-# Create the main FastAPI application instance
-app = FastAPI(title="User Profile Service")
+# Create the main FastAPI application
+app = FastAPI(
+    title="User Profile Service",
+    description="API for managing user profiles in the Hire-an-Expert platform",
+    version="0.1.0",
+)
 
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # For production, replace with specific origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# All routes from profiles.py will now be available under the "/api/profiles" path
-app.include_router(profiles.router, prefix="/api/profiles", tags=["profiles"])
+# Include routers
+app.include_router(
+    profile.router, 
+    prefix="/api/profiles", 
+    tags=["profiles"]
+)
 
-@app.get("/")
-def read_root():
-    """A simple health check endpoint for the service."""
-    return {"service": "User Profile Service is running"}
+@app.get("/", tags=["health"])
+async def health_check():
+    """Health check endpoint for the service."""
+    return {"status": "healthy", "service": "User Profile Service"}
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log all incoming requests"""
+    print(f"Request: {request.method} {request.url.path}")
+    response = await call_next(request)
+    return response
