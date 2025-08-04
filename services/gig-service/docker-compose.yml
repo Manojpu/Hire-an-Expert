@@ -1,0 +1,26 @@
+services:
+  db:
+    # We will use the official PostgreSQL image, version 15.
+    # Alpine is a smaller version, which is great for development.
+    image: postgres:15-alpine
+
+    # These environment variables configure PostgreSQL when it first starts.
+    environment:
+      - POSTGRES_USER=gig_user
+      - POSTGRES_PASSWORD=gig123
+      - POSTGRES_DB=gig_db
+
+    # This maps the port inside the Docker container (5432)
+    # to a port on your local machine (5433). We use 5433 to avoid
+    # conflicts with any other PostgreSQL you might have installed.
+    ports:
+      - "5432:5432"
+
+    # This makes sure your data is saved even if you stop or remove
+    # the container. Your data will be stored in a "volume" named 'postgres_data'.
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+
+# This defines the named volume we used above.
+volumes:
+  postgres_data:
