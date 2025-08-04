@@ -1,8 +1,10 @@
 from fastapi import FastAPI
-from app.core.config import settings
+# Comment out the database related imports for now
+# from app.db import session, models
+# models.Base.metadata.create_all(bind=session.engine)
 
-app = FastAPI()
+app = FastAPI(title="Gig Service")
 
 @app.get("/")
 def read_root():
-    return  {"database_url_is_set": settings.DATABASE_URL is not None}
+    return  {"Gig Service": "Running"}
