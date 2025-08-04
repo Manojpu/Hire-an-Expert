@@ -2,7 +2,7 @@ services:
   db:
     # We will use the official PostgreSQL image, version 15.
     # Alpine is a smaller version, which is great for development.
-    image: postgres:15-alpine
+    image: postgres:17
 
     # These environment variables configure PostgreSQL when it first starts.
     environment:
@@ -14,7 +14,7 @@ services:
     # to a port on your local machine (5433). We use 5433 to avoid
     # conflicts with any other PostgreSQL you might have installed.
     ports:
-      - "5432:5432"
+      - "5433:5432"
 
     # This makes sure your data is saved even if you stop or remove
     # the container. Your data will be stored in a "volume" named 'postgres_data'.
