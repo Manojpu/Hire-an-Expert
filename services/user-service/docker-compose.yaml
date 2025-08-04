@@ -34,6 +34,7 @@ services:
       - DATABASE_URL=postgresql://userservice:userservice@postgres/userservice
       - JWT_SECRET_KEY=your-secret-key-for-development-only
       - ALGORITHM=HS256
+      - TESTING_MODE=True
     depends_on:
       postgres:
         condition: service_healthy

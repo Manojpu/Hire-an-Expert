@@ -1,18 +1,35 @@
-# Dockerfile
-
-# 1. Use an official Python runtime as a parent image
+# Use Python 3.10 slim as the base image
 FROM python:3.10-slim
 
-# 2. Set the working directory inside the container
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
+# Set the working directory in the container
 WORKDIR /app
 
-# 3. Copy the requirements file into the container
-COPY requirements.txt .
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# 4. Install any needed packages specified in requirements.txt
+# Copy requirements file and install dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 5. Copy the rest of your application code into the container
-COPY ./app /app/app
+# Copy the application code
+COPY . .
 
-# The command to run your app will be provided by docker-compose
+# Create a non-root user for security
+RUN adduser --disabled-password --gecos "" appuser
+RUN chown -R appuser:appuser /app
+USER appuser
+
+# Expose the port the app will run on
+EXPOSE 8000
+
+# Command to run the application
+CMD ["uvicorn", "app.main:app", "--host", "localhost", "--port", "8000"]
