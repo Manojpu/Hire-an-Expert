@@ -1,5 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from app.db import session, models
+from app.endpoints import gig
 
 
 # Create database tables
@@ -17,7 +18,7 @@ def get_db():
     finally:
         db.close()
 
-
+app.include_router(gig.router, prefix="/gigs", tags=["gigs"], dependencies=[Depends(get_db)])
 @app.get("/")
 def read_root():
     return  {"Gig Service": "Running"}
