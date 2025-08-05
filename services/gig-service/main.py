@@ -3,7 +3,9 @@ from app.db import session, models
 from app.endpoints import gig
 
 
-# Create database tables
+# Drop and recreate database tables
+print("Dropping all tables...")
+models.Base.metadata.drop_all(bind=session.engine)
 print("Creating database tables...")
 models.Base.metadata.create_all(bind=session.engine)
 print("Database tables created successfully!")
