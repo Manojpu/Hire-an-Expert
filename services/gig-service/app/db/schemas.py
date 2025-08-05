@@ -25,4 +25,4 @@ class GigResponse(GigBase):
     created_at: datetime
 
     class Config:
-        orm_mode = True # Allows Pydantic to read data from ORM models
+        from_attributes = True # Allows Pydantic to read data from ORM models (renamed from orm_mode)
