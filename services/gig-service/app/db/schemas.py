@@ -20,7 +20,7 @@ class GigUpdate(BaseModel):
 
 # Schema for the response (what the API sends back)
 class GigResponse(GigBase):
-    id: int
+    id: str  # Changed from int to str to match the UUID string in the model
     expert_id: int
     created_at: datetime
 
