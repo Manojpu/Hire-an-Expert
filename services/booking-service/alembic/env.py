@@ -5,6 +5,10 @@ from sqlalchemy import pool
 
 from alembic import context
 
+# alembic/env.py
+from app.db.models import Base # Import your model's Base
+target_metadata = Base.metadata # Point Alembic to it
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
