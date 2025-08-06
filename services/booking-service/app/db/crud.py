@@ -1,0 +1,73 @@
+from sqlalchemy.orm import Session
+from app.db.schemas import BookingCreate, BookingUpdate
+from app.db.models import Booking
+import uuid
+
+def create_booking(db: Session, booking: BookingCreate, user_id: int) -> Booking:
+    """Create a new booking."""
+    db_booking = Booking(
+        id=str(uuid.uuid4()),
+        gig_id=booking.gig_id,
+        user_id=user_id,
+        status=booking.status,
+        scheduled_time=booking.scheduled_time
+    )
+    
+    db.add(db_booking)
+    db.commit()
+    db.refresh(db_booking)
+    return db_booking
+
+def get_booking(db: Session, booking_id: str) -> Booking:
+    """Retrieve a booking by its ID."""
+    return db.query(Booking).filter(Booking.id == booking_id).first()
+
+def update_booking(db: Session, booking_id: str, booking_update: BookingUpdate) -> Booking:
+    """Update an existing booking."""
+    db_booking = db.query(Booking).filter(Booking.id == booking_id).first()
+    if not db_booking:
+        return None
+
+    # Update fields if provided
+    if booking_update.status is not None:
+        db_booking.status = booking_update.status
+    if booking_update.scheduled_time is not None:
+        db_booking.scheduled_time = booking_update.scheduled_time
+
+    db.commit()
+    db.refresh(db_booking)
+    return db_booking
+
+def delete_booking(db: Session, booking_id: str) -> bool:
+    """Delete a booking by its ID."""
+    db_booking = db.query(Booking).filter(Booking.id == booking_id).first()
+    if not db_booking:
+        return False
+
+    db.delete(db_booking)
+    db.commit()
+    return True
+
+def get_bookings_by_user(db: Session, user_id: int):
+    """Retrieve all bookings made by a specific user."""
+    return db.query(Booking).filter(Booking.user_id == user_id).all()
+
+def get_bookings(db: Session, skip: int = 0, limit: int = 100) -> list[Booking]:
+    """Fetch a list of bookings, with pagination."""
+    return db.query(Booking).offset(skip).limit(limit).all()
+
+def get_bookings_by_gig(db: Session, gig_id: str):
+    """Retrieve all bookings for a specific gig."""
+    return db.query(Booking).filter(Booking.gig_id == gig_id).all()
+
+def get_booking_by_gig_and_user(db: Session, gig_id: str, user_id: int) -> Booking:
+    """Retrieve a booking by gig ID and user ID."""
+    return db.query(Booking).filter(
+        Booking.gig_id == gig_id,
+        Booking.user_id == user_id
+    ).first()
+
+def get_booking_by_status(db: Session, status: str):
+    """Retrieve all bookings with a specific status."""
+    return db.query(Booking).filter(Booking.status == status).all()
+
