@@ -1,20 +1,51 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request, status
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from app.db import session, models
+from app.db.seed import seed_database
 from app.endpoints import booking
 from sqlalchemy.exc import OperationalError
+from app.core.logging import logger
+import traceback
 
 
 app = FastAPI(title="Booking Service")
 
+# Enable CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # For production, specify your frontend domains
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Global exception handler
+@app.middleware("http")
+async def log_exceptions(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as exc:
+        logger.error(f"Request to {request.url} failed with error: {exc}")
+        logger.error(traceback.format_exc())
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": f"Internal server error: {str(exc)}"}
+        )
+
 # Create database tables if they don't exist
 # Note: In production, you would use alembic migrations instead of this approach
 try:
-    print("Creating database tables if they don't exist...")
+    logger.info("Creating database tables if they don't exist...")
     models.Base.metadata.create_all(bind=session.engine)
-    print("Database setup completed successfully!")
+    logger.info("Database setup completed successfully!")
+    
+    # Seed the database with test data
+    db = next(session.get_db())
+    seed_database(db)
 except OperationalError as e:
-    print(f"Database connection failed: {e}")
-    print("Make sure your database is running. You can start it with 'docker-compose up -d'")
+    logger.error(f"Database connection failed: {e}")
+    logger.info("Make sure your database is running. You can start it with 'docker-compose up -d'")
 
 # Include the booking router
 app.include_router(booking.router, prefix="/bookings", tags=["bookings"])

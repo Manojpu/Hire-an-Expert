@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, DateTime, func, ForeignKey, Enum
+from sqlalchemy import Column, Integer, DateTime, func, ForeignKey, Enum, String
 from sqlalchemy.ext.declarative import declarative_base
 import enum
 
@@ -10,13 +10,24 @@ class BookingStatus(str, enum.Enum):
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 
+# Placeholder tables for foreign key references
+class User(Base):
+    __tablename__ = 'users'
+    id = Column(Integer, primary_key=True)
+    # Add any fields you need for testing/development
+
+class Gig(Base):
+    __tablename__ = 'gigs'
+    id = Column(Integer, primary_key=True)
+    # Add any fields you need for testing/development
+
 class Booking(Base):
     __tablename__ = 'bookings'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     gig_id = Column(Integer, ForeignKey('gigs.id'), nullable=False)
-    # Status can be 'pending', 'active', 'completed', 'cancelled'
+    # Status can be 'pending', 'confirmed', 'completed', 'cancelled'
     status = Column(Enum(BookingStatus), nullable=False, default=BookingStatus.PENDING)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     def __repr__(self):
