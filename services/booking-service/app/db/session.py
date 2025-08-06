@@ -2,12 +2,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import os
 from dotenv import load_dotenv
+from app.core.config import settings
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Get DATABASE_URL from environment variables or use the one from alembic.ini as fallback
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://booking:booking123@localhost:5433/booking_db")
+DATABASE_URL = os.getenv("DATABASE_URL") or settings.DATABASE_URL
 print(f"Connecting to database: {DATABASE_URL}")
 
 # Create SQLAlchemy engine
