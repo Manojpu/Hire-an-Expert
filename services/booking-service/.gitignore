@@ -14,6 +14,9 @@ __pycache__/
 # Logs
 *.log
 
+# Alembic bytecode (safe to ignore)
+alembic/__pycache__/
+
 # VSCode and other IDE configs
 .vscode/
 .idea/
