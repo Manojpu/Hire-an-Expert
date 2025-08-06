@@ -6,9 +6,9 @@ services:
 
     # These environment variables configure PostgreSQL when it first starts.
     environment:
-      - POSTGRES_USER=gig_user
-      - POSTGRES_PASSWORD=gig123
-      - POSTGRES_DB=gig_db
+      - POSTGRES_USER=booking
+      - POSTGRES_PASSWORD=booking123
+      - POSTGRES_DB=booking_db
 
     # This maps the port inside the Docker container (5432)
     # to a port on your local machine (5433). We use 5433 to avoid
