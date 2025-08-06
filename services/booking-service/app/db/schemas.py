@@ -1,12 +1,16 @@
 from pydantic import BaseModel
 from datetime import datetime
 
-class BookingCreate(BaseModel):
+# Base properties shared by all Booking schemas
+class BookingBase(BaseModel):
+    user_id: int
     gig_id: int
 
-class BookingResponse(BaseModel):
+class BookingCreate(BookingBase):
+    pass
+
+class BookingResponse(BookingBase):
     id: int
-    gig_id: int
     buyer_id: int
     status: str
     created_at: datetime
