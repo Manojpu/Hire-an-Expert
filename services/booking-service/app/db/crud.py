@@ -6,13 +6,9 @@ import uuid
 def create_booking(db: Session, booking: BookingCreate, user_id: int) -> Booking:
     """Create a new booking."""
     db_booking = Booking(
-        id=str(uuid.uuid4()),
         gig_id=booking.gig_id,
-        user_id=user_id,
-        status=booking.status,
-        scheduled_time=booking.scheduled_time
+        user_id=user_id
     )
-    
     db.add(db_booking)
     db.commit()
     db.refresh(db_booking)
