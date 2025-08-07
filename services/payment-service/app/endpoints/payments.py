@@ -43,8 +43,8 @@ def create_checkout_session(request: CheckoutRequest):
                 }
             ],
             mode='payment',
-            success_url=ensure_url_has_scheme(f"{os.getenv('BOOKING_SERVICE_URL', 'https://localhost:8001')}/booking/success?booking_id={request.booking_id}"),
-            cancel_url=ensure_url_has_scheme(f"{os.getenv('BOOKING_SERVICE_URL', 'https://localhost:8001')}/booking/cancel?booking_id={request.booking_id}"),
+            success_url=ensure_url_has_scheme(f"{os.getenv('BOOKING_SERVICE_URL', 'https://localhost:8000')}/booking/success?booking_id={request.booking_id}"),
+            cancel_url=ensure_url_has_scheme(f"{os.getenv('BOOKING_SERVICE_URL', 'https://localhost:8000')}/booking/cancel?booking_id={request.booking_id}"),
         )
         return {"sessionId": session.id}
     except Exception as e:
