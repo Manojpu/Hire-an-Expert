@@ -3,6 +3,10 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 import os
 
+from dotenv import load_dotenv
+
+load_dotenv()
+# Initialize Stripe with the secret key from environment variables
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 router = APIRouter()
