@@ -25,7 +25,7 @@ AsyncSessionLocal = sessionmaker(
     async_engine,
     class_=AsyncSession,
     expire_on_commit=False
-)
+) 
 
 # Sync session factory (for Alembic)
 SyncSessionLocal = sessionmaker(
