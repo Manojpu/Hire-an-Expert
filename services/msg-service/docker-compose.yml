@@ -1,0 +1,23 @@
+services:
+  message-db:
+    image: mongo:6
+    environment:
+      - MONGO_INITDB_DATABASE=messages
+    ports:
+      - "27017:27017"  # MongoDB default port
+    volumes:
+      - message_mongo_data:/data/db
+
+  # Optional: Message service itself (for individual testing)
+  message-service:
+    build: .
+    ports:
+      - "8005:8005"
+    environment:
+      - PORT=8005
+      - MONGODB_URI=mongodb://message-db:27017/messages
+    depends_on:
+      - message-db
+
+volumes:
+  message_mongo_data:
