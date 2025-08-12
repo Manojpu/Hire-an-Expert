@@ -16,7 +16,7 @@ async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
         email=user_data.email,
         phone=user_data.phone,
         role=user_data.role,
-        bio=user_data.bio,
+        bio=user_data.bio, 
         profile_image_url=user_data.profile_image_url
     )
     db.add(db_user)
