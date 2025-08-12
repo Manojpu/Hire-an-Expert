@@ -1,7 +1,6 @@
 services:
-  db:
+  gig-db:
     # We will use the official PostgreSQL image, version 15.
-
     image: postgres:17
 
     # These environment variables configure PostgreSQL when it first starts.
@@ -10,17 +9,25 @@ services:
       - POSTGRES_PASSWORD=gig123
       - POSTGRES_DB=gig_db
 
-    # This maps the port inside the Docker container (5432)
-    # to a port on your local machine (5433). We use 5433 to avoid
-    # conflicts with any other PostgreSQL you might have installed.
+    # Use unique port for gig service database (different from booking)
     ports:
-      - "5433:5432"
+      - "5434:5432"  # Gig DB port (different from booking)
 
     # This makes sure your data is saved even if you stop or remove
-    # the container. Your data will be stored in a "volume" named 'postgres_data'.
+    # the container. Your data will be stored in a "volume" named 'gig_postgres_data'.
     volumes:
-      - postgres_data:/var/lib/postgresql/data/
+      - gig_postgres_data:/var/lib/postgresql/data/
+
+  # Optional: Gig service itself (for individual testing)
+  gig-service:
+    build: .
+    ports:
+      - "8002:8002"
+    environment:
+      - DATABASE_URL=postgresql://gig_user:gig123@gig-db:5432/gig_db
+    depends_on:
+      - gig-db
 
 # This defines the named volume we used above.
 volumes:
-  postgres_data:
+  gig_postgres_data:

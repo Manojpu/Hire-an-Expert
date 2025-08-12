@@ -1,0 +1,17 @@
+services:
+  # API Gateway (standalone)
+  api-gateway:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - NODE_ENV=development
+      - PORT=8000
+      - AUTH_SERVICE_URL=http://localhost:8001
+      - GIG_SERVICE_URL=http://localhost:8002
+      - BOOKING_SERVICE_URL=http://localhost:8003
+      - PAYMENT_SERVICE_URL=http://localhost:8004
+      - MESSAGE_SERVICE_URL=http://localhost:8005
+      - FRONTEND_URL=http://localhost:3000
+
+# No database needed for API Gateway (stateless proxy)

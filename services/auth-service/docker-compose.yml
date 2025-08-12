@@ -1,0 +1,12 @@
+services:
+  # Auth service (standalone)
+  auth-service:
+    build: .
+    ports:
+      - "8001:8001"
+    environment:
+      - PORT=8001
+    volumes:
+      - ./serviceAccountKey.json:/app/serviceAccountKey.json
+
+# No database needed for auth service (uses Firebase)
