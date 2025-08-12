@@ -21,7 +21,7 @@ from auth import get_current_user, get_current_admin, get_user_by_id_or_current,
 router = APIRouter()
 
 
-# Public endpoints
+# Public endpoints 
 @router.get("/users/{user_id}", response_model=UserResponse)
 async def get_user_public(
     user_id: str,
