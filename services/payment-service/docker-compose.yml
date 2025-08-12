@@ -1,0 +1,10 @@
+services:
+  # Payment service (standalone)
+  payment-service:
+    build: .
+    ports:
+      - "8004:8004"
+    environment:
+      - PORT=8004
+
+# No database needed for payment service (uses external APIs like Stripe)
