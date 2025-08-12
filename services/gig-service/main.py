@@ -12,9 +12,13 @@ print("Database tables created successfully!")
 
 app = FastAPI(title="Gig Service")
 
-
-
-app.include_router(gig.router, prefix="/gigs", tags=["gigs"], dependencies=[Depends(session.get_db)])
+# Health check endpoint
 @app.get("/")
 def read_root():
-    return  {"Gig Service": "Running"}
+    return {"message": "Gig Service", "status": "Running", "port": 8002}
+
+app.include_router(gig.router, prefix="/gigs", tags=["gigs"], dependencies=[Depends(session.get_db)])
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8002, reload=True)

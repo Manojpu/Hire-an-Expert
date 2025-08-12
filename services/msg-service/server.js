@@ -7,7 +7,7 @@ const Conversation = require("./models/conversationModel");
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000","null"],
+    origin: ["http://localhost:3000", "http://localhost:8000", "null"], // Include API Gateway
     methods: ["GET", "POST"],
   },
 });
@@ -256,5 +256,9 @@ async function markMessagesAsDelivered(conversationId, userId) {
   }
 }
 
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+const PORT = process.env.PORT || 8005; // Updated port for microservice architecture
+server.listen(PORT, () => {
+  console.log(`🚀 Message Service running on port ${PORT}`);
+  console.log(`📡 Socket.IO server ready for connections`);
+  console.log(`🌐 CORS enabled for API Gateway and frontend`);
+});
