@@ -52,12 +52,13 @@ app.include_router(booking.router, prefix="/bookings", tags=["bookings"])
 
 @app.get("/")
 def read_root():
-    return {"Booking Service": "Running"}
+    return {"message": "Booking Service", "status": "Running", "port": 8003}
 
 # Health check endpoint
 @app.get("/health")
 def health_check():
-    return {"status": "healthy"}
+    return {"status": "healthy", "service": "booking", "port": 8003}
 
-
-# uvicorn main:app --reload
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8003, reload=True)
