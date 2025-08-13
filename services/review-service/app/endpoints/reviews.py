@@ -26,7 +26,7 @@ async def create_new_review(
             # We need an endpoint in booking-service to verify this
             response = await client.get(
                 f"{BOOKING_SERVICE_URL}/api/bookings/verify/{review_in.booking_id}",
-                headers={"Authorization": f"Bearer {current_user.token}"} # Pass the token along
+                headers={"Authorization": f"Bearer {current_user.original_token}"} # Pass the token along
             )
         
         if response.status_code != 200:
