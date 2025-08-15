@@ -1,24 +1,55 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from sqlalchemy.orm import Session
+import os
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 import uuid
-from database import get_async_db
+from database import SyncSessionLocal, get_async_db
 from models import User, UserRole
 from schemas import (
     UserCreate, UserUpdate, UserResponse, UserWithPreferences,
     PreferenceCreate, PreferenceUpdate, PreferenceResponse, PreferenceBulkCreate,
-    SuccessResponse, PaginationParams, PaginatedResponse
+    SuccessResponse, PaginationParams, PaginatedResponse, UserOut, ProvisionIn
 )
 from crud import (
     create_user, get_user_by_id, get_user_by_firebase_uid, get_users, update_user, delete_user,
     get_user_with_preferences, get_user_preferences, get_user_preference,
     create_user_preference, update_user_preference, delete_user_preference,
     create_or_update_user_preference, bulk_create_preferences,
-    firebase_uid_exists, email_exists
+    firebase_uid_exists, email_exists, upsert_user
 )
 from auth import get_current_user, get_current_admin, get_user_by_id_or_current, get_optional_user
 
 router = APIRouter()
+
+WEBHOOK_SECRET = os.getenv("USER_SERVICE_WEBHOOK_SECRET")
+
+def get_db():
+    db = SyncSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@router.get("/health")
+def health():
+    return {"ok": True}
+
+@router.post("/internal/users/provision", response_model=UserOut)
+async def provision_user(request: Request, db: Session = Depends(get_db)):
+    provided = request.headers.get("X-Webhook-Secret")
+    if not WEBHOOK_SECRET or provided != WEBHOOK_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid webhook secret"
+        )
+
+    data = await request.json()
+    payload = ProvisionIn(**data)
+    user = upsert_user(
+        db, uid=payload.firebase_uid, email=payload.email, full_name=payload.full_name
+    )
+    return user
 
 
 # Public endpoints 
