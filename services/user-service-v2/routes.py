@@ -1,28 +1,26 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 import os
+from config import settings
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 import uuid
 from database import SyncSessionLocal, get_async_db
 from models import User, UserRole
 from schemas import (
-    UserCreate, UserUpdate, UserResponse, UserWithPreferences,
-    PreferenceCreate, PreferenceUpdate, PreferenceResponse, PreferenceBulkCreate,
-    SuccessResponse, PaginationParams, PaginatedResponse, UserOut, ProvisionIn
+    UserCreate, UserUpdate, UserResponse, UserOut, ProvisionIn,
+    SuccessResponse, PaginationParams, PaginatedResponse
 )
 from crud import (
-    create_user, get_user_by_id, get_user_by_firebase_uid, get_users, update_user, delete_user,
-    get_user_with_preferences, get_user_preferences, get_user_preference,
-    create_user_preference, update_user_preference, delete_user_preference,
-    create_or_update_user_preference, bulk_create_preferences,
+    create_user, get_user_by_email, get_user_by_id, get_user_by_firebase_uid, get_users, update_user, delete_user,
     firebase_uid_exists, email_exists, upsert_user
 )
 from auth import get_current_user, get_current_admin, get_user_by_id_or_current, get_optional_user
 
 router = APIRouter()
 
-WEBHOOK_SECRET = os.getenv("USER_SERVICE_WEBHOOK_SECRET")
+# WEBHOOK_SECRET = settings.user_service_webhook_secret
+WEBHOOK_SECRET = "7f6b8e2e6b9147f0b34a84d5b673d3e85d3a21b6b3c847c0a9e32f8f8a172ab4"
 
 def get_db():
     db = SyncSessionLocal()
@@ -35,22 +33,40 @@ def get_db():
 def health():
     return {"ok": True}
 
+# @router.post("/internal/users/provision", response_model=UserOut)
+# async def provision_user(request: Request, db: Session = Depends(get_db)):
+#     provided = request.headers.get("X-Webhook-Secret")
+#     if not WEBHOOK_SECRET or provided != WEBHOOK_SECRET:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Invalid webhook secret"
+#         )
+
+#     data = await request.json()
+#     payload = ProvisionIn(**data)
+#     user = upsert_user(
+#         db, uid=payload.firebase_uid, email=payload.email, full_name=payload.full_name
+#     )
+#     return user
+
 @router.post("/internal/users/provision", response_model=UserOut)
 async def provision_user(request: Request, db: Session = Depends(get_db)):
-    provided = request.headers.get("X-Webhook-Secret")
-    if not WEBHOOK_SECRET or provided != WEBHOOK_SECRET:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid webhook secret"
-        )
+    secret = request.headers.get("X-Webhook-Secret")
+    if WEBHOOK_SECRET and secret != WEBHOOK_SECRET:
+        raise HTTPException(status_code=401, detail="Invalid secret")
 
     data = await request.json()
     payload = ProvisionIn(**data)
+
     user = upsert_user(
-        db, uid=payload.firebase_uid, email=payload.email, full_name=payload.full_name
+        db, 
+        uid=payload.firebase_uid, 
+        email=payload.email, 
+        full_name=payload.full_name,
+        is_expert=payload.is_expert,
+        expert_profiles=payload.expert_profiles
     )
     return user
-
 
 # Public endpoints 
 @router.get("/users/{user_id}", response_model=UserResponse)
@@ -124,31 +140,7 @@ async def create_user_endpoint(
     return user
 
 
-@router.get("/users/{user_id}/profile", response_model=UserWithPreferences)
-async def get_user_profile(
-    user_id: str,
-    current_user: User = Depends(get_user_by_id_or_current),
-    db: AsyncSession = Depends(get_async_db)
-):
-    """
-    Get user profile with preferences
-    """
-    try:
-        user_uuid = uuid.UUID(user_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid user ID format"
-        )
-    
-    user = await get_user_with_preferences(db, user_uuid)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
-    return user
+
 
 
 @router.put("/users/{user_id}", response_model=UserResponse)
@@ -170,11 +162,13 @@ async def update_user_endpoint(
         )
     
     # Check if email already exists (if being updated)
-    if user_data.email and await email_exists(db, user_data.email, exclude_user_id=user_uuid):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="User with this email already exists"
-        )
+    if user_data.email:
+        existing_user = await get_user_by_email(db, user_data.email)
+        if existing_user and existing_user.id != user_uuid:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="User with this email already exists"
+            )
     
     updated_user = await update_user(db, user_uuid, user_data)
     if not updated_user:
@@ -249,154 +243,3 @@ async def delete_user_admin(
     return SuccessResponse(message="User deleted successfully")
 
 
-# Preference endpoints
-@router.get("/users/{user_id}/preferences", response_model=List[PreferenceResponse])
-async def get_user_preferences_endpoint(
-    user_id: str,
-    current_user: User = Depends(get_user_by_id_or_current),
-    db: AsyncSession = Depends(get_async_db)
-):
-    """
-    Get all preferences for a user
-    """
-    try:
-        user_uuid = uuid.UUID(user_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid user ID format"
-        )
-    
-    preferences = await get_user_preferences(db, user_uuid)
-    return preferences
-
-
-@router.post("/users/{user_id}/preferences", response_model=PreferenceResponse)
-async def create_user_preference_endpoint(
-    user_id: str,
-    preference_data: PreferenceCreate,
-    current_user: User = Depends(get_user_by_id_or_current),
-    db: AsyncSession = Depends(get_async_db)
-):
-    """
-    Create a new preference for a user
-    """
-    try:
-        user_uuid = uuid.UUID(user_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid user ID format"
-        )
-    
-    # Check if preference already exists
-    existing_preference = await get_user_preference(db, user_uuid, preference_data.key)
-    if existing_preference:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Preference with this key already exists"
-        )
-    
-    preference = await create_user_preference(db, user_uuid, preference_data)
-    return preference
-
-
-@router.put("/users/{user_id}/preferences/{key}", response_model=PreferenceResponse)
-async def update_user_preference_endpoint(
-    user_id: str,
-    key: str,
-    preference_data: PreferenceUpdate,
-    current_user: User = Depends(get_user_by_id_or_current),
-    db: AsyncSession = Depends(get_async_db)
-):
-    """
-    Update a specific preference for a user
-    """
-    try:
-        user_uuid = uuid.UUID(user_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid user ID format"
-        )
-    
-    updated_preference = await update_user_preference(db, user_uuid, key, preference_data)
-    if not updated_preference:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Preference not found"
-        )
-    
-    return updated_preference
-
-
-@router.delete("/users/{user_id}/preferences/{key}", response_model=SuccessResponse)
-async def delete_user_preference_endpoint(
-    user_id: str,
-    key: str,
-    current_user: User = Depends(get_user_by_id_or_current),
-    db: AsyncSession = Depends(get_async_db)
-):
-    """
-    Delete a specific preference for a user
-    """
-    try:
-        user_uuid = uuid.UUID(user_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid user ID format"
-        )
-    
-    success = await delete_user_preference(db, user_uuid, key)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Preference not found"
-        )
-    
-    return SuccessResponse(message="Preference deleted successfully")
-
-
-@router.post("/users/{user_id}/preferences/bulk", response_model=List[PreferenceResponse])
-async def bulk_create_preferences_endpoint(
-    user_id: str,
-    preferences_data: PreferenceBulkCreate,
-    current_user: User = Depends(get_user_by_id_or_current),
-    db: AsyncSession = Depends(get_async_db)
-):
-    """
-    Bulk create preferences for a user
-    """
-    try:
-        user_uuid = uuid.UUID(user_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid user ID format"
-        )
-    
-    preferences = await bulk_create_preferences(db, user_uuid, preferences_data.preferences)
-    return preferences
-
-
-@router.put("/users/{user_id}/preferences/upsert", response_model=PreferenceResponse)
-async def upsert_user_preference_endpoint(
-    user_id: str,
-    preference_data: PreferenceCreate,
-    current_user: User = Depends(get_user_by_id_or_current),
-    db: AsyncSession = Depends(get_async_db)
-):
-    """
-    Create or update a preference for a user (upsert)
-    """
-    try:
-        user_uuid = uuid.UUID(user_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid user ID format"
-        )
-    
-    preference = await create_or_update_user_preference(db, user_uuid, preference_data)
-    return preference 
