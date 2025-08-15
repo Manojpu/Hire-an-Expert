@@ -6,18 +6,49 @@ from models import UserRole
 
 
 # Base schemas
+class ExpertProfileIn(BaseModel):
+    specialization: str
 
 class ProvisionIn(BaseModel):
     firebase_uid: str
-    email: Optional[str] = None
-    full_name: Optional[str] = None
+    email: str
+    full_name: str
+    is_expert: Optional[bool] = False
+    expert_profiles: Optional[List[ExpertProfileIn]] = []
+
+class ExpertProfileOut(BaseModel):
+    specialization: str
+
+    class Config:
+        orm_mode = True
 
 class UserOut(BaseModel):
-    id: int
+    id: uuid.UUID
     firebase_uid: str
-    email: Optional[str]
-    full_name: Optional[str]
-    role: str
+    email: str
+    name: str
+    is_expert: bool
+    expert_profiles: List[ExpertProfileOut] = []
+
+    class Config:
+        from_attributes = True
+
+class UserCreate(BaseModel):
+    firebase_uid: str
+    email: str
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    role: Optional[UserRole] = UserRole.CLIENT
+    bio: Optional[str] = None
+    profile_image_url: Optional[str] = None
+
+class UserResponse(BaseModel):
+    id: uuid.UUID
+    firebase_uid: str
+    email: str
+    name: Optional[str]
+    role: UserRole
+
     class Config:
         from_attributes = True
         
@@ -30,10 +61,6 @@ class UserBase(BaseModel):
     profile_image_url: Optional[str] = None
 
 
-class UserCreate(UserBase):
-    firebase_uid: str = Field(..., min_length=1)
-
-
 class UserUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     email: Optional[EmailStr] = None
@@ -41,15 +68,6 @@ class UserUpdate(BaseModel):
     bio: Optional[str] = Field(None, max_length=1000)
     profile_image_url: Optional[str] = None
 
-
-class UserResponse(UserBase):
-    id: uuid.UUID
-    firebase_uid: str
-    created_at: datetime
-    updated_at: datetime
-    
-    class Config:
-        from_attributes = True
 
 
 # Preference schemas
