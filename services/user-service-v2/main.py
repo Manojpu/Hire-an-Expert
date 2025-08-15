@@ -1,10 +1,11 @@
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Request, Depends
+from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import uvicorn
 from config import settings
-from database import async_engine, Base
+from database import async_engine, Base, engine, SessionLocal
 from routes import router
 import logging
 
@@ -85,7 +86,7 @@ async def root():
 
 
 # Include routes
-app.include_router(router, prefix="/api/v1", tags=["users"])
+app.include_router(router)
 
 
 if __name__ == "__main__":
