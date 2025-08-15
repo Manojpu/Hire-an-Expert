@@ -1,38 +1,38 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
 from sqlalchemy.orm import selectinload
-from sqlalchemy.orm import Session
-from .models import User
+from sqlalchemy.orm import Session 
 from typing import List, Optional, Dict, Any
 import uuid
-from models import User, Preference, UserRole
-from schemas import UserCreate, UserUpdate, PreferenceCreate, PreferenceUpdate
-
-
-# User CRUD operations
+from models import User,  UserRole, ExpertProfile
+from schemas import UserCreate, UserUpdate, PreferenceCreate, PreferenceUpdate, ProvisionIn, ExpertProfileIn, UserOut, ExpertProfileOut, UserResponse, PaginationParams, PaginatedResponse, ErrorResponse, ValidationErrorResponse, SuccessResponse
 
 
 
-def upsert_user(db: Session, uid: str, email: str | None, full_name: str | None):
+# User CRUD operations    
+def upsert_user(db: Session, uid: str, email: str, full_name: str, is_expert=False, expert_profiles=[]):
     user = db.query(User).filter(User.firebase_uid == uid).first()
     if user:
-        # update minimal fields if provided
-        if email: user.email = email
-        if full_name: user.full_name = full_name
+        user.email = email
+        user.name = full_name
+        user.is_expert = is_expert
+    else:
+        user = User(firebase_uid=uid, email=email, name=full_name, is_expert=is_expert)
         db.add(user)
         db.commit()
         db.refresh(user)
-        return user
-    user = User(firebase_uid=uid, email=email, full_name=full_name)
-    db.add(user)
+
+    # handle expert profiles
+    if is_expert and expert_profiles:
+        # delete existing
+        db.query(ExpertProfile).filter(ExpertProfile.user_id == user.id).delete()
+        for profile in expert_profiles:
+            ep = ExpertProfile(user_id=user.id, specialization=profile.specialization)
+            db.add(ep)
     db.commit()
     db.refresh(user)
     return user
 
-
-
-
-    
 async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
     """Create a new user"""
     db_user = User(
@@ -113,137 +113,6 @@ async def delete_user(db: AsyncSession, user_id: uuid.UUID) -> bool:
     await db.commit()
     return True
 
-
-async def get_user_with_preferences(db: AsyncSession, user_id: uuid.UUID) -> Optional[User]:
-    """Get user with all preferences loaded"""
-    result = await db.execute(
-        select(User)
-        .options(selectinload(User.preferences))
-        .where(User.id == user_id)
-    )
-    return result.scalar_one_or_none()
-
-
-# Preference CRUD operations
-async def get_user_preferences(db: AsyncSession, user_id: uuid.UUID) -> List[Preference]:
-    """Get all preferences for a user"""
-    result = await db.execute(
-        select(Preference).where(Preference.user_id == user_id)
-    )
-    return result.scalars().all()
-
-
-async def get_user_preference(db: AsyncSession, user_id: uuid.UUID, key: str) -> Optional[Preference]:
-    """Get a specific preference for a user"""
-    result = await db.execute(
-        select(Preference)
-        .where(Preference.user_id == user_id, Preference.key == key)
-    )
-    return result.scalar_one_or_none()
-
-
-async def create_user_preference(
-    db: AsyncSession, 
-    user_id: uuid.UUID, 
-    preference_data: PreferenceCreate
-) -> Preference:
-    """Create a new preference for a user"""
-    db_preference = Preference(
-        user_id=user_id,
-        key=preference_data.key,
-        value=preference_data.value
-    )
-    db.add(db_preference)
-    await db.commit()
-    await db.refresh(db_preference)
-    return db_preference
-
-
-async def update_user_preference(
-    db: AsyncSession, 
-    user_id: uuid.UUID, 
-    key: str, 
-    preference_data: PreferenceUpdate
-) -> Optional[Preference]:
-    """Update a specific preference for a user"""
-    stmt = (
-        update(Preference)
-        .where(Preference.user_id == user_id, Preference.key == key)
-        .values(value=preference_data.value)
-    )
-    await db.execute(stmt)
-    await db.commit()
-    
-    return await get_user_preference(db, user_id, key)
-
-
-async def delete_user_preference(db: AsyncSession, user_id: uuid.UUID, key: str) -> bool:
-    """Delete a specific preference for a user"""
-    preference = await get_user_preference(db, user_id, key)
-    if not preference:
-        return False
-    
-    await db.delete(preference)
-    await db.commit()
-    return True
-
-
-async def create_or_update_user_preference(
-    db: AsyncSession, 
-    user_id: uuid.UUID, 
-    key: str, 
-    value: str
-) -> Preference:
-    """Create or update a preference (upsert operation)"""
-    existing_preference = await get_user_preference(db, user_id, key)
-    
-    if existing_preference:
-        # Update existing preference
-        stmt = (
-            update(Preference)
-            .where(Preference.user_id == user_id, Preference.key == key)
-            .values(value=value)
-        )
-        await db.execute(stmt)
-        await db.commit()
-        await db.refresh(existing_preference)
-        return existing_preference
-    else:
-        # Create new preference
-        new_preference = Preference(
-            user_id=user_id,
-            key=key,
-            value=value
-        )
-        db.add(new_preference)
-        await db.commit()
-        await db.refresh(new_preference)
-        return new_preference
-
-
-async def bulk_create_preferences(
-    db: AsyncSession, 
-    user_id: uuid.UUID, 
-    preferences: List[PreferenceCreate]
-) -> List[Preference]:
-    """Bulk create preferences for a user"""
-    db_preferences = []
-    for pref_data in preferences:
-        db_pref = Preference(
-            user_id=user_id,
-            key=pref_data.key,
-            value=pref_data.value
-        )
-        db_preferences.append(db_pref)
-    
-    db.add_all(db_preferences)
-    await db.commit()
-    
-    # Refresh all created preferences
-    for pref in db_preferences:
-        await db.refresh(pref)
-    
-    return db_preferences
 
 
 # Utility functions

@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import uvicorn
 from config import settings
-from database import async_engine, Base, engine, SessionLocal
+from database import async_engine, Base
 from routes import router
 import logging
 
