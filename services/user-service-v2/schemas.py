@@ -6,6 +6,21 @@ from models import UserRole
 
 
 # Base schemas
+
+class ProvisionIn(BaseModel):
+    firebase_uid: str
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+
+class UserOut(BaseModel):
+    id: int
+    firebase_uid: str
+    email: Optional[str]
+    full_name: Optional[str]
+    role: str
+    class Config:
+        from_attributes = True
+        
 class UserBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     email: EmailStr
