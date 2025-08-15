@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     app_name: str = "Hire Expert User Service"
     app_version: str = "1.0.0"
     debug: bool = True
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"
     port: int = 8001
     
     # Security
@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     
     class Config:
         env_file = ".env"
+        extra = "allow"
         case_sensitive = False
 
 
