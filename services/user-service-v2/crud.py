@@ -1,6 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import Session
+from .models import User
 from typing import List, Optional, Dict, Any
 import uuid
 from models import User, Preference, UserRole
@@ -8,6 +10,29 @@ from schemas import UserCreate, UserUpdate, PreferenceCreate, PreferenceUpdate
 
 
 # User CRUD operations
+
+
+
+def upsert_user(db: Session, uid: str, email: str | None, full_name: str | None):
+    user = db.query(User).filter(User.firebase_uid == uid).first()
+    if user:
+        # update minimal fields if provided
+        if email: user.email = email
+        if full_name: user.full_name = full_name
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+    user = User(firebase_uid=uid, email=email, full_name=full_name)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+
+
+    
 async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
     """Create a new user"""
     db_user = User(
