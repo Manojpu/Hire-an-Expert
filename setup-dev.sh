@@ -150,7 +150,7 @@ install_python_services() {
     cd ../..
     
     # Other Python services
-    for service in gig-service booking-service payment-service; do
+    for service in gig-service booking-service payment-service review-service; do
         print_info "Installing $service dependencies..."
         cd "services/$service"
         if [ -f "requirements.txt" ]; then
@@ -199,7 +199,8 @@ show_startup_instructions() {
     echo "  Terminal 4: cd services/gig-service && python main.py"
     echo "  Terminal 5: cd services/booking-service && python main.py"
     echo "  Terminal 6: cd services/payment-service && python -m app.main"
-    echo "  Terminal 7: cd frontend && npm run dev"
+    echo "  Terminal 7: cd services/review-service && python -m app.main"
+    echo "  Terminal 8: cd frontend && npm run dev"
     echo ""
     echo "Option 3: Using npm scripts"
     echo "  npm install concurrently -g"
@@ -216,6 +217,7 @@ show_startup_instructions() {
     echo "  📅 Booking Service: http://localhost:8003"
     echo "  💳 Payment Service: http://localhost:8004"
     echo "  💬 Message Service: http://localhost:8005"
+    echo "  ⭐ Review Service: http://localhost:8006"
     echo ""
     print_warning "Make sure all services are running before testing the application!"
 }
