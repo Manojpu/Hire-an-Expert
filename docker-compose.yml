@@ -12,13 +12,17 @@ services:
       - NODE_ENV=development
       - PORT=8000
       - AUTH_SERVICE_URL=http://auth-service:8001
+      - USER_SERVICE_URL=http://user-service:8006
       - GIG_SERVICE_URL=http://gig-service:8002
       - BOOKING_SERVICE_URL=http://booking-service:8003
+      - REVIEWS_SERVICE_URL=http://reviews-service:8007
       - PAYMENT_SERVICE_URL=http://payment-service:8004
       - MESSAGE_SERVICE_URL=http://message-service:8005
       - FRONTEND_URL=http://localhost:3000
     depends_on:
       - auth-service
+      - user-service
+      - reviews-service
       - gig-service
       - booking-service
       - payment-service
@@ -39,7 +43,20 @@ services:
       - ./services/auth-service/serviceAccountKey.json:/app/serviceAccountKey.json
     networks:
       - microservices-network
-
+  # User Service
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    ports:
+      - "8006:8006"
+    environment:
+      - PORT=8006
+      - DATABASE_URL=postgresql://user:user123@user-db:5432/user_db
+    depends_on:
+      - user-db
+    networks:
+      - microservices-network
   # Gig Service
   gig-service:
     build:
@@ -71,7 +88,20 @@ services:
       - booking-db
     networks:
       - microservices-network
-
+  # Reviews Service
+  reviews-service:
+    build:
+      context: ./services/review-service
+      dockerfile: Dockerfile
+    ports:
+      - "8007:8007"
+    environment:
+      - PORT=8007
+      - DATABASE_URL=postgresql://review:review123@review-db:5432/review_db
+    depends_on:
+      - review-db
+    networks:
+      - microservices-network
   # Payment Service
   payment-service:
     build:
