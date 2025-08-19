@@ -20,6 +20,15 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data/
 
+  review-service:
+    build: .
+    ports:
+      - "8007:8007"
+    depends_on:
+      - review-db
+    environment:
+      - DATABASE_URL=postgresql://review:review123@review-db:5432/review_db
+
 # This defines the named volume we used above.
 volumes:
   postgres_data:

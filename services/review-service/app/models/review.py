@@ -7,9 +7,9 @@ class Review(Base):
     __tablename__ = "reviews"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    gig_id = Column(String, ForeignKey("gigs.id"), nullable=False, index=True)
-    booking_id = Column(String, ForeignKey("bookings.id"), nullable=False, unique=True) # A booking can only have one review
-    buyer_id = Column(String, ForeignKey("profiles.id"), nullable=False)
+    gig_id = Column(String, index=True, nullable=False)  # Reference to gig in gig-service
+    booking_id = Column(String, unique=True, nullable=False)  # Reference to booking in booking-service
+    buyer_id = Column(String, nullable=False)  # Reference to profile in user-service
     rating = Column(Integer, nullable=False) 
     comment = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
