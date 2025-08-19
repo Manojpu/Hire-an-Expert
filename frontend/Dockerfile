@@ -31,10 +31,13 @@ FROM node:18-alpine AS runner
 WORKDIR /app
 
 # Copy necessary files from builder
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/next.config.js ./
+COPY --from=builder --chmod=755 /app/node_modules/.bin ./node_modules/.bin
+
+# Create public directory if it doesn't exist
+RUN mkdir -p ./public
 
 # Set production environment
 ENV NODE_ENV production
