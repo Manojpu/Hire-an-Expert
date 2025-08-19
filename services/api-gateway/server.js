@@ -57,6 +57,7 @@ app.get("/health", (req, res) => {
       user: process.env.USER_SERVICE_URL,
       gig: process.env.GIG_SERVICE_URL,
       booking: process.env.BOOKING_SERVICE_URL,
+      review: process.env.REVIEW_SERVICE_URL,
       payment: process.env.PAYMENT_SERVICE_URL,
       message: process.env.MESSAGE_SERVICE_URL,
     },
@@ -66,11 +67,12 @@ app.get("/health", (req, res) => {
 // Service URLs
 const services = {
   auth: process.env.AUTH_SERVICE_URL || "http://localhost:8001",
-  user: process.env.USER_SERVICE_URL || "http://localhost:8002", // Assuming user service is part of auth
-  gig: process.env.GIG_SERVICE_URL || "http://localhost:8003",
-  booking: process.env.BOOKING_SERVICE_URL || "http://localhost:8004",
-  payment: process.env.PAYMENT_SERVICE_URL || "http://localhost:8005",
-  message: process.env.MESSAGE_SERVICE_URL || "http://localhost:8006",
+  user: process.env.USER_SERVICE_URL || "http://localhost:8006", // Assuming user service is part of auth
+  gig: process.env.GIG_SERVICE_URL || "http://localhost:8002",
+  booking: process.env.BOOKING_SERVICE_URL || "http://localhost:8003",
+  review: process.env.REVIEW_SERVICE_URL || "http://localhost:8007",
+  payment: process.env.PAYMENT_SERVICE_URL || "http://localhost:8004",
+  message: process.env.MESSAGE_SERVICE_URL || "http://localhost:8005",
 };
 
 // Middleware to add service info to request
@@ -175,6 +177,30 @@ app.use(
     },
     onProxyReq: (proxyReq, req, res) => {
       console.log(`Proxying to Booking Service: ${req.method} ${req.url}`);
+    },
+  })
+);
+//Review Service Proxy
+app.use(
+  "/api/reviews",
+  authenticateJWT,
+  createProxyMiddleware({
+    target: services.review,
+    changeOrigin: true,
+    pathRewrite: {
+      "^/api/reviews": "/reviews", // Forward to /reviews on the review service
+    },
+    onError: (err, req, res) => {
+      console.error("Review Service Error:", err.message);
+      res.status(503).json({
+        error: "Review Service Unavailable",
+        message:
+          "The review service is currently unavailable. Please try again later.",
+        timestamp: new Date().toISOString(),
+      });
+    },
+    onProxyReq: (proxyReq, req, res) => {
+      console.log(`Proxying to Review Service: ${req.method} ${req.url}`);
     },
   })
 );
