@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # API Gateway
@@ -49,7 +49,9 @@ services:
       - "8002:8002"
     environment:
       - PORT=8002
-      - DATABASE_URL=postgresql://postgres:password@gig-db:5432/gig_db
+      - DATABASE_URL=postgresql://gig_user:gig123@gig-db:5432/gig_db
+      - JWT_SECRET_KEY=4866529bc05efeff764d41b723921b2a
+      - ALGORITHM=HS256
     depends_on:
       - gig-db
     networks:
@@ -114,11 +116,11 @@ services:
 
   # Databases
   gig-db:
-    image: postgres:15
+    image: postgres:17
     environment:
       - POSTGRES_DB=gig_db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
+      - POSTGRES_USER=gig_user
+      - POSTGRES_PASSWORD=gig123
     volumes:
       - gig_db_data:/var/lib/postgresql/data
     networks:
