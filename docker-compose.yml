@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # API Gateway
   api-gateway:
@@ -88,7 +86,20 @@ services:
       - booking-db
     networks:
       - microservices-network
-  # Reviews Service
+  # Reviews Service and Database
+  review-db:
+    image: postgres:17
+    environment:
+      - POSTGRES_USER=review
+      - POSTGRES_PASSWORD=review123
+      - POSTGRES_DB=review_db
+    ports:
+      - "5437:5432"
+    volumes:
+      - review_postgres_data:/var/lib/postgresql/data/
+    networks:
+      - microservices-network
+
   reviews-service:
     build:
       context: ./services/review-service
@@ -145,6 +156,17 @@ services:
       - microservices-network
 
   # Databases
+  user-db:
+    image: postgres:17
+    environment:
+      - POSTGRES_DB=user_db
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=user123
+    volumes:
+      - user_db_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
   gig-db:
     image: postgres:17
     environment:
@@ -186,12 +208,18 @@ services:
     networks:
       - microservices-network
 
+networks:
+  microservices-network:
+    driver: bridge
+
 volumes:
+  user_db_data:
   gig_db_data:
   booking_db_data:
   message_db_data:
   redis_data:
-
-networks:
-  microservices-network:
-    driver: bridge
+  review_postgres_data:
+  message_postgres_data:
+  user_postgres_data:
+  gig_postgres_data:
+  booking_postgres_data:
