@@ -5,8 +5,8 @@ import os
 
 class Settings(BaseSettings):
     # Database Configuration
-    database_url: str = "postgresql+asyncpg://username:password@localhost:5432/hire_expert_users"
-    sync_database_url: str = "postgresql://username:password@localhost:5432/hire_expert_users"
+    database_url: str = "postgresql+asyncpg://user:user123@user-db:5432/user_db"
+    sync_database_url: str = "postgresql://user:user123@user-db:5432/user_db"
     
     # Firebase Configuration
     firebase_project_id: Optional[str] = None
@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     app_version: str = "1.0.0"
     debug: bool = True
     host: str = "127.0.0.1"
-    port: int = 8001
+    port: int = 8006
     
     # Security
     secret_key: str = "your-secret-key-here"
