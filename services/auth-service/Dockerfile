@@ -10,6 +10,11 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+# Environment variables
+ENV PORT=8001
+ENV USER_SERVICE_URL=http://localhost:8001/internal/users/provision
+ENV FIREBASE_ADMIN_SDK_PATH=./serviceAccountKey.json
+
 
 # Copy source code
 COPY . .
