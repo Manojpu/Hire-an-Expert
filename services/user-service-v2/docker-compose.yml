@@ -8,9 +8,10 @@ services:
     depends_on:
       - user-db
     environment:
+      - ENV=development # Change to 'production' in production environment
       - DATABASE_URL=postgresql+asyncpg://user:user123@user-db:5432/user_db
       - SYNC_DATABASE_URL=postgresql://user:user123@user-db:5432/user_db
-      - DISABLE_AUTH=true
+      - DISABLE_AUTH=true # This will only work in development and testing
     networks:
       - user-network
 

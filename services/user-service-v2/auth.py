@@ -5,21 +5,37 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional
 import firebase_admin
+import logging
 from config import settings
 from database import get_async_db
 from models import User, UserRole
 
-# Check if auth is disabled for development
-DISABLE_AUTH = settings.disable_auth if hasattr(settings, 'disable_auth') else False
+# Configure logging
+logger = logging.getLogger(__name__)
 
-if not DISABLE_AUTH:
-    # Initialize Firebase Admin SDK
+# Check if auth should be disabled based on environment
+DISABLE_AUTH = settings.should_disable_auth
+
+if DISABLE_AUTH:
+    logger.warning(
+        f"Authentication is disabled in {settings.env} environment. "
+        "This should never happen in production!"
+    )
+else:
     try:
         # Check if Firebase app is already initialized
         firebase_admin.get_app()
+        logger.info("Firebase app already initialized")
     except ValueError:
-        # Initialize Firebase with service account
-        cred = credentials.Certificate({
+        # Initialize Firebase with service account only if we have the required credentials
+        if all([
+            settings.firebase_project_id,
+            settings.firebase_private_key_id,
+            settings.firebase_private_key,
+            settings.firebase_client_email
+        ]):
+            logger.info(f"Initializing Firebase app in {settings.env} environment")
+            cred = credentials.Certificate({
             "type": "service_account",
             "project_id": settings.firebase_project_id,
             "private_key_id": settings.firebase_private_key_id,
