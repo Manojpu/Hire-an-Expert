@@ -13,7 +13,7 @@ load_dotenv()
 
 # USER_SERVICE_URL = os.getenv("USER_SERVICE_URL")
 # WEBHOOK_SECRET = os.getenv("USER_SERVICE_WEBHOOK_SECRET")
-USER_SERVICE_URL = "http://127.0.0.1:8001/internal/users/provision"
+USER_SERVICE_URL = "http://127.0.0.1:8006/internal/users/provision"
 WEBHOOK_SECRET = "7f6b8e2e6b9147f0b34a84d5b673d3e85d3a21b6b3c847c0a9e32f8f8a172ab4"
 
 app = FastAPI(
@@ -88,9 +88,9 @@ async def create_an_account(user_data:SignUpSchema):
             "Content-Type": "application/json"
         }
 
-        # resp = requests.post(USER_SERVICE_URL, json=payload, headers=headers)
-        # if resp.status_code != 200:
-        #     return {"warning": "User created in Firebase but failed in User Service", "details": resp.text}
+        resp = requests.post(USER_SERVICE_URL, json=payload, headers=headers)
+        if resp.status_code != 200:
+             return {"warning": "User created in Firebase but failed in User Service", "details": resp.text}
 
         return {"message": f"User created successfully for {user.uid}"}
 
