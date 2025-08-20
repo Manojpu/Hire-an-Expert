@@ -19,6 +19,7 @@ async def lifespan(app: FastAPI):
     """Application lifespan events"""
     # Startup
     logger.info("Starting User Service...")
+    logger.info(f"Service will be available at http://0.0.0.0:{settings.port}")
     
     # Create database tables (for development)
     if settings.debug:
@@ -90,10 +91,14 @@ app.include_router(router)
 
 
 if __name__ == "__main__":
-    uvicorn.run(
+    # When running in Docker, we need to use 0.0.0.0 to allow external connections
+    import uvicorn.config
+    config = uvicorn.config.Config(
         "main:app",
-        host=settings.host,
+        host="0.0.0.0",  # Bind to all interfaces
         port=settings.port,
         reload=settings.debug,
         log_level="info"
-    ) 
+    )
+    server = uvicorn.Server(config)
+    server.run()
