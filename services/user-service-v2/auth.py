@@ -9,25 +9,29 @@ from config import settings
 from database import get_async_db
 from models import User, UserRole
 
-# Initialize Firebase Admin SDK
-try:
-    # Check if Firebase app is already initialized
-    firebase_admin.get_app()
-except ValueError:
-    # Initialize Firebase with service account
-    cred = credentials.Certificate({
-        "type": "service_account",
-        "project_id": settings.firebase_project_id,
-        "private_key_id": settings.firebase_private_key_id,
-        "private_key": settings.firebase_private_key.replace("\\n", "\n") if settings.firebase_private_key else None,
-        "client_email": settings.firebase_client_email,
-        "client_id": settings.firebase_client_id,
-        "auth_uri": settings.firebase_auth_uri,
-        "token_uri": settings.firebase_token_uri,
-        "auth_provider_x509_cert_url": settings.firebase_auth_provider_x509_cert_url,
-        "client_x509_cert_url": settings.firebase_client_x509_cert_url
-    })
-    initialize_app(cred)
+# Check if auth is disabled for development
+DISABLE_AUTH = settings.disable_auth if hasattr(settings, 'disable_auth') else False
+
+if not DISABLE_AUTH:
+    # Initialize Firebase Admin SDK
+    try:
+        # Check if Firebase app is already initialized
+        firebase_admin.get_app()
+    except ValueError:
+        # Initialize Firebase with service account
+        cred = credentials.Certificate({
+            "type": "service_account",
+            "project_id": settings.firebase_project_id,
+            "private_key_id": settings.firebase_private_key_id,
+            "private_key": settings.firebase_private_key.replace("\\n", "\n") if settings.firebase_private_key else None,
+            "client_email": settings.firebase_client_email,
+            "client_id": settings.firebase_client_id,
+            "auth_uri": settings.firebase_auth_uri,
+            "token_uri": settings.firebase_token_uri,
+            "auth_provider_x509_cert_url": settings.firebase_auth_provider_x509_cert_url,
+            "client_x509_cert_url": settings.firebase_client_x509_cert_url
+        })
+        initialize_app(cred)
 
 # Security scheme
 security = HTTPBearer()

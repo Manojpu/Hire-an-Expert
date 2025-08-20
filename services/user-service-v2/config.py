@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://user:user123@user-db:5432/user_db"
     sync_database_url: str = "postgresql://user:user123@user-db:5432/user_db"
     
+    # Auth Configuration
+    disable_auth: bool = False
+    
     # Firebase Configuration
     firebase_project_id: Optional[str] = None
     firebase_private_key_id: Optional[str] = None

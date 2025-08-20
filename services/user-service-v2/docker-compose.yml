@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+  user-service:
+    build: .
+    ports:
+      - "8006:8006"
+    depends_on:
+      - user-db
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user:user123@user-db:5432/user_db
+      - SYNC_DATABASE_URL=postgresql://user:user123@user-db:5432/user_db
+      - DISABLE_AUTH=true
+    networks:
+      - user-network
+
+  user-db:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=user123
+      - POSTGRES_DB=user_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - user_db_data:/var/lib/postgresql/data
+    networks:
+      - user-network
+
+volumes:
+  user_db_data:
+
+networks:
+  user-network:
+    driver: bridge
