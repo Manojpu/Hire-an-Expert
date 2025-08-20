@@ -66,12 +66,14 @@ firebase = pyrebase.initialize_app(firebaseConfig)
 async def create_an_account(user_data:SignUpSchema):
     email = user_data.email
     password = user_data.password
-    
+    print(f"Starting user {email}")
+
     try:
         user= auth.create_user(
             email = email,
             password = password
         )
+        print(f"User created successfully for {user.uid}")
 
         # Call User Service to create DB record
         payload = {
@@ -86,9 +88,9 @@ async def create_an_account(user_data:SignUpSchema):
             "Content-Type": "application/json"
         }
 
-        resp = requests.post(USER_SERVICE_URL, json=payload, headers=headers)
-        if resp.status_code != 200:
-            return {"warning": "User created in Firebase but failed in User Service", "details": resp.text}
+        # resp = requests.post(USER_SERVICE_URL, json=payload, headers=headers)
+        # if resp.status_code != 200:
+        #     return {"warning": "User created in Firebase but failed in User Service", "details": resp.text}
 
         return {"message": f"User created successfully for {user.uid}"}
 
