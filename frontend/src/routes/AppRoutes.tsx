@@ -1,0 +1,101 @@
+import React, { Suspense, lazy } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import MainLayout from "@/layouts/MainLayout";
+import DashboardLayout from "@/layouts/DashboardLayout";
+import { useAuth } from "@/context/AuthContext";
+
+const Home = lazy(() => import("@/pages/Home"));
+const Category = lazy(() => import("@/pages/Category"));
+const Expert = lazy(() => import("@/pages/Expert"));
+const Book = lazy(() => import("@/pages/Book"));
+const Chat = lazy(() => import("@/pages/Chat"));
+const Profile = lazy(() => import("@/pages/Profile"));
+const ExpertDashboard = lazy(() => import("@/pages/ExpertDashboard"));
+const Admin = lazy(() => import("@/pages/Admin"));
+const BecomeExpert = lazy(() => import("@/pages/BecomeExpert"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
+const MyBookings = lazy(() => import("@/pages/MyBookings"));
+const Experts = lazy(() => import("@/pages/Experts"));
+const ClientDashboard = lazy(() => import("@/pages/ClientDashboard"));
+
+const ProtectedRoute = ({ children, role }: { children: JSX.Element; role?: string }) => {
+  const { state } = useAuth();
+  if (!state.user) return <Navigate to="/" replace />;
+  if (role && state.user.role !== role) return <Navigate to="/" replace />;
+  return children;
+};
+
+const AppRoutes = () => (
+  <Suspense fallback={<div className="p-1">Loading...</div>}>
+    <Routes>
+      {/* Expert Dashboard with its own layout (no footer) */}
+      <Route
+        path="/expert-dashboard/*"
+        element={
+          <ProtectedRoute role="expert">
+            <DashboardLayout>
+              <ExpertDashboard />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Main layout with footer */}
+      <Route path="/" element={<MainLayout />}>
+        <Route index element={<Home />} />
+        <Route path="categories" element={<Category />} />
+        <Route path="category/:slug" element={<Category />} />
+        <Route path="expert/:slug" element={<Expert />} />
+        <Route
+          path="book/:expertId"
+          element={<Book />}
+        />
+        <Route
+          path="chat/:conversationId"
+          element={
+            <ProtectedRoute>
+              <Chat />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="admin/*"
+          element={
+            <ProtectedRoute role="admin">
+              <Admin />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="become-expert" element={<BecomeExpert />} />
+        <Route
+          path="my-bookings"
+          element={
+            <ProtectedRoute>
+              <MyBookings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="client-dashboard"
+          element={
+            <ProtectedRoute role="client">
+              <ClientDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="experts" element={<Experts />} />
+        <Route path="*" element={<NotFound />} />
+      </Route>
+    </Routes>
+  </Suspense>
+);
+
+export default AppRoutes;
