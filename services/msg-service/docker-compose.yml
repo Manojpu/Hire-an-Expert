@@ -1,23 +1,45 @@
-services:
-  message-db:
-    image: mongo:6
-    environment:
-      - MONGO_INITDB_DATABASE=messages
-    ports:
-      - "27017:27017"  # MongoDB default port
-    volumes:
-      - message_mongo_data:/data/db
+version: '3.8'
 
-  # Optional: Message service itself (for individual testing)
+services:
   message-service:
-    build: .
+    # Build configuration
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    
+    # Container name for easy identification
+    container_name: msg-service
+    
+    # Port mapping: host:container
     ports:
       - "8005:8005"
+    
+    # Environment variables from file
+    env_file:
+      - .env
+    
+    # Additional environment variables (optional)
     environment:
-      - PORT=8005
-      - MONGODB_URI=mongodb://message-db:27017/messages
-    depends_on:
-      - message-db
+      - NODE_ENV=development
+    
+    # Restart policy for production stability
+    restart: unless-stopped
+    
+    # Health check for monitoring
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Resource limits (optional but recommended)
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
 
-volumes:
-  message_mongo_data:
