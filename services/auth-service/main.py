@@ -1,6 +1,5 @@
 import requests
 import uvicorn
-import pyrebase
 from fastapi import FastAPI
 from models import SignUpSchema, LoginSchema
 from fastapi.responses import JSONResponse
@@ -22,29 +21,13 @@ app = FastAPI(
     docs_url='/'
 )
 
-
-
 import firebase_admin
-from firebase_admin import credentials,auth
+from firebase_admin import credentials, auth
 
 
 if not firebase_admin._apps:
     cred = credentials.Certificate("serviceAccountKey.json")
     firebase_admin.initialize_app(cred)
-
-
-firebaseConfig = {
-  "apiKey": "AIzaSyCH9tT1Y-ythqjuDQvHbGK_Y6rr8hTrBR0",
-  "authDomain": "fastapiauth-fc757.firebaseapp.com",
-  "projectId": "fastapiauth-fc757",
-  "storageBucket": "fastapiauth-fc757.firebasestorage.app",
-  "messagingSenderId": "975586146649",
-  "appId": "1:975586146649:web:d0a913d8cea16a759b7448",
-  "measurementId": "G-HL1EM1P3L1",
-  "databaseURL":""
-}
-
-firebase = pyrebase.initialize_app(firebaseConfig)
 
 
 
@@ -96,26 +79,33 @@ async def create_an_account(user_data:SignUpSchema):
         raise HTTPException(status_code=400, detail=f"User already exists {email}")
 
 @app.post('/login')
-async def create_access_token(user_data:LoginSchema):
+async def create_access_token(user_data: LoginSchema):
     email = user_data.email
     password = user_data.password
 
     try:
-        user = firebase.auth().sign_in_with_email_and_password(
-            email = email,
-            password = password
-        )
-
-        token = user['idToken']
+        # Note: Firebase Admin SDK doesn't support email/password authentication directly
+        # For production, you would typically use Firebase Auth REST API or client SDK
+        # This is a simplified version - in production, use proper authentication flow
+        
+        # For now, return a message that login requires client-side implementation
         return JSONResponse(
             content={
-                "token":token
-            },status_code=200
-        ) 
-    except:
-        raise HTTPException(
-            status_code=400,detail='Invalid credentials'
+                "message": "Login endpoint requires client-side Firebase Auth implementation",
+                "instructions": "Use Firebase Auth client SDK in your frontend application"
+            },
+            status_code=501  # Not Implemented
         )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail='Authentication error'
+        )
+
+@app.get("/")
+def root():
+    return {"message": "Hello World"}
 
 @app.post('/ping')
 async def validate_token(request:Request):
@@ -126,12 +116,5 @@ async def validate_token(request:Request):
 
     return user["user_id"]
 
-
-
-
 if __name__ == "__main__":
-    uvicorn.run("main:app", reload=True)
-
-@app.get("/")
-def root():
-    return {"message": "Hello World"}
+    uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)
