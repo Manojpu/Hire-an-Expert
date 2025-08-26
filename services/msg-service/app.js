@@ -8,8 +8,26 @@ connectDB();
 
 const app = express();
 
-app.use(cors({ origin: "http://localhost:3000" }));
+// CORS configuration with environment variable support
+const corsOrigins = process.env.CORS_ORIGINS ? 
+  process.env.CORS_ORIGINS.split(',') : 
+  ["http://localhost:3000"];
+
+app.use(cors({ 
+  origin: corsOrigins,
+  credentials: true 
+}));
 app.use(express.json());
+
+// Health check endpoint for Docker health checks
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    service: 'message-service',
+    database: 'connected'
+  });
+});
 
 app.use("/api/message", require("./routes/messageRoutes"));
 app.use("/api/conversations", require("./routes/conversationRoutes"));
