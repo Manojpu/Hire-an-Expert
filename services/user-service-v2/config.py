@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     app_version: str = "1.0.0"
     debug: bool = True
     host: str = "127.0.0.1"
-    port: int = 8001
+    port: int = 8006
     
     # Security
     secret_key: str = "your-secret-key-here"
