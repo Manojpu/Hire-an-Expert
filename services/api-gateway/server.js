@@ -55,7 +55,8 @@ app.get('/health', (req, res) => {
       gig: process.env.GIG_SERVICE_URL,
       booking: process.env.BOOKING_SERVICE_URL,
       payment: process.env.PAYMENT_SERVICE_URL,
-      message: process.env.MESSAGE_SERVICE_URL
+      message: process.env.MESSAGE_SERVICE_URL,
+      user: process.env.USER_SERVICE_URL
     }
   });
 });
@@ -66,7 +67,8 @@ const services = {
   gig: process.env.GIG_SERVICE_URL || 'http://localhost:8002',
   booking: process.env.BOOKING_SERVICE_URL || 'http://localhost:8003',
   payment: process.env.PAYMENT_SERVICE_URL || 'http://localhost:8004',
-  message: process.env.MESSAGE_SERVICE_URL || 'http://localhost:8005'
+  message: process.env.MESSAGE_SERVICE_URL || 'http://localhost:8005',
+  user: process.env.USER_SERVICE_URL || 'http://localhost:8006'
 };
 
 // Middleware to add service info to request
