@@ -7,7 +7,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Run migrations on startup
-CMD ["sh", "-c", "python run_migration.py && uvicorn main:app --host 0.0.0.0 --port 8006"]
+# Make scripts executable
+RUN chmod +x wait_for_db.py run_migration.py
+
+# Wait for database, run migrations on startup, then start the app
+CMD ["sh", "-c", "python wait_for_db.py && python run_migration.py && uvicorn main:app --host 0.0.0.0 --port 8006"]
 
 EXPOSE 8006

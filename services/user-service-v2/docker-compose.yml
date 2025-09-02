@@ -19,6 +19,11 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://user_service:user_service_pass@db:5432/user_service_db
       - SYNC_DATABASE_URL=postgresql://user_service:user_service_pass@db:5432/user_service_db
+      - DB_HOST=db
+      - DB_PORT=5432
+      - POSTGRES_DB=user_service_db
+      - POSTGRES_USER=user_service
+      - POSTGRES_PASSWORD=user_service_pass
     depends_on:
       - db
     networks:
