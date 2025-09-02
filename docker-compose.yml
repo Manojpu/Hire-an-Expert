@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # API Gateway
@@ -16,6 +16,8 @@ services:
       - BOOKING_SERVICE_URL=http://booking-service:8003
       - PAYMENT_SERVICE_URL=http://payment-service:8004
       - MESSAGE_SERVICE_URL=http://message-service:8005
+      - USER_SERVICE_URL=http://user-service:8006
+      - REVIEW_SERVICE_URL=http://review-service:8007
       - FRONTEND_URL=http://localhost:3000
     depends_on:
       - auth-service
@@ -23,6 +25,8 @@ services:
       - booking-service
       - payment-service
       - message-service
+      - user-service
+      - review-service
     networks:
       - microservices-network
 
@@ -97,6 +101,36 @@ services:
     networks:
       - microservices-network
 
+  # User Service
+  user-service:
+    build:
+      context: ./services/user-service-v2
+      dockerfile: Dockerfile
+    ports:
+      - "8006:8006"
+    environment:
+      - PORT=8006
+      - DATABASE_URL=postgresql://postgres:password@user-db:5432/user_service_db
+    depends_on:
+      - user-db
+    networks:
+      - microservices-network
+
+  # Review Service
+  review-service:
+    build:
+      context: ./services/review-service
+      dockerfile: Dockerfile
+    ports:
+      - "8007:8007"
+    environment:
+      - PORT=8007
+      - DATABASE_URL=postgresql://postgres:password@review-db:5432/review_db
+    depends_on:
+      - review-db
+    networks:
+      - microservices-network
+
   # Frontend
   frontend:
     build:
@@ -144,6 +178,28 @@ services:
     networks:
       - microservices-network
 
+  user-db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=user_service_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - user_db_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
+  review-db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=review_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - review_db_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
   # Redis for caching (optional)
   redis:
     image: redis:7
@@ -158,6 +214,8 @@ volumes:
   gig_db_data:
   booking_db_data:
   message_db_data:
+  user_db_data:
+  review_db_data:
   redis_data:
 
 networks:
