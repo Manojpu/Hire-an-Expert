@@ -17,7 +17,8 @@ services:
     ports:
       - "8006:8006"
     environment:
-      - DATABASE_URL=postgresql://user_service:user_service_pass@db:5432/user_service_db
+      - DATABASE_URL=postgresql+asyncpg://user_service:user_service_pass@db:5432/user_service_db
+      - SYNC_DATABASE_URL=postgresql://user_service:user_service_pass@db:5432/user_service_db
     depends_on:
       - db
     networks:
