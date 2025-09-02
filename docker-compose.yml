@@ -135,12 +135,15 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: ${FRONTEND_ENV:-Dockerfile}
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-3000}:${CONTAINER_PORT:-3000}"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000/api
-      - NEXT_PUBLIC_SOCKET_URL=http://localhost:8000
+      - VITE_API_URL=http://localhost:8000/api
+      - VITE_SOCKET_URL=http://localhost:8000
+    volumes:
+      # Mount source code in development mode
+      - ${FRONTEND_DEV_VOLUMES:-./frontend:/app:delegated}
     depends_on:
       - api-gateway
     networks:
