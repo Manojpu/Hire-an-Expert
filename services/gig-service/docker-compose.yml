@@ -11,7 +11,7 @@ services:
 
     # Use unique port for gig service database (different from booking)
     ports:
-      - "5434:5432"  # Gig DB port (different from booking)
+      - "5434:5432" # Gig DB port (different from booking)
 
     # This makes sure your data is saved even if you stop or remove
     # the container. Your data will be stored in a "volume" named 'gig_postgres_data'.
@@ -25,6 +25,7 @@ services:
       - "8002:8002"
     environment:
       - DATABASE_URL=postgresql://gig_user:gig123@gig-db:5432/gig_db
+
     depends_on:
       - gig-db
 
