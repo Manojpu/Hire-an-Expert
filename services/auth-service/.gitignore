@@ -72,3 +72,5 @@ node_modules/
 __pycache__/
 *.py[cod]
 *$py.class
+
+services/auth-service/serviceAccountKey.json
