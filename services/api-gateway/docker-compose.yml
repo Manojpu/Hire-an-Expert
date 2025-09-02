@@ -12,6 +12,7 @@ services:
       - BOOKING_SERVICE_URL=http://localhost:8003
       - PAYMENT_SERVICE_URL=http://localhost:8004
       - MESSAGE_SERVICE_URL=http://localhost:8005
+      - USER_SERVICE_V2_URL=http://localhost:8006
+      - REVIEW_SERVICE_URL=http://localhost:8007
       - FRONTEND_URL=http://localhost:3000
-
 # No database needed for API Gateway (stateless proxy)

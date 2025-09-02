@@ -1,0 +1,79 @@
+version: "3.8"
+
+services:
+  api-gateway:
+    build: ./services/api-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - NODE_ENV=development
+      - PORT=8000
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - GIG_SERVICE_URL=http://gig-service:8002
+      - BOOKING_SERVICE_URL=http://booking-service:8003
+      - PAYMENT_SERVICE_URL=http://payment-service:8004
+      - MESSAGE_SERVICE_URL=http://message-service:8005
+      - USER_SERVICE_V2_URL=http://user-service-v2:8006
+      - REVIEW_SERVICE_URL=http://review-service:8007
+      - FRONTEND_URL=http://localhost:3000
+    networks:
+      - hire-expert-network
+    depends_on:
+      - user-service-v2
+      - review-service
+
+  user-service-v2-db:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=user_service
+      - POSTGRES_PASSWORD=user_service_pass
+      - POSTGRES_DB=user_service_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - user_service_data:/var/lib/postgresql/data/
+    networks:
+      - hire-expert-network
+
+  user-service-v2:
+    build: ./services/user-service-v2
+    ports:
+      - "8006:8006"
+    environment:
+      - DATABASE_URL=postgresql://user_service:user_service_pass@user-service-v2-db:5432/user_service_db
+    depends_on:
+      - user-service-v2-db
+    networks:
+      - hire-expert-network
+
+  review-service-db:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=review
+      - POSTGRES_PASSWORD=review123
+      - POSTGRES_DB=review_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - review_service_data:/var/lib/postgresql/data/
+    networks:
+      - hire-expert-network
+
+  review-service:
+    build: ./services/review-service
+    ports:
+      - "8007:8007"
+    environment:
+      - DATABASE_URL=postgresql://review:review123@review-service-db:5432/review_db
+    depends_on:
+      - review-service-db
+    networks:
+      - hire-expert-network
+
+networks:
+  hire-expert-network:
+    driver: bridge
+
+volumes:
+  user_service_data:
+  review_service_data:

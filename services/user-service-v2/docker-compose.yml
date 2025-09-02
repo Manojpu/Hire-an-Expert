@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=user_service
+      - POSTGRES_PASSWORD=user_service_pass
+      - POSTGRES_DB=user_service_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - user_service_data:/var/lib/postgresql/data/
+    networks:
+      - user-service-network
+
+  user-service:
+    build: .
+    ports:
+      - "8006:8006"
+    environment:
+      - DATABASE_URL=postgresql://user_service:user_service_pass@db:5432/user_service_db
+    depends_on:
+      - db
+    networks:
+      - user-service-network
+
+networks:
+  user-service-network:
+
+volumes:
+  user_service_data:

@@ -71,6 +71,8 @@ const services = {
   booking: process.env.BOOKING_SERVICE_URL || "http://localhost:8003",
   payment: process.env.PAYMENT_SERVICE_URL || "http://localhost:8004",
   message: process.env.MESSAGE_SERVICE_URL || "http://localhost:8005",
+  userV2: process.env.USER_SERVICE_V2_URL || "http://localhost:8006",
+  review: process.env.REVIEW_SERVICE_URL || "http://localhost:8007",
 };
 
 // Middleware to add service info to request
@@ -199,6 +201,31 @@ app.use(
     },
     onProxyReq: (proxyReq, req, res) => {
       console.log(`Proxying to Review Service: ${req.method} ${req.url}`);
+    },
+  })
+);
+
+// User Service V2 Proxy (Protected - requires authentication)
+app.use(
+  "/api/user-v2",
+  authenticateJWT,
+  createProxyMiddleware({
+    target: services.userV2,
+    changeOrigin: true,
+    pathRewrite: {
+      "^/api/user-v2": "/api", // Forward to /api on the user service v2
+    },
+    onError: (err, req, res) => {
+      console.error("User Service V2 Error:", err.message);
+      res.status(503).json({
+        error: "User Service V2 Unavailable",
+        message:
+          "The user service v2 is currently unavailable. Please try again later.",
+        timestamp: new Date().toISOString(),
+      });
+    },
+    onProxyReq: (proxyReq, req, res) => {
+      console.log(`Proxying to User Service V2: ${req.method} ${req.url}`);
     },
   })
 );

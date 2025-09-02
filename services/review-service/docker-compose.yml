@@ -1,8 +1,7 @@
 services:
   db:
     # We will use the official PostgreSQL image, version 15.
-
-    image: postgres:17
+    image: postgres:15
 
     # These environment variables configure PostgreSQL when it first starts.
     environment:
@@ -20,7 +19,22 @@ services:
     # the container. Your data will be stored in a "volume" named 'postgres_data'.
     volumes:
       - postgres_data:/var/lib/postgresql/data/
+    networks:
+      - review-service-network
 
-# This defines the named volume we used above.
+  review-service:
+    build: .
+    ports:
+      - "8007:8007"
+    environment:
+      - DATABASE_URL=postgresql://review:review123@db:5432/review_db
+    depends_on:
+      - db
+    networks:
+      - review-service-network
+
+networks:
+  review-service-network:
+
 volumes:
   postgres_data:
