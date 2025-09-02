@@ -1,6 +1,7 @@
 services:
   db:
     # We will use the official PostgreSQL image, version 15.
+
     image: postgres:15
 
     # These environment variables configure PostgreSQL when it first starts.
