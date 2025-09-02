@@ -6,11 +6,28 @@ from dotenv import load_dotenv
 
 
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from app.core.config import settings
+import os
+from dotenv import load_dotenv
+import platform
+import socket
+
+
+
 # Load environment variables from .env file
 load_dotenv()
 
-# Get DATABASE_URL from environment variables or use settings as fallback
-DATABASE_URL = os.getenv("DATABASE_URL") or settings.DATABASE_URL
+# Force the database connection to use localhost when running outside of Docker
+# DATABASE_URL from .env takes precedence, or else we use the one from settings
+if os.getenv("DATABASE_URL"):
+    # Use the one from .env file
+    DATABASE_URL = os.getenv("DATABASE_URL")
+else:
+    # We're using settings or environment, make sure it works locally
+    DATABASE_URL = "postgresql://gig_user:gig123@localhost:5434/gig_db"
+
 print(f"Connecting to database: {DATABASE_URL}")
 
 engine = create_engine(DATABASE_URL)
