@@ -1,16 +1,25 @@
-FROM python:3.9-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy source code
 COPY . .
 
-# Make scripts executable
-RUN chmod +x wait_for_db.py run_migration.py
-
-# Wait for database, run migrations on startup, then start the app
-CMD ["sh", "-c", "python wait_for_db.py && python run_migration.py && uvicorn main:app --host 0.0.0.0 --port 8006"]
-
+# Expose port
 EXPOSE 8006
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8006/ || exit 1
+
+# Start the application
+CMD ["python", "main.py"]
