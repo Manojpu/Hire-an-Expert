@@ -2,7 +2,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'client' | 'expert' | 'admin';
+  role: "client" | "expert" | "admin";
   profileImage?: string;
   verified: boolean;
   joinDate: string;
@@ -33,7 +33,7 @@ export interface Expert {
   certifications: Certification[];
   missedBookings: number;
   verified: boolean;
-  status: 'available' | 'busy' | 'offline';
+  status: "available" | "busy" | "offline";
 }
 
 export interface Qualification {
@@ -48,9 +48,23 @@ export interface Certification {
   id: string;
   name: string;
   issuer: string;
-  year: string;
-  verified: boolean;
-  imageUrl?: string;
+}
+
+// Common API response type
+export interface ApiResponse<T> {
+  data: T;
+  status: number;
+  message?: string;
+}
+
+// Gig related types
+export interface Gig {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  expert_id: number;
+  created_at: string;
 }
 
 export interface Booking {
@@ -60,8 +74,8 @@ export interface Booking {
   service: string;
   dateTime: string;
   duration: number;
-  type: 'online' | 'physical';
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  type: "online" | "physical";
+  status: "pending" | "confirmed" | "completed" | "cancelled";
   amount: number;
   description: string;
   specialRequirements?: string;
@@ -106,8 +120,8 @@ export interface Message {
   receiverId: string;
   content: string;
   timestamp: string;
-  type: 'text' | 'booking' | 'payment' | 'file';
-  status: 'sent' | 'delivered' | 'read';
+  type: "text" | "booking" | "payment" | "file";
+  status: "sent" | "delivered" | "read";
   metadata?: Record<string, any>;
 }
 
