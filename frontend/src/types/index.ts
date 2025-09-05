@@ -66,7 +66,19 @@ export interface Gig {
   expert_id: number;
   created_at: string;
 }
+export interface GigCreate {
+  title: string;
+  description: string;
+  price: number;
+  expert_id: number;
+}
 
+export interface GigUpdate {
+  title?: string;
+  description?: string;
+  price?: number;
+  expert_id?: number;
+}
 export interface Booking {
   id: string;
   clientId: string;

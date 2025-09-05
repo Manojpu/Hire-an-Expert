@@ -40,6 +40,7 @@ export function CreateGigForm() {
         title,
         description,
         price: parseFloat(price),
+        expert_id: 1, // Replace with actual expert ID
       });
 
       // Reset form after successful creation
