@@ -6,7 +6,7 @@ import { isSlotBooked, addBooking, Booking, confirmBookingWithPayment } from "@/
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { MessageCircle, Heart } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/auth/AuthContext';
 
 const SLOT_START_HOUR = 9;
 const SLOT_END_HOUR = 18; // 6 PM

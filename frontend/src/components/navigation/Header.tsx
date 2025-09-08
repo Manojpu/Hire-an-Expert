@@ -3,16 +3,16 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, User, Search, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import MockSignIn from '@/components/auth/MockSignIn';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/auth/AuthContext.jsx';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { state, logout } = useAuth();
+  // const { state, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const handleSignOut = () => {
-    logout();
+    // logout();
     navigate('/');
   };
 
@@ -47,7 +47,7 @@ const Header = () => {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Find Experts
+              Find Gigs
             </Link>
             <Link 
               to="/how-it-works" 
@@ -67,7 +67,7 @@ const Header = () => {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Become an Expert
+              Create A Gig
             </Link>
           </div>
 
@@ -84,7 +84,7 @@ const Header = () => {
           </div>
 
           {/* Desktop Actions */}
-          <div className="hidden md:flex items-center space-x-4">
+          {/* <div className="hidden md:flex items-center space-x-4">
             {state.user ? (
               <div className="flex items-center gap-3">
                 <button onClick={() => navigate(state.user?.role === 'expert' ? '/expert-dashboard' : state.user?.role === 'admin' ? '/admin' : '/profile')} className="flex items-center gap-2">
@@ -104,7 +104,7 @@ const Header = () => {
                 </Button>
               </>
             )}
-          </div>
+          </div> */}
 
           {/* Mobile Menu Button */}
           <button
@@ -128,7 +128,7 @@ const Header = () => {
                 }`}
                 onClick={() => setIsMenuOpen(false)}
               >
-                Find Experts
+                Find Gigs
               </Link>
               <Link
                 to="/how-it-works"
@@ -150,9 +150,9 @@ const Header = () => {
                 }`}
                 onClick={() => setIsMenuOpen(false)}
               >
-                Become an Expert
+                Create A Gig
               </Link>
-              <div className="flex flex-col space-y-2 pt-4 border-t border-border">
+              {/* <div className="flex flex-col space-y-2 pt-4 border-t border-border">
                 {state.user ? (
                   <>
                     <button onClick={() => { navigate(state.user?.role === 'expert' ? '/expert-dashboard' : state.user?.role === 'admin' ? '/admin' : '/profile'); setIsMenuOpen(false); }} className="text-left px-2 py-1">Dashboard</button>
@@ -165,7 +165,7 @@ const Header = () => {
 
                   </>
                 )}
-              </div>
+              </div> */}
             </div>
           </div>
         )}
