@@ -1,6 +1,6 @@
 import React from 'react';
 import { Bell, Menu, User } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/auth/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Link, useLocation } from 'react-router-dom';

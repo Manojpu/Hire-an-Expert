@@ -7,6 +7,14 @@ from fastapi.exceptions import HTTPException
 from fastapi.requests import Request
 import os
 from dotenv import load_dotenv
+from fastapi.middleware.cors import CORSMiddleware
+
+origins = [
+    "http://localhost:5173",  # your frontend URL
+    "http://127.0.0.1:5173",
+]
+
+
 
 load_dotenv()
 
@@ -20,7 +28,13 @@ app = FastAPI(
     title="Auth Service",
     docs_url='/'
 )
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 import firebase_admin
 from firebase_admin import credentials, auth
 
@@ -47,20 +61,20 @@ if not firebase_admin._apps:
 
 @app.post('/signup')
 async def create_an_account(user_data:SignUpSchema):
-    email = user_data.email
-    password = user_data.password
+    # email = user_data.email
+    # password = user_data.password
     
     try:
-        user= auth.create_user(
-            email = email,
-            password = password
-        )
+        # user= auth.create_user(
+        #     email = email,
+        #     password = password
+        # )
 
         # Call User Service to create DB record
         payload = {
-            "firebase_uid": user.uid,
-            "email": email,
-            "full_name": email,
+            "firebase_uid": user_data.firebase_uid,
+            "email": user_data.email,
+            "full_name": user_data.email,
             "is_expert": False,           # default False if not expert
             "expert_profiles": []
         }
@@ -73,10 +87,10 @@ async def create_an_account(user_data:SignUpSchema):
         if resp.status_code != 200:
             return {"warning": "User created in Firebase but failed in User Service", "details": resp.text}
 
-        return {"message": f"User created successfully for {user.uid}"}
+        return {"message": f"User created successfully for {user_data.firebase_uid}"}
 
     except auth.EmailAlreadyExistsError:
-        raise HTTPException(status_code=400, detail=f"User already exists {email}")
+        raise HTTPException(status_code=400, detail=f"User already exists {user_data.email}")
 
 @app.post('/login')
 async def create_access_token(user_data: LoginSchema):
