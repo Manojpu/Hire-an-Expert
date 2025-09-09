@@ -3,8 +3,8 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import MainLayout from "@/layouts/MainLayout";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { useAuth } from "@/context/auth/AuthContext.jsx";
-import Login from "@/pages/Login.jsx";
-import SignUp from "@/pages/Signup.jsx";
+import Login from "@/pages/Login.tsx";
+import SignUp from "@/pages/Signup.tsx";
 
 const Home = lazy(() => import("@/pages/Home"));
 const Category = lazy(() => import("@/pages/Category"));
@@ -78,7 +78,7 @@ const AppRoutes = () => (
             </ProtectedRoute>
           }
         />
-        <Route path="become-expert" element={<BecomeExpert />} />
+        <Route path="create-gig" element={<BecomeExpert />} />
         <Route
           path="my-bookings"
           element={

@@ -1,7 +1,7 @@
 // AuthContext.jsx
 import { createContext, useContext, useEffect, useState } from "react";
 import { auth } from "../../firebase/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, getIdToken } from "firebase/auth";
 
 const AuthContext = createContext();
 
@@ -10,8 +10,9 @@ export function useAuth(){
 }
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loggedIn,setLoggedIn] = useState(false);
+  const [firebaseUser, setFirebaseUser] = useState(null); // Firebase user
+  const [userProfile, setUserProfile] = useState(null);   // User service profile
+  const [loggedIn, setLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -21,19 +22,69 @@ export const AuthProvider = ({ children }) => {
 
   async function initializeUser(currentUser) {
     if (currentUser) {
-      setUser({...currentUser});
+      setFirebaseUser(currentUser);
       setLoggedIn(true);
+      
+      // Fetch user profile from User Service
+      try {
+        const idToken = await getIdToken(currentUser);
+        const response = await fetch(`http://127.0.0.1:8001/users/firebase/${currentUser.uid}`, {
+          headers: {
+            'Authorization': `Bearer ${idToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const profile = await response.json();
+          setUserProfile(profile);
+          console.log("User profile loaded:", profile);
+        } else {
+          console.warn("Failed to load user profile from User Service");
+          setUserProfile(null);
+        }
+      } catch (error) {
+        console.error("Error fetching user profile:", error);
+        setUserProfile(null);
+      }
     } else {
-      setUser(null);
+      setFirebaseUser(null);
+      setUserProfile(null);
       setLoggedIn(false);
     }
     setLoading(false);
   }
 
-  const value ={
-    user,
+  // Combined user object with both Firebase and User Service data
+  const user = firebaseUser ? {
+    // Firebase Auth data
+    uid: firebaseUser.uid,
+    email: firebaseUser.email,
+    displayName: firebaseUser.displayName,
+    photoURL: firebaseUser.photoURL,
+    emailVerified: firebaseUser.emailVerified,
+    
+    // User Service profile data (if available)
+    ...(userProfile && {
+      id: userProfile.id,
+      name: userProfile.name,
+      role: userProfile.role,
+      phone: userProfile.phone,
+      bio: userProfile.bio,
+      profile_image_url: userProfile.profile_image_url,
+      isExpert: userProfile.is_expert ,
+      created_at: userProfile.created_at,
+      updated_at: userProfile.updated_at
+    })
+  } : null;
+
+  const value = {
+    user,                    // Combined user object
+    firebaseUser,           // Raw Firebase user
+    userProfile,            // Raw User Service profile
     loggedIn,
-    loading
+    loading,
+    refreshUserProfile: () => initializeUser(firebaseUser) // Utility to refresh profile
   }
 
   return (

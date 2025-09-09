@@ -100,7 +100,7 @@ const HeroCarousel = () => {
 													{slide.cta}
 												</Button>
 											</Link>
-											<Link to="/become-expert">
+											<Link to="/create-gig">
 												<Button
 													variant="outline"
 													size="lg"

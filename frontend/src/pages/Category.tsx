@@ -20,7 +20,7 @@ const Category = () => {
   const filtered = useMemo(() => {
     const matchesCategory = (expert: Expert) => {
       if (!slug) return true;
-      return expert.categories.includes(slug) || expert.subcategories.includes(slug);
+      return expert.category.includes(slug) || expert.subcategories.includes(slug);
     };
 
     return MOCK_EXPERTS.filter((e) => {
@@ -149,7 +149,7 @@ const Category = () => {
                         </div>
                         <div className="text-white">
                           <div className="font-semibold text-base drop-shadow">{expert.name}</div>
-                          <div className="text-xs drop-shadow">{expert.title}</div>
+                          <div className="text-xs drop-shadow">{expert.category}</div>
                         </div>
                       </div>
 
@@ -161,7 +161,7 @@ const Category = () => {
                     </div>
                   </div>
 
-                  <div className="px-6 pb-6 pt-4">
+                  <div className="px-3 pb-6 pt-4">
                     <h3 className="text-lg font-bold text-foreground mb-1 group-hover:text-primary transition-colors">{expert.name}</h3>
                     <p className="text-sm text-muted-foreground mb-3">{expert.title}</p>
 
@@ -175,7 +175,7 @@ const Category = () => {
 
                     <div className="grid grid-cols-2 gap-3 mb-4 text-xs text-muted-foreground">
                       <div className="flex items-center"><Clock className="h-3 w-3 mr-1" />{expert.responseTime || '—'}</div>
-                      <div className="flex items-center"><MapPin className="h-3 w-3 mr-1" />{(expert.categories && expert.categories[0]) ? expert.categories[0].replace(/-/g, ' ') : ''}</div>
+                      <div className="flex items-center"><MapPin className="h-3 w-3 mr-1" />{(expert.category && expert.category[0]) ? expert.category[0].replace(/-/g, ' ') : ''}</div>
                     </div>
 
                     <div className="flex flex-wrap gap-1 mb-4">
@@ -197,7 +197,7 @@ const Category = () => {
 
                     <div className="flex gap-2">
                       <Link to={`/expert/${expert.id}`} className="flex-1">
-                        <Button variant="default" size="sm" className="w-full bg-gradient-primary">View Profile</Button>
+                        <Button variant="default" size="sm" className="w-full bg-gradient-primary">View Gig</Button>
                       </Link>
                       <Link to={`/book/${expert.id}`}>
                         <Button variant="outline" size="sm" className="px-3"><MessageCircle className="h-4 w-4" /></Button>

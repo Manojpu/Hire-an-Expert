@@ -3,10 +3,10 @@ import React, { useState } from 'react';
 import ProgressStepper from '@/components/expert/ProgressStepper';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';     
 import ProfileSettings from '@/components/dashboard/ProfileSettings';
 
-const ApplyExpert: React.FC = () => {
+const ApplyExpert: React.FC = () => { 
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<any>({});
 
@@ -61,8 +61,18 @@ const ApplyExpert: React.FC = () => {
                 <h2 className="text-xl font-semibold mb-4">Expertise & Services</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm">Categories (comma separated)</label>
-                    <Input value={form.categories || ''} onChange={(e) => handleChange('categories', e.target.value)} />
+                    <label className="text-sm">Category</label>
+                    <select 
+                      value={form.categories || ''} 
+                      onChange={(e) => handleChange('categories', e.target.value)}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="">Select a category</option>
+                      <option value="Automobile Advice">Automobile Advice</option>
+                      <option value="Electronic Device Advice">Electronic Device Advice</option>
+                      <option value="Home Appliance Guidance">Home Appliance Guidance</option>
+                      <option value="Education & Career Guidance">Education & Career Guidance</option>
+                    </select>
                   </div>
                   <div>
                     <label className="text-sm">Service Description</label>
