@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, func, Text, Boolean, Enum
+from sqlalchemy import Column, Integer, String, Float, DateTime, func, Text, Boolean, Enum, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 import uuid
@@ -34,7 +34,7 @@ class Gig(Base):
     bio = Column(Text)
     profile_image_url = Column(String)
     banner_image_url = Column(String)
-    languages = Column(ARRAY(String))  # List of languages
+    languages = Column(JSON)  # List of languages - changed from ARRAY to JSON for SQLite compatibility
     
     # Expertise & Services (from ApplyExpert step 1)
     category = Column(Enum(ExpertCategory), nullable=False)
@@ -47,7 +47,7 @@ class Gig(Base):
     # Qualifications (from ApplyExpert step 2)
     education = Column(Text)
     experience = Column(Text)
-    certifications = Column(ARRAY(String))  # File URLs/paths
+    certifications = Column(JSON)  # File URLs/paths - changed from ARRAY to JSON for SQLite compatibility
     
     # Verification (from ApplyExpert step 3)
     government_id_url = Column(String)

@@ -1,7 +1,7 @@
 import React from "react";
-import ApplyExpert from "./ApplyExpert";
+import ApplyGig from "./ApplyGig";
 
-const BecomeExpert = () => {
+const CreateGig = () => {
   return (
     <div>
       <div className="container mx-auto py-8">
@@ -9,10 +9,10 @@ const BecomeExpert = () => {
       <p className="text-muted-foreground mt-2">Expert application wizard will go here.</p>
       </div>
       <div>
-        <ApplyExpert/>
+        <ApplyGig />
       </div>
     </div>
   );
 };
 
-export default BecomeExpert;
+export default CreateGig;

@@ -55,7 +55,18 @@ Status: ${createdGig.status}`);
       
     } catch (error) {
       console.error('Error submitting application:', error);
-      alert('Failed to submit application. Please try again.');
+      
+      // Show detailed error message for debugging
+      let errorMessage = 'Failed to submit application. Please try again.';
+      if (error instanceof Error) {
+        errorMessage = `Failed to submit application: ${error.message}`;
+      }
+      
+      alert(errorMessage);
+      
+      // Also log the form data and converted gig data for debugging
+      console.log('Form data:', form);
+      console.log('Converted gig data:', convertFormToGigData(form));
     }
   };
 

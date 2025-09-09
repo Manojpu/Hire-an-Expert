@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from app.db import session, models
 from app.endpoints import gig
 
@@ -11,6 +12,15 @@ models.Base.metadata.create_all(bind=session.engine)
 print("Database tables created successfully!")
 
 app = FastAPI(title="Gig Service")
+
+# Add CORS middleware to allow frontend connections
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8080", "http://localhost:5173", "http://localhost:4173"],  # Common frontend dev ports
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Health check endpoint
 @app.get("/")

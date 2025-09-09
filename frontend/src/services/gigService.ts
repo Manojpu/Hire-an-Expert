@@ -86,7 +86,7 @@ export function convertFormToGigData(
     // Expertise & Services
     category: getCategorySlug(form.categories || ''),
     service_description: form.serviceDesc || '',
-    hourly_rate: form.rate || 0,
+    hourly_rate: Number(form.rate) || 0,
     currency: 'LKR',
     availability_preferences: form.availabilityNotes || '',
     
@@ -112,9 +112,21 @@ function getCategorySlug(category: string): ExpertGigCreateData['category'] {
 }
 
 // API client for Gig Service
+const GIG_SERVICE_URL = import.meta.env.VITE_GIG_SERVICE_URL || 'http://localhost:8002';
+
+// Debug logging for environment variable
+console.log('GIG_SERVICE_URL from env:', import.meta.env.VITE_GIG_SERVICE_URL);
+console.log('Final GIG_SERVICE_URL used:', GIG_SERVICE_URL);
+
 export const gigServiceAPI: GigServiceAPI = {
   async create(gigData: ExpertGigCreateData): Promise<ExpertGig> {
-    const response = await fetch('/api/gig-service/', {
+    const url = `${GIG_SERVICE_URL}/gigs/`;
+    
+    // Debug logging
+    console.log('Sending POST request to:', url);
+    console.log('Gig data being sent:', gigData);
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -123,15 +135,20 @@ export const gigServiceAPI: GigServiceAPI = {
       body: JSON.stringify(gigData)
     });
     
+    console.log('Response status:', response.status);
+    console.log('Response headers:', response.headers);
+    
     if (!response.ok) {
-      throw new Error('Failed to create gig');
+      const errorText = await response.text();
+      console.error('Error response body:', errorText);
+      throw new Error(`Failed to create gig: ${response.status} ${errorText}`);
     }
     
     return response.json();
   },
 
   async getByExpert(expertId: string): Promise<ExpertGig> {
-    const response = await fetch(`/api/gig-service/expert/${expertId}`);
+    const response = await fetch(`${GIG_SERVICE_URL}/gigs/expert/${expertId}`);
     
     if (!response.ok) {
       throw new Error('Expert gig not found');
@@ -148,7 +165,7 @@ export const gigServiceAPI: GigServiceAPI = {
       }
     });
     
-    const response = await fetch(`/api/gig-service/public?${params}`);
+    const response = await fetch(`${GIG_SERVICE_URL}/gigs/public?${params}`);
     
     if (!response.ok) {
       throw new Error('Failed to fetch gigs');
@@ -158,7 +175,7 @@ export const gigServiceAPI: GigServiceAPI = {
   },
 
   async updateMy(updates: Partial<ExpertGigCreateData>): Promise<ExpertGig> {
-    const response = await fetch('/api/gig-service/my/gig', {
+    const response = await fetch(`${GIG_SERVICE_URL}/gigs/my/gig`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -178,6 +195,17 @@ export const gigServiceAPI: GigServiceAPI = {
 // Helper to get Firebase ID token
 async function getIdToken(): Promise<string> {
   // This would integrate with your Firebase auth context
-  // For now, return a placeholder
-  return 'firebase-id-token';
+  // For development, return a mock token that the backend accepts
+  try {
+    // You would get this from your Firebase auth context
+    // const auth = getAuth();
+    // const user = auth.currentUser;
+    // if (user) {
+    //   return await user.getIdToken();
+    // }
+    return 'dev-mock-token'; // For development only
+  } catch (error) {
+    console.error('Failed to get ID token:', error);
+    return 'dev-mock-token';
+  }
 }
