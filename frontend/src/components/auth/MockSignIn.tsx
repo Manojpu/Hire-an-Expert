@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/auth/AuthContext";
 import { MOCK_USERS } from "@/data/mockUsers";
 import { useNavigate } from "react-router-dom";
 

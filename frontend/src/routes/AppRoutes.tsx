@@ -2,7 +2,9 @@ import React, { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import MainLayout from "@/layouts/MainLayout";
 import DashboardLayout from "@/layouts/DashboardLayout";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/auth/AuthContext.jsx";
+import Login from "@/pages/Login.jsx";
+import SignUp from "@/pages/Signup.jsx";
 
 const Home = lazy(() => import("@/pages/Home"));
 const Category = lazy(() => import("@/pages/Category"));
@@ -43,6 +45,8 @@ const AppRoutes = () => (
       {/* Main layout with footer */}
       <Route path="/" element={<MainLayout />}>
         <Route index element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<SignUp />} />
         <Route path="categories" element={<Category />} />
         <Route path="category/:slug" element={<Category />} />
         <Route path="expert/:slug" element={<Expert />} />

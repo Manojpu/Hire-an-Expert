@@ -2,7 +2,7 @@ from pydantic import BaseModel
 
 class SignUpSchema(BaseModel):
     email: str
-    password: str
+    firebase_uid: str
 
     model_config = {
         "json_schema_extra": {
