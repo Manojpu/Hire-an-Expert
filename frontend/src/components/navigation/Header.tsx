@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, User, Search, LogOut } from 'lucide-react';
+import { Menu, X, User, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import MockSignIn from '@/components/auth/MockSignIn';
-import { useAuth } from '@/context/auth/AuthContext.jsx';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -71,8 +69,8 @@ const Header = () => {
             </Link>
           </div>
 
-          {/* Search Bar */}
-          <div className="hidden lg:flex items-center flex-1 max-w-md mx-8">
+          {/* Search Bar (moved slightly left to make room for Login button) */}
+          <div className="hidden lg:flex items-center flex-1 max-w-md mx-4">
             <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <input
@@ -83,28 +81,18 @@ const Header = () => {
             </div>
           </div>
 
-          {/* Desktop Actions */}
-          {/* <div className="hidden md:flex items-center space-x-4">
-            {state.user ? (
-              <div className="flex items-center gap-3">
-                <button onClick={() => navigate(state.user?.role === 'expert' ? '/expert-dashboard' : state.user?.role === 'admin' ? '/admin' : '/profile')} className="flex items-center gap-2">
-                  <img src={state.user.profileImage} alt={state.user.name} className="h-8 w-8 rounded-full" />
-                  <span className="text-sm font-medium">{state.user.name.split(' ')[0]}</span>
-                </button>
-                <Button variant="ghost" size="sm" onClick={handleSignOut}>
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Sign Out
-                </Button>
-              </div>
-            ) : (
-              <>
-                <MockSignIn />
-                <Button variant="default" size="sm" className="bg-gradient-primary hover:opacity-90">
-                  Get Started
-                </Button>
-              </>
-            )}
-          </div> */}
+          {/* Desktop Login Button (right-most) */}
+          <div className="hidden md:flex items-center ml-4">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => navigate('/login')}
+              className="bg-gradient-primary text-white px-4 py-2 rounded-md shadow-md hover:shadow-lg transform transition-all duration-200 hover:scale-[1.02] flex items-center"
+            >
+              <User className="h-4 w-4 mr-2" />
+              Login
+            </Button>
+          </div>
 
           {/* Mobile Menu Button */}
           <button
@@ -152,20 +140,19 @@ const Header = () => {
               >
                 Create A Gig
               </Link>
-              {/* <div className="flex flex-col space-y-2 pt-4 border-t border-border">
-                {state.user ? (
-                  <>
-                    <button onClick={() => { navigate(state.user?.role === 'expert' ? '/expert-dashboard' : state.user?.role === 'admin' ? '/admin' : '/profile'); setIsMenuOpen(false); }} className="text-left px-2 py-1">Dashboard</button>
-                    <button onClick={() => { handleSignOut(); setIsMenuOpen(false); }} className="text-left px-2 py-1">Sign Out</button>
-                  </>
-                ) : (
-                  <>
-                    <MockSignIn />
-                    <Button variant="default" size="sm" className="bg-gradient-primary">Get Started</Button>
-
-                  </>
-                )}
-              </div> */}
+              <div className="flex flex-col space-y-2 pt-4 border-t border-border">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => { setIsMenuOpen(false); navigate('/login'); }}
+                  className="bg-gradient-primary text-white w-full px-4 py-2 rounded-md shadow-sm hover:shadow-md"
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <User className="h-4 w-4" />
+                    Login
+                  </div>
+                </Button>
+              </div>
             </div>
           </div>
         )}

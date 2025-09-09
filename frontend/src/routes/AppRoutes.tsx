@@ -42,11 +42,13 @@ const AppRoutes = () => (
         }
       />
 
+      {/* Standalone pages (no header/footer) */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<SignUp />} />
+
       {/* Main layout with footer */}
       <Route path="/" element={<MainLayout />}>
         <Route index element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<SignUp />} />
         <Route path="categories" element={<Category />} />
         <Route path="category/:slug" element={<Category />} />
         <Route path="expert/:slug" element={<Expert />} />
@@ -95,7 +97,7 @@ const AppRoutes = () => (
             </ProtectedRoute>
           }
         />
-        <Route path="experts" element={<Experts />} />
+  <Route path="experts" element={<Experts />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
