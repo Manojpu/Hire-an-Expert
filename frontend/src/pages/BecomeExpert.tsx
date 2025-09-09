@@ -5,7 +5,7 @@ const BecomeExpert = () => {
   return (
     <div>
       <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-bold">Become an Expert</h1>
+      <h1 className="text-2xl font-bold">Create a Gig</h1>
       <p className="text-muted-foreground mt-2">Expert application wizard will go here.</p>
       </div>
       <div>

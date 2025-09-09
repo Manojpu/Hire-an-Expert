@@ -5,15 +5,59 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';     
 import ProfileSettings from '@/components/dashboard/ProfileSettings';
+import { ExpertApplicationForm, EXPERT_CATEGORIES } from '@/types/expert';
+import { validateExpertApplication, convertApplicationToExpert, syncExpertData } from '@/utils/expertUtils';
+import { convertFormToGigData, gigServiceAPI } from '@/services/gigService';
 
 const ApplyExpert: React.FC = () => { 
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState<any>({});
+  const [form, setForm] = useState<Partial<ExpertApplicationForm>>({});
 
   const next = () => setStep(s => Math.min(steps.length - 1, s + 1));
   const prev = () => setStep(s => Math.max(0, s - 1));
 
-  const handleChange = (key: string, value: any) => setForm((f: any) => ({ ...f, [key]: value }));
+  const handleChange = (key: keyof ExpertApplicationForm, value: string | number | boolean | File | FileList | null) => 
+    setForm((f) => ({ ...f, [key]: value }));
+
+  const handleSubmit = async () => {
+    // Validate form
+    const errors = validateExpertApplication(form);
+    if (errors.length > 0) {
+      alert('Please fix the following errors:\n' + errors.join('\n'));
+      return;
+    }
+    
+    try {
+      // Upload files and get URLs (placeholder - implement file upload service)
+      const profileImageUrl = form.photo ? URL.createObjectURL(form.photo) : undefined;
+      const bannerImageUrl = form.cover ? URL.createObjectURL(form.cover) : undefined;
+      
+      // Convert form to gig service format
+      const gigData = convertFormToGigData(form, profileImageUrl, bannerImageUrl);
+      
+      // Submit to Gig Service
+      const createdGig = await gigServiceAPI.create(gigData);
+      
+      console.log('Expert gig created successfully:', createdGig);
+      
+      // Sync data across frontend components
+      const expertData = convertApplicationToExpert(form, 'current_user_id');
+      syncExpertData(expertData);
+      
+      alert(`Application submitted successfully! 
+      
+Your expert profile has been created and is pending approval.
+Gig ID: ${createdGig.id}
+Status: ${createdGig.status}`);
+      
+      // Redirect to dashboard or success page
+      // navigate('/expert/dashboard');
+      
+    } catch (error) {
+      console.error('Error submitting application:', error);
+      alert('Failed to submit application. Please try again.');
+    }
+  };
 
   return (
     <div className="container mx-auto py-8">
@@ -42,11 +86,11 @@ const ApplyExpert: React.FC = () => {
                   </div>
                   <div>
                     <label className="text-sm">Profile Photo</label>
-                    <Input type="file" onChange={(e: any) => handleChange('photo', e.target.files?.[0])} />
+                    <Input type="file" onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleChange('photo', e.target.files?.[0] || null)} />
                   </div>
                   <div>
                     <label className="text-sm">Cover Image</label>
-                    <Input type="file" onChange={(e: any) => handleChange('cover', e.target.files?.[0])} />
+                    <Input type="file" onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleChange('cover', e.target.files?.[0] || null)} />
                   </div>
                   <div className="md:col-span-2">
                     <label className="text-sm">Languages (comma separated)</label>
@@ -68,10 +112,9 @@ const ApplyExpert: React.FC = () => {
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <option value="">Select a category</option>
-                      <option value="Automobile Advice">Automobile Advice</option>
-                      <option value="Electronic Device Advice">Electronic Device Advice</option>
-                      <option value="Home Appliance Guidance">Home Appliance Guidance</option>
-                      <option value="Education & Career Guidance">Education & Career Guidance</option>
+                      {Object.keys(EXPERT_CATEGORIES).map(category => (
+                        <option key={category} value={category}>{category}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -100,7 +143,7 @@ const ApplyExpert: React.FC = () => {
                   </div>
                   <div>
                     <label className="text-sm">Certifications (upload)</label>
-                    <Input type="file" multiple onChange={(e: any) => handleChange('certs', e.target.files)} />
+                    <Input type="file" multiple onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleChange('certs', e.target.files)} />
                   </div>
                   <div className="md:col-span-2">
                     <label className="text-sm">Work Experience</label>
@@ -116,11 +159,11 @@ const ApplyExpert: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm">Government ID</label>
-                    <Input type="file" onChange={(e: any) => handleChange('govId', e.target.files?.[0])} />
+                    <Input type="file" onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleChange('govId', e.target.files?.[0] || null)} />
                   </div>
                   <div>
                     <label className="text-sm">Professional License (if applicable)</label>
-                    <Input type="file" onChange={(e: any) => handleChange('license', e.target.files?.[0])} />
+                    <Input type="file" onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleChange('license', e.target.files?.[0] || null)} />
                   </div>
                   <div className="md:col-span-2">
                     <label className="text-sm">Reference Contacts</label>
@@ -156,7 +199,7 @@ const ApplyExpert: React.FC = () => {
               </div>
               <div className="flex gap-2">
                 {step < 4 && <Button onClick={next}>Next</Button>}
-                {step === 4 && <Button onClick={() => alert('Submitted')}>Submit Application</Button>}
+                {step === 4 && <Button onClick={handleSubmit}>Submit Application</Button>}
               </div>
             </div>
           </div>

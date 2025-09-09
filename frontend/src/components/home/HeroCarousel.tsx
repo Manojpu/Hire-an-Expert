@@ -106,7 +106,7 @@ const HeroCarousel = () => {
 													size="lg"
 													className="border-white/30 text-white bg-white/10 hover:bg-white/10 font-semibold px-8 py-3 transition-all duration-300"
 												>
-													Become an Expert
+													Create a Gig
 												</Button>
 											</Link>
 										</div>
