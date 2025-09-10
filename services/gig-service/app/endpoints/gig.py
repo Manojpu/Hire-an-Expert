@@ -16,7 +16,17 @@ def create_expert_gig(
     Create a new expert gig/profile from application.
     This corresponds to the ApplyExpert form submission.
     """
-    return crud.create_gig(db=db, gig=gig, expert_id=current_user_id)
+    try:
+        print(f"Creating gig for expert: {current_user_id}")
+        db_gig = crud.create_gig(db=db, gig=gig, expert_id=current_user_id)
+        print(f"Gig creation completed: {db_gig.id}")
+        return db_gig
+        
+    except Exception as e:
+        print(f"Error in create_expert_gig: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to create gig: {str(e)}")
 
 @router.get("/public", response_model=schemas.GigListResponse)
 def get_public_gigs(

@@ -10,51 +10,65 @@ from app.db.models import Gig, GigStatus, ExpertCategory
 
 def create_gig(db: Session, gig: GigCreate, expert_id: str, user_id: str = None) -> Gig:
     """Create a new gig from expert application"""
-    gig_id = str(uuid.uuid4())
-    
-    db_gig = Gig(
-        id=gig_id,
-        expert_id=expert_id,
-        user_id=user_id or expert_id,
+    try:
+        gig_id = str(uuid.uuid4())
+        print(f"Creating gig with ID: {gig_id}")
         
-        # Basic Information
-        name=gig.name,
-        title=gig.title,
-        bio=gig.bio,
-        profile_image_url=gig.profile_image_url,
-        banner_image_url=gig.banner_image_url,
-        languages=gig.languages,
-        
-        # Expertise & Services
-        category=ExpertCategory(gig.category.value),
-        service_description=gig.service_description,
-        hourly_rate=gig.hourly_rate,
-        currency=gig.currency,
-        availability_preferences=gig.availability_preferences,
-        
-        # Qualifications
-        education=gig.education,
-        experience=gig.experience,
-        certifications=gig.certifications,
-        
-        # Verification
-        government_id_url=gig.government_id_url,
-        professional_license_url=gig.professional_license_url,
-        references=gig.references,
-        background_check_consent=gig.background_check_consent,
-        
-        # Default system values
-        status=GigStatus.PENDING,  # Needs admin approval
-        is_verified=False,
-        rating=0.0,
-        total_reviews=0,
-        total_consultations=0
-    )
+        db_gig = Gig(
+            id=gig_id,
+            expert_id=expert_id,
+            user_id=user_id or expert_id,
+            
+            # Basic Information
+            name=gig.name,
+            title=gig.title,
+            bio=gig.bio,
+            profile_image_url=gig.profile_image_url,
+            banner_image_url=gig.banner_image_url,
+            languages=gig.languages,
+            
+            # Expertise & Services
+            category=ExpertCategory(gig.category.value),
+            service_description=gig.service_description,
+            hourly_rate=gig.hourly_rate,
+            currency=gig.currency,
+            availability_preferences=gig.availability_preferences,
+            
+            # Qualifications
+            education=gig.education,
+            experience=gig.experience,
+            certifications=gig.certifications,
+            
+            # Verification
+            government_id_url=gig.government_id_url,
+            professional_license_url=gig.professional_license_url,
+            references=gig.references,
+            background_check_consent=gig.background_check_consent,
+            
+            # Default system values
+            status=GigStatus.PENDING,  # Needs admin approval
+            is_verified=False,
+            rating=0.0,
+            total_reviews=0,
+            total_consultations=0
+        )
 
-    db.add(db_gig)
-    db.commit()
-    db.refresh(db_gig)
-    return db_gig
+        print(f"Adding gig to session...")
+        db.add(db_gig)
+        
+        print(f"Committing transaction...")
+        db.commit()
+        
+        print(f"Refreshing gig object...")
+        db.refresh(db_gig)
+        
+        print(f"Successfully created gig: {db_gig.id}")
+        return db_gig
+        
+    except Exception as e:
+        print(f"Error creating gig: {e}")
+        db.rollback()
+        raise
 
 def get_gig(db: Session, gig_id: str) -> Optional[Gig]:
     """Get a gig by ID"""
