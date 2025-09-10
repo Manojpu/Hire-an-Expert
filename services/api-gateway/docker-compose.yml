@@ -1,11 +1,12 @@
 services:
-  # API Gateway (standalone)
+  # API Gateway (FastAPI)
   api-gateway:
     build: .
     ports:
       - "8000:8000"
     environment:
-      - NODE_ENV=development
+      - ENVIRONMENT=development
+      - DEBUG=true
       - PORT=8000
       - AUTH_SERVICE_URL=http://localhost:8001
       - GIG_SERVICE_URL=http://localhost:8002
@@ -15,3 +16,14 @@ services:
       - USER_SERVICE_V2_URL=http://localhost:8006
       - REVIEW_SERVICE_URL=http://localhost:8007
       - FRONTEND_URL=http://localhost:3000
+      - REQUEST_TIMEOUT=30
+      - AUTH_TIMEOUT=5
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
