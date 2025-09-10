@@ -101,7 +101,15 @@ const Expert = () => {
                   <p className="text-sm text-muted-foreground">{expert.bio}</p>
 
                   <div>
-                    <h4 className="font-medium mt-4">Expertise</h4>
+                    <h4 className="font-medium mt-4">Service Description</h4>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Professional consultation and guidance in {expert.category.replace(/-/g, ' ')} 
+                      with personalized solutions for your specific needs.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium mt-4">Expertise Areas</h4>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {expert.subcategories.map((s) => (
                         <span key={s} className="px-2 py-1 text-xs bg-muted rounded">{s.replace(/-/g, ' ')}</span>
@@ -115,7 +123,7 @@ const Expert = () => {
                   </div>
 
                   <div className="mt-6 bg-card rounded p-4">
-                    <div className="flex items-center justify-between">
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
                         <div className="text-sm text-muted-foreground">Response Time</div>
                         <div className="font-medium">{expert.responseTime}</div>
@@ -123,6 +131,14 @@ const Expert = () => {
                       <div>
                         <div className="text-sm text-muted-foreground">Total Consultations</div>
                         <div className="font-medium">{expert.totalConsultations}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Category</div>
+                        <div className="font-medium">{expert.category.replace(/-/g, ' ')}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Rate</div>
+                        <div className="font-medium">{expert.pricing.currency} {expert.pricing.hourlyRate}/hour</div>
                       </div>
                     </div>
                   </div>

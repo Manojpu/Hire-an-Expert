@@ -13,7 +13,7 @@ class ProvisionIn(BaseModel):
     firebase_uid: str
     email: str
     full_name: str
-    is_expert: Optional[bool] = False
+    is_expert: Optional[bool] = True
     expert_profiles: Optional[List[ExpertProfileIn]] = []
 
 class ExpertProfileOut(BaseModel):
@@ -45,12 +45,20 @@ class UserCreate(BaseModel):
 class UserResponse(BaseModel):
     id: uuid.UUID
     firebase_uid: str
-    email: str
     name: Optional[str]
+    email: str
+    phone: Optional[str]
     role: UserRole
+    bio: Optional[str]
+    profile_image_url: Optional[str]
+    is_expert: bool
+    created_at: datetime
+    updated_at: datetime
+    expert_profiles: List[ExpertProfileOut] = []
 
     class Config:
         from_attributes = True
+        orm_mode = True
         
 class UserBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
