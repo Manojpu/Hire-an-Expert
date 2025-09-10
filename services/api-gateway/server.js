@@ -73,6 +73,7 @@ const services = {
   message: process.env.MESSAGE_SERVICE_URL || "http://localhost:8005",
   userV2: process.env.USER_SERVICE_V2_URL || "http://localhost:8006",
   review: process.env.REVIEW_SERVICE_URL || "http://localhost:8007",
+  user: process.env.USER_SERVICE_URL || "http://localhost:8008",
 };
 
 // Middleware to add service info to request
