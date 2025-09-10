@@ -1,253 +1,228 @@
-# Hire an Expert - API Gateway Architecture
+# FastAPI API Gateway
 
-This project has been updated to use a microservices architecture with an API Gateway as the single point of entry for all client requests.
+A high-performance API Gateway built with FastAPI for the Hire an Expert microservices platform. This gateway serves as the single entry point for all client requests, routing them to appropriate microservices.
 
-## Architecture Overview
+## 🏗️ How It Works
+
+The API Gateway acts as a reverse proxy that:
+1. **Receives requests** from the frontend application
+2. **Validates authentication** using JWT tokens (except for auth routes)
+3. **Routes requests** to the appropriate microservice
+4. **Forwards responses** back to the client
 
 ```
-Frontend (React/Next.js) → API Gateway → Microservices
-                ↓
-        [Auth, Gig, Booking, Payment, Message Services]
+Frontend → API Gateway → [Auth | Gig | Booking | Payment | Message | User | Review] Services
 ```
 
-## Services & Ports
+## 📋 Prerequisites
 
-| Service | Port | Technology | Description |
-|---------|------|------------|-------------|
-| **API Gateway** | 8000 | Node.js/Express | Single entry point, routing, auth |
-| **Auth Service** | 8001 | FastAPI/Python | User authentication with Firebase |
-| **Gig Service** | 8002 | FastAPI/Python | Job/gig management |
-| **Booking Service** | 8003 | FastAPI/Python | Booking management |
-| **Payment Service** | 8004 | FastAPI/Python | Payment processing |
-| **Message Service** | 8005 | Node.js/Express | Real-time messaging with Socket.IO |
-| **Frontend** | 3000 | Next.js/React | User interface |
+- **Python 3.8+** (recommended: Python 3.11+)
+- **pip** package manager
 
-## API Gateway Features
+## � New Developer?
 
-### 🔒 Security
-- Rate limiting (100 requests per 15 minutes)
-- CORS configuration
-- Helmet for security headers
-- JWT token validation via Auth Service
+**First time setting up?** Check out our [Developer Setup Guide](DEVELOPER_SETUP.md) for a quick step-by-step walkthrough!
 
-### 📡 Routing
-- **Auth**: `/api/auth/*` → Auth Service
-- **Gigs**: `/api/gigs/*` → Gig Service  
-- **Bookings**: `/api/bookings/*` → Booking Service
-- **Payments**: `/api/payments/*` → Payment Service
-- **Messages**: `/api/message/*` → Message Service
-- **Conversations**: `/api/conversations/*` → Message Service
+## �🚀 Installation & Setup
 
-### 🚀 Real-time Communication
-- Socket.IO proxy for real-time messaging
-- Automatic reconnection handling
-- Event forwarding between frontend and message service
+### Option 1: Automated Setup (Recommended)
 
-### 📊 Monitoring
-- Request/response logging
-- Error tracking
-- Health check endpoint (`/health`)
-- Service availability monitoring
-
-## Quick Start
-
-### Option 1: Docker Compose (Recommended)
+#### Windows
 ```bash
-# Start all services
-docker-compose up --build
-
-# Or start specific services
-docker-compose up api-gateway auth-service message-service
-```
-
-### Option 2: Development Mode
-```bash
-# Install API Gateway dependencies
 cd services/api-gateway
-npm install
-
-# Start API Gateway
-npm run dev
-
-# In separate terminals, start each service:
-# Auth Service (Port 8001)
-cd services/auth-service
-pipenv install
-pipenv run python main.py
-
-# Gig Service (Port 8002)
-cd services/gig-service
-pip install -r requirements.txt
-python main.py
-
-# Booking Service (Port 8003)
-cd services/booking-service
-pip install -r requirements.txt
-python main.py
-
-# Payment Service (Port 8004)
-cd services/payment-service
-pip install -r requirements.txt
-python -m app.main
-
-# Message Service (Port 8005)
-cd services/msg-service
-npm install
-npm start
-
-# Frontend (Port 3000)
-cd frontend
-npm install
-npm run dev
+start.bat
 ```
 
-## Environment Configuration
-
-### API Gateway (.env)
+#### Linux/macOS
 ```bash
+cd services/api-gateway
+chmod +x start.sh
+./start.sh
+```
+
+### Option 2: Manual Setup
+
+```bash
+# 1. Navigate to API Gateway directory
+cd services/api-gateway
+
+# 2. Create virtual environment
+python -m venv venv
+
+# 3. Activate virtual environment
+# Windows:
+venv\Scripts\activate
+# Linux/macOS:
+source venv/bin/activate
+
+# 4. Install dependencies
+pip install -r requirements.txt
+
+# 5. Copy and configure environment
+copy .env.example .env
+# Edit .env file with your service URLs
+
+# 6. Start the server
+python main.py
+```
+
+## ⚙️ Configuration
+
+### 🆕 For New Developers
+
+**IMPORTANT**: The `.env` file is not committed to git for security reasons. To set up your environment:
+
+1. **Copy the example file**:
+   ```bash
+   # Windows
+   copy .env.example .env
+   
+   # Linux/macOS  
+   cp .env.example .env
+   ```
+
+2. **Update the values** in your new `.env` file with the correct service URLs for your environment
+
+3. **Never commit** your `.env` file - it contains sensitive configuration
+
+### Environment Variables
+
+Copy `.env.example` to `.env` and configure:
+
+```env
+# Application Settings
+DEBUG=true
 PORT=8000
-NODE_ENV=development
+FRONTEND_URL=http://localhost:3000
+
+# Microservice URLs (update as needed)
 AUTH_SERVICE_URL=http://localhost:8001
 GIG_SERVICE_URL=http://localhost:8002
 BOOKING_SERVICE_URL=http://localhost:8003
 PAYMENT_SERVICE_URL=http://localhost:8004
 MESSAGE_SERVICE_URL=http://localhost:8005
-FRONTEND_URL=http://localhost:3000
-RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX_REQUESTS=100
-JWT_SECRET=your-super-secret-jwt-key
-SOCKET_CORS_ORIGIN=http://localhost:3000
+USER_SERVICE_V2_URL=http://localhost:8006
+REVIEW_SERVICE_URL=http://localhost:8007
 ```
 
-## API Usage Examples
+## 🐳 Docker Setup
 
-### Authentication
+### Build and Run
+```bash
+# Build the image
+docker build -t api-gateway .
+
+# Run the container
+docker run -p 8000:8000 api-gateway
+
+# Or use docker-compose
+docker-compose up
+```
+
+### Docker Compose
+```bash
+# Start in background
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+## 🛣️ API Routes
+
+| Route Pattern | Target Service | Auth Required |
+|---------------|----------------|---------------|
+| `/api/auth/*` | Auth Service | ❌ No |
+| `/api/user-v2/*` | User Service V2 | ✅ Yes |
+| `/api/gigs/*` | Gig Service | ✅ Yes |
+| `/api/bookings/*` | Booking Service | ✅ Yes |
+| `/api/payments/*` | Payment Service | ✅ Yes |
+| `/api/message/*` | Message Service | ✅ Yes |
+| `/api/conversations/*` | Message Service | ✅ Yes |
+| `/api/reviews/*` | Review Service | ✅ Yes |
+| `/health` | API Gateway | ❌ No |
+
+## 🔧 Testing
+
+### Quick Health Check
+```bash
+curl http://localhost:8000/health
+```
+
+### Run Test Suite
+```bash
+# Install test dependencies
+pip install pytest pytest-asyncio httpx requests
+
+# Run validation tests
+python validate_gateway.py
+
+# Run full test suite
+python run_tests.py
+```
+
+## 🔍 Monitoring
+
+### Service Status
+```bash
+python monitor.py
+```
+
+### View Logs
+```bash
+# Real-time logs
+tail -f logs/api_gateway.log
+
+# Recent logs
+cat logs/api_gateway.log
+```
+
+## 🚦 Production Deployment
+
+1. **Update environment variables** for production URLs
+2. **Set `DEBUG=false`** in `.env`
+3. **Use proper secrets** for authentication
+4. **Ensure all microservices are running**
+5. **Configure reverse proxy** (nginx/apache) if needed
+
+## 🤝 Frontend Integration
+
+Update your frontend to use the API Gateway:
+
 ```javascript
-// Login
-const response = await fetch('http://localhost:8000/api/auth/login', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email, password })
-});
+// API Base URL
+const API_BASE_URL = 'http://localhost:8000/api';
 
-// Use token in subsequent requests
-const token = response.data.token;
-fetch('http://localhost:8000/api/gigs', {
+// Example API calls
+fetch(`${API_BASE_URL}/auth/login`, { method: 'POST', ... });
+fetch(`${API_BASE_URL}/gigs`, { 
   headers: { 'Authorization': `Bearer ${token}` }
 });
 ```
 
-### Real-time Messaging
-```javascript
-import { io } from 'socket.io-client';
-
-// Connect to API Gateway WebSocket
-const socket = io('http://localhost:8000');
-
-// Events are automatically forwarded to Message Service
-socket.emit('joinRoom', conversationId);
-socket.on('newMessage', (message) => {
-  console.log('New message:', message);
-});
-```
-
-## Frontend Integration
-
-The frontend has been updated to use the API Gateway:
-
-```typescript
-// Before (Direct service calls)
-const API_BASE_URL = 'http://localhost:5000/api';
-
-// After (Through API Gateway)
-const API_GATEWAY_URL = 'http://localhost:8000/api';
-
-// All API calls now go through the gateway
-messageAPI.getMessages(conversationId); // → /api/message/${conversationId}
-authAPI.login(credentials);              // → /api/auth/login
-gigAPI.getAllGigs();                     // → /api/gigs
-```
-
-## Service Communication
-
-```
-Frontend Request → API Gateway → Service
-     ↓                ↓             ↓
-   Response ← API Gateway ← Service Response
-```
-
-### Benefits
-1. **Single Entry Point**: One URL for all API calls
-2. **Service Discovery**: Gateway handles service locations
-3. **Load Balancing**: Can distribute requests across service instances
-4. **Authentication**: Centralized auth validation
-5. **Rate Limiting**: Protect services from abuse
-6. **Monitoring**: Centralized logging and metrics
-7. **CORS**: Simplified frontend configuration
-
-## Troubleshooting
-
-### Health Checks
-```bash
-# Check API Gateway
-curl http://localhost:8000/health
-
-# Check individual services
-curl http://localhost:8001/  # Auth Service
-curl http://localhost:8002/  # Gig Service
-curl http://localhost:8003/  # Booking Service
-curl http://localhost:8004/  # Payment Service
-curl http://localhost:8005/  # Message Service
-```
+## 🆘 Troubleshooting
 
 ### Common Issues
-1. **Service Unavailable (503)**: Check if target service is running
-2. **CORS Errors**: Verify FRONTEND_URL in gateway .env
-3. **Socket.IO Issues**: Ensure message service Socket.IO accepts gateway connections
-4. **Auth Errors**: Verify JWT token format and auth service connectivity
 
-### Logs
+**Port already in use:**
 ```bash
-# API Gateway logs
-docker-compose logs api-gateway
-
-# Service-specific logs
-docker-compose logs auth-service
-docker-compose logs message-service
+# Windows
+netstat -ano | findstr :8000
+# Linux/macOS  
+lsof -ti:8000 | xargs kill -9
 ```
 
-## Development Guidelines
+**Service unavailable (503):**
+- Check if target microservice is running
+- Verify service URLs in `.env`
 
-### Adding New Routes
-1. Add route configuration in `server.js`
-2. Update service URLs in `.env`
-3. Add health checks for new services
-4. Update this README
+**Authentication errors (401):**
+- Ensure JWT token is valid
+- Check auth service connectivity
 
-### Security Considerations
-- Never expose service ports directly in production
-- Use environment variables for sensitive data
-- Implement proper JWT validation
-- Monitor rate limiting logs
-- Regular security updates
+---
 
-## Production Deployment
-
-### Recommendations
-1. Use a reverse proxy (nginx) in front of API Gateway
-2. Implement service mesh for inter-service communication
-3. Use container orchestration (Kubernetes)
-4. Implement proper logging and monitoring
-5. Use managed databases
-6. Implement circuit breakers for resilience
-
-### Environment Variables for Production
-```bash
-NODE_ENV=production
-JWT_SECRET=<strong-random-secret>
-RATE_LIMIT_MAX_REQUESTS=1000
-# Use internal service URLs in production
-AUTH_SERVICE_URL=http://auth-service:8001
-```
-
-This API Gateway architecture provides a solid foundation for scaling the Hire an Expert platform while maintaining clean separation of concerns between services.
+**🎉 The API Gateway should now be running on `http://localhost:8000`**
