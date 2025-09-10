@@ -49,7 +49,7 @@ def get_public_gigs(
         max_rate=max_rate,
         min_rating=min_rating,
         search_query=search_query,
-        status=schemas.GigStatusEnum.ACTIVE  # Only show active gigs
+        # status=schemas.GigStatusEnum.ACTIVE  # Only show active gigs
     )
     
     skip = (page - 1) * size
