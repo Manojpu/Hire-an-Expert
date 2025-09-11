@@ -4,7 +4,7 @@ export type Expert = {
   name: string;
   title: string;
   slug: string;
-  categories: string[];
+  category: string;
   subcategories: string[];
   profileImage: string;
   bannerImage: string;
@@ -25,7 +25,7 @@ export const MOCK_EXPERTS: Expert[] = [
     name: "Dr. Sarah Johnson",
     title: "Senior Automotive Engineer",
     slug: "dr-sarah-johnson-automotive",
-    categories: ["automobile-advice"],
+    category: "automobile-advice",
     subcategories: ["brand-new-vehicles", "vehicle-repair"],
     profileImage: "https://i.pravatar.cc/150?img=12",
     bannerImage: "https://i.pravatar.cc/150?img=12",
@@ -43,7 +43,7 @@ export const MOCK_EXPERTS: Expert[] = [
     name: "Michael Lee",
     title: "Mobile Device Specialist",
     slug: "michael-lee-mobile",
-    categories: ["electronic-devices-advice"],
+    category: "electronic-devices-advice",
     subcategories: ["mobile-phones-tablets", "device-repair"],
     profileImage: "https://i.pravatar.cc/150?img=23",
     bannerImage: "https://i.pravatar.cc/150?img=23",
@@ -61,7 +61,7 @@ export const MOCK_EXPERTS: Expert[] = [
     name: "Priya Fernando",
     title: "Home Appliance Technician",
     slug: "priya-fernando-home-appliance",
-    categories: ["home-appliance-guidance"],
+    category: "home-appliance-guidance",
     subcategories: ["appliance-installation", "hvac-systems"],
     profileImage: "https://i.pravatar.cc/150?img=45",
     bannerImage: "https://i.pravatar.cc/150?img=45",
@@ -79,7 +79,7 @@ export const MOCK_EXPERTS: Expert[] = [
     name: "Anil Perera",
     title: "Career Coach",
     slug: "anil-perera-career",
-    categories: ["education-career-guidance"],
+    category: "education-career-guidance",
     subcategories: ["career-development", "skill-development"],
     profileImage: "https://i.pravatar.cc/150?img=5",
     bannerImage: "https://i.pravatar.cc/150?img=5",
@@ -97,7 +97,7 @@ export const MOCK_EXPERTS: Expert[] = [
     name: "Ruwan Silva",
     title: "Electric Vehicle Specialist",
     slug: "ruwan-silva-ev",
-    categories: ["automobile-advice"],
+    category: "automobile-advice",
     subcategories: ["electric-vehicles", "brand-new-vehicles"],
     profileImage: "https://i.pravatar.cc/150?img=15",
     bannerImage: "https://i.pravatar.cc/150?img=15",
@@ -115,7 +115,7 @@ export const MOCK_EXPERTS: Expert[] = [
     name: "Nadeesha Wijesinghe",
     title: "Software Engineer",
     slug: "nadeesha-software",
-    categories: ["electronic-devices-advice"],
+    category: "electronic-devices-advice",
     subcategories: ["laptops-computers", "gaming-equipment"],
     profileImage: "https://i.pravatar.cc/150?img=19",
     bannerImage: "https://i.pravatar.cc/150?img=19",
@@ -133,7 +133,7 @@ export const MOCK_EXPERTS: Expert[] = [
     name: "Saman Perera",
     title: "Vintage Car Restorer",
     slug: "saman-perera-vintage",
-    categories: ["automobile-advice"],
+    category: "automobile-advice",
     subcategories: ["vintage-cars", "vehicle-repair"],
     profileImage: "https://i.pravatar.cc/150?img=27",
     bannerImage: "https://i.pravatar.cc/150?img=27",
@@ -151,7 +151,7 @@ export const MOCK_EXPERTS: Expert[] = [
     name: "Chamari K.",
     title: "Academic Counselor",
     slug: "chamari-academic",
-    categories: ["education-career-guidance"],
+    category: "education-career-guidance",
     subcategories: ["higher-education-planning", "academic-guidance"],
     profileImage: "https://i.pravatar.cc/150?img=30",
     bannerImage: "https://i.pravatar.cc/150?img=30",

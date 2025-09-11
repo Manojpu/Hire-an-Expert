@@ -1,4 +1,3 @@
-
 import React, { useState, FormEvent } from "react";
 import { getIdToken } from "firebase/auth";
 import { useAuth } from "../context/auth/AuthContext.jsx";
@@ -25,18 +24,18 @@ const Login: React.FC = () => {
   const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
-
   const validateForm = (): boolean => {
     if (!formData.email || !formData.password) {
       setErrorMessage("Email and password are required");
       return false;
     }
+    
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       setErrorMessage("Please enter a valid email address");
       return false;
     }
-    setErrorMessage("");
+    
     return true;
   };
 
@@ -55,16 +54,17 @@ const Login: React.FC = () => {
     
     if (!validateForm() || isSigningIn) return;
 
-
     setIsSigningIn(true);
-    try {
+    setErrorMessage("");
 
+    try {
       // Sign in with Firebase Auth
       const userCredential = await doSignInWithEmailAndPassword(formData.email, formData.password);
       
       // Get ID token for backend authentication
-
       const idToken = await getIdToken(userCredential.user);
+
+      // Optional: validate with backend (don't block login if this fails)
       try {
         const response = await fetch("http://127.0.0.1:8001/ping", {
           method: "POST",
@@ -89,19 +89,24 @@ const Login: React.FC = () => {
     } catch (error) {
       console.error("Login error:", error);
       setErrorMessage((error as Error).message || "An error occurred during login");
-
     } finally {
       setIsSigningIn(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
-
     if (isSigningIn) return;
+
     setIsSigningIn(true);
+    setErrorMessage("");
+
     try {
       const userCredential = await doSignInWithGoogle();
+      
+      // Get ID token for backend authentication
       const idToken = await getIdToken(userCredential.user);
+
+      // Optional: validate with backend (don't block login if this fails)
       try {
         const response = await fetch("http://127.0.0.1:8001/ping", {
           method: "POST",
@@ -124,14 +129,17 @@ const Login: React.FC = () => {
     } catch (error) {
       console.error("Google login error:", error);
       setErrorMessage((error as Error).message || "An error occurred during Google login");
-
     } finally {
       setIsSigningIn(false);
     }
   };
 
-  return (
+  // Redirect if user is already logged in
+  if (loggedIn) {
+    return <Navigate to="/dashboard" replace={true} />;
+  }
 
+  return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-background to-secondary-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6 animate-fade-in">
         {/* Logo & Brand */}
