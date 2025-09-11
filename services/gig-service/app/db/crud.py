@@ -1,120 +1,85 @@
 import uuid
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_
+from datetime import datetime
 from typing import List, Optional
-from app.db.schemas import (
-    GigCreate, GigUpdate, GigStatusUpdate, GigFilters, 
-    GigStatusEnum, ExpertCategoryEnum
-)
-from app.db.models import Gig, GigStatus, ExpertCategory
+from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
-def create_gig(db: Session, gig: GigCreate, expert_id: str, user_id: str = None) -> Gig:
-    """Create a new gig from expert application"""
-    try:
-        gig_id = str(uuid.uuid4())
-        print(f"Creating gig with ID: {gig_id}")
-        
-        db_gig = Gig(
-            id=gig_id,
-            expert_id=expert_id,
-            user_id=user_id or expert_id,
-            
-            # Basic Information
-            name=gig.name,
-            title=gig.title,
-            bio=gig.bio,
-            profile_image_url=gig.profile_image_url,
-            banner_image_url=gig.banner_image_url,
-            languages=gig.languages,
-            
-            # Expertise & Services
-            category=ExpertCategory(gig.category.value),
-            service_description=gig.service_description,
-            hourly_rate=gig.hourly_rate,
-            currency=gig.currency,
-            availability_preferences=gig.availability_preferences,
-            
-            # Qualifications
-            education=gig.education,
-            experience=gig.experience,
-            certifications=gig.certifications,
-            
-            # Verification
-            government_id_url=gig.government_id_url,
-            professional_license_url=gig.professional_license_url,
-            references=gig.references,
-            background_check_consent=gig.background_check_consent,
-            
-            # Default system values
-            status=GigStatus.PENDING,  # Needs admin approval
-            is_verified=False,
-            rating=0.0,
-            total_reviews=0,
-            total_consultations=0
-        )
+# Import the correct models and schemas for your new structure
+from .models import Gig, Category, GigStatus
+from .schemas import GigCreate, GigUpdate, GigFilters, CategoryCreate
 
-        print(f"Adding gig to session...")
-        db.add(db_gig)
-        
-        print(f"Committing transaction...")
-        db.commit()
-        
-        print(f"Refreshing gig object...")
-        db.refresh(db_gig)
-        
-        print(f"Successfully created gig: {db_gig.id}")
-        return db_gig
-        
-    except Exception as e:
-        print(f"Error creating gig: {e}")
-        db.rollback()
-        raise
 
-def get_gig(db: Session, gig_id: str) -> Optional[Gig]:
-    """Get a gig by ID"""
-    return db.query(Gig).filter(Gig.id == gig_id).first()
 
-def get_gig_by_expert(db: Session, expert_id: str) -> Optional[Gig]:
-    """Get gig by expert ID (assuming one gig per expert)"""
-    return db.query(Gig).filter(Gig.expert_id == expert_id).first()
 
-def update_gig(db: Session, gig_id: str, gig_update: GigUpdate) -> Optional[Gig]:
-    """Update a gig"""
-    db_gig = db.query(Gig).filter(Gig.id == gig_id).first()
-    if not db_gig:
-        return None
+def create_category(db: Session, category: CategoryCreate) -> Category:
+    """Creates a new category in the database."""
+    db_category = Category(name=category.name, slug=category.slug)
+    db.add(db_category)
+    db.commit()
+    db.refresh(db_category)
+    return db_category
 
-    # Update only provided fields
-    update_data = gig_update.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        if hasattr(db_gig, field):
-            setattr(db_gig, field, value)
+def get_all_categories(db: Session, skip: int = 0, limit: int = 100) -> List[Category]:
+    """Retrieves a list of all categories."""
+    return db.query(Category).offset(skip).limit(limit).all()
 
+def get_category(db: Session, category_id: uuid.UUID) -> Optional[Category]:
+    """Retrieves a single category by its ID."""
+    return db.query(Category).filter(Category.id == category_id).first()
+
+
+
+
+def create_gig(db: Session, gig: GigCreate, expert_id: str) -> Gig:
+    """Creates a new gig for a specific expert."""
+    db_gig = Gig(
+        id=str(uuid.uuid4()),
+        expert_id=expert_id,
+        status=GigStatus.DRAFT,  # Gigs start as drafts by default
+        **gig.dict()
+    )
+    db.add(db_gig)
     db.commit()
     db.refresh(db_gig)
     return db_gig
 
-def update_gig_status(db: Session, gig_id: str, status_update: GigStatusUpdate) -> Optional[Gig]:
-    """Update gig status (admin function)"""
-    db_gig = db.query(Gig).filter(Gig.id == gig_id).first()
+def get_gig(db: Session, gig_id: str) -> Optional[Gig]:
+    """Retrieves a single gig by its ID."""
+    return db.query(Gig).filter(Gig.id == gig_id).first()
+
+def get_gigs_by_expert(db: Session, expert_id: str, skip: int = 0, limit: int = 100) -> List[Gig]:
+    """Retrieves all gigs created by a specific expert."""
+    return db.query(Gig).filter(Gig.expert_id == expert_id).offset(skip).limit(limit).all()
+
+def update_gig(db: Session, gig_id: str, gig_update: GigUpdate) -> Optional[Gig]:
+    """Updates an existing gig."""
+    db_gig = get_gig(db, gig_id)
     if not db_gig:
         return None
+
+    update_data = gig_update.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_gig, field, value)
     
-    db_gig.status = GigStatus(status_update.status.value)
-    
-    # Set approval timestamp if approved
-    if status_update.status == GigStatusEnum.APPROVED:
-        from datetime import datetime
-        db_gig.approved_at = datetime.utcnow()
-        db_gig.is_verified = True
-    
+    db_gig.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(db_gig)
+    return db_gig
+
+def update_gig_status(db: Session, gig_id: str, status: GigStatus) -> Optional[Gig]:
+    """Updates the status of a specific gig."""
+    db_gig = get_gig(db, gig_id)
+    if not db_gig:
+        return None
+        
+    db_gig.status = status
     db.commit()
     db.refresh(db_gig)
     return db_gig
 
 def delete_gig(db: Session, gig_id: str) -> bool:
-    """Delete a gig"""
-    db_gig = db.query(Gig).filter(Gig.id == gig_id).first()
+    """Deletes a gig from the database."""
+    db_gig = get_gig(db, gig_id)
     if not db_gig:
         return False
 
@@ -122,91 +87,54 @@ def delete_gig(db: Session, gig_id: str) -> bool:
     db.commit()
     return True
 
-def get_gigs_by_expert(db: Session, expert_id: str) -> List[Gig]:
-    """Get all gigs by expert ID"""
-    return db.query(Gig).filter(Gig.expert_id == expert_id).all()
-
 def get_gigs_filtered(
-    db: Session, 
-    filters: GigFilters,
-    skip: int = 0, 
-    limit: int = 100
+    db: Session, filters: GigFilters, skip: int = 0, limit: int = 100
 ) -> List[Gig]:
-    """Get gigs with filtering and pagination"""
+    """Retrieves a list of gigs based on filter criteria."""
     query = db.query(Gig)
-    
-    # Apply filters
-    if filters.category:
-        query = query.filter(Gig.category == ExpertCategory(filters.category.value))
+
+    if filters.category_id:
+        query = query.filter(Gig.category_id == filters.category_id)
     
     if filters.min_rate is not None:
         query = query.filter(Gig.hourly_rate >= filters.min_rate)
     
     if filters.max_rate is not None:
         query = query.filter(Gig.hourly_rate <= filters.max_rate)
-    
-    if filters.min_rating is not None:
-        query = query.filter(Gig.rating >= filters.min_rating)
-    
-    if filters.languages:
-        # Check if any of the requested languages are in the gig's languages array
-        for lang in filters.languages:
-            query = query.filter(Gig.languages.contains([lang]))
-    
+        
+    if filters.min_experience_years is not None:
+        query = query.filter(Gig.experience_years >= filters.min_experience_years)
+
     if filters.search_query:
         search_term = f"%{filters.search_query}%"
-        query = query.filter(
-            or_(
-                Gig.name.ilike(search_term),
-                Gig.title.ilike(search_term),
-                Gig.bio.ilike(search_term),
-                Gig.service_description.ilike(search_term)
-            )
-        )
+        query = query.filter(Gig.service_description.ilike(search_term))
     
     if filters.status:
-        query = query.filter(Gig.status == GigStatus(filters.status.value))
+        query = query.filter(Gig.status == filters.status)
     
     return query.offset(skip).limit(limit).all()
 
-def get_gigs_count(db: Session, filters: GigFilters = None) -> int:
-    """Get total count of gigs matching filters"""
+def get_gigs_count(db: Session, filters: GigFilters) -> int:
+    """Gets the total count of gigs that match the filter criteria."""
     query = db.query(Gig)
+
+    if filters.category_id:
+        query = query.filter(Gig.category_id == filters.category_id)
     
-    if filters:
-        if filters.category:
-            query = query.filter(Gig.category == ExpertCategory(filters.category.value))
-        if filters.min_rate is not None:
-            query = query.filter(Gig.hourly_rate >= filters.min_rate)
-        if filters.max_rate is not None:
-            query = query.filter(Gig.hourly_rate <= filters.max_rate)
-        if filters.min_rating is not None:
-            query = query.filter(Gig.rating >= filters.min_rating)
-        if filters.status:
-            query = query.filter(Gig.status == GigStatus(filters.status.value))
+    if filters.min_rate is not None:
+        query = query.filter(Gig.hourly_rate >= filters.min_rate)
     
+    if filters.max_rate is not None:
+        query = query.filter(Gig.hourly_rate <= filters.max_rate)
+        
+    if filters.min_experience_years is not None:
+        query = query.filter(Gig.experience_years >= filters.min_experience_years)
+
+    if filters.search_query:
+        search_term = f"%{filters.search_query}%"
+        query = query.filter(Gig.service_description.ilike(search_term))
+    
+    if filters.status:
+        query = query.filter(Gig.status == filters.status)
+        
     return query.count()
-
-def get_pending_gigs(db: Session, skip: int = 0, limit: int = 100) -> List[Gig]:
-    """Get gigs pending approval (admin function)"""
-    return db.query(Gig).filter(
-        Gig.status == GigStatus.PENDING
-    ).offset(skip).limit(limit).all()
-
-def update_gig_metrics(db: Session, gig_id: str, rating: float = None, add_consultation: bool = False) -> Optional[Gig]:
-    """Update gig metrics (rating, consultation count)"""
-    db_gig = db.query(Gig).filter(Gig.id == gig_id).first()
-    if not db_gig:
-        return None
-    
-    if rating is not None:
-        # Update rating (simplified - should be weighted average in real implementation)
-        db_gig.total_reviews += 1
-        db_gig.rating = ((db_gig.rating * (db_gig.total_reviews - 1)) + rating) / db_gig.total_reviews
-    
-    if add_consultation:
-        db_gig.total_consultations += 1
-    
-    db.commit()
-    db.refresh(db_gig)
-    return db_gig

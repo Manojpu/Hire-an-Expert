@@ -150,7 +150,7 @@ Status: ${createdGig.status}`);
                 <h2 className="text-xl font-semibold mb-4">Qualifications</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm">Education</label>
+                    <label className="text-sm">Expertise Areas</label>
                     <Textarea
                       value={form.education || ""}
                       onChange={(e) =>
@@ -159,12 +159,11 @@ Status: ${createdGig.status}`);
                     />
                   </div>
                   <div>
-                    <label className="text-sm">Certifications (upload)</label>
+                    <label className="text-sm">Experience (in years)</label>
                     <Input
-                      type="file"
-                      multiple
+                      type="number"
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        handleChange("certs", e.target.files)
+                        handleChange("experience_years", e.target.value)
                       }
                     />
                   </div>

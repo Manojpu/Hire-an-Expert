@@ -30,7 +30,7 @@ def create_expert_gig(
 
 @router.get("/public", response_model=schemas.GigListResponse)
 def get_public_gigs(
-    category: Optional[schemas.ExpertCategoryEnum] = None,
+    category_id: str = Query(None),
     min_rate: Optional[float] = Query(None, ge=0),
     max_rate: Optional[float] = Query(None, ge=0),
     min_rating: Optional[float] = Query(None, ge=0, le=5),
@@ -44,7 +44,7 @@ def get_public_gigs(
     This feeds the Category.tsx component.
     """
     filters = schemas.GigFilters(
-        category=category,
+        category=category_id,
         min_rate=min_rate,
         max_rate=max_rate,
         min_rating=min_rating,
