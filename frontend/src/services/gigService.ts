@@ -1,11 +1,16 @@
 // Frontend utility to sync with Gig Service
-import { ExpertApplicationForm } from '@/types/expert';
+import { ExpertApplicationForm } from "@/types/expert";
 
 export interface GigServiceAPI {
   create: (gigData: ExpertGigCreateData) => Promise<ExpertGig>;
   getByExpert: (expertId: string) => Promise<ExpertGig>;
   getPublic: (filters: GigFilters) => Promise<GigListResponse>;
   updateMy: (updates: Partial<ExpertGigCreateData>) => Promise<ExpertGig>;
+}
+
+interface Certificate {
+  url: string | null;
+  thumbnail?: File;
 }
 
 export interface ExpertGigCreateData {
@@ -16,19 +21,23 @@ export interface ExpertGigCreateData {
   profile_image_url?: string;
   banner_image_url?: string;
   languages: string[];
-  
+
   // Expertise & Services (Step 1)
-  category: 'automobile-advice' | 'electronic-device-advice' | 'home-appliance-guidance' | 'education-career-guidance';
+  category:
+    | "automobile-advice"
+    | "electronic-device-advice"
+    | "home-appliance-guidance"
+    | "education-career-guidance";
   service_description?: string;
   hourly_rate: number;
   currency?: string;
   availability_preferences?: string;
-  
+
   // Qualifications (Step 2)
   education?: string;
   experience?: string;
-  certifications?: string[];
-  
+  certifications?: Certificate[];
+
   // Verification (Step 3)
   government_id_url?: string;
   professional_license_url?: string;
@@ -39,7 +48,7 @@ export interface ExpertGigCreateData {
 export interface ExpertGig extends ExpertGigCreateData {
   id: string;
   expert_id: string;
-  status: 'draft' | 'pending' | 'approved' | 'rejected' | 'active' | 'inactive';
+  status: "draft" | "pending" | "approved" | "rejected" | "active" | "inactive";
   is_verified: boolean;
   rating: number;
   total_reviews: number;
@@ -72,88 +81,81 @@ export interface GigListResponse {
 export function convertFormToGigData(
   form: Partial<ExpertApplicationForm>,
   profileImageUrl?: string,
-  bannerImageUrl?: string
+  bannerImageUrl?: string,
+  certificationUrls: string[] = []
 ): ExpertGigCreateData {
   return {
-    // Basic Information
-    name: form.name || '',
-    title: form.title || '',
-    bio: form.bio || '',
-    profile_image_url: profileImageUrl,
-    banner_image_url: bannerImageUrl,
-    languages: form.languages ? form.languages.split(',').map(lang => lang.trim()) : ['English'],
-    
-    // Expertise & Services
-    category: getCategorySlug(form.categories || ''),
-    service_description: form.serviceDesc || '',
+    category: getCategorySlug(form.categories || ""),
+    service_description: form.serviceDesc || "",
     hourly_rate: Number(form.rate) || 0,
-    currency: 'LKR',
-    availability_preferences: form.availabilityNotes || '',
-    
+    currency: "LKR",
+    availability_preferences: form.availabilityNotes || "",
+
     // Qualifications
-    education: form.education || '',
-    experience: form.experience || '',
-    certifications: [], // File uploads would be handled separately
-    
+
+    experience: form.experience || "",
+    certifications: certificationUrls, // Use the uploaded certification URLs
+
     // Verification
-    references: form.references || '',
-    background_check_consent: form.bgConsent || false
+    references: form.references || "",
+    background_check_consent: form.bgConsent || false,
   };
 }
 
-function getCategorySlug(category: string): ExpertGigCreateData['category'] {
-  const mapping: Record<string, ExpertGigCreateData['category']> = {
-    'Automobile Advice': 'automobile-advice',
-    'Electronic Device Advice': 'electronic-device-advice',
-    'Home Appliance Guidance': 'home-appliance-guidance',
-    'Education & Career Guidance': 'education-career-guidance'
+function getCategorySlug(category: string): ExpertGigCreateData["category"] {
+  const mapping: Record<string, ExpertGigCreateData["category"]> = {
+    "Automobile Advice": "automobile-advice",
+    "Electronic Device Advice": "electronic-device-advice",
+    "Home Appliance Guidance": "home-appliance-guidance",
+    "Education & Career Guidance": "education-career-guidance",
   };
-  return mapping[category] || 'automobile-advice';
+  return mapping[category] || "automobile-advice";
 }
 
 // API client for Gig Service
-const GIG_SERVICE_URL = import.meta.env.VITE_GIG_SERVICE_URL || 'http://localhost:8002';
+const GIG_SERVICE_URL =
+  import.meta.env.VITE_GIG_SERVICE_URL || "http://localhost:8002";
 
 // Debug logging for environment variable
-console.log('GIG_SERVICE_URL from env:', import.meta.env.VITE_GIG_SERVICE_URL);
-console.log('Final GIG_SERVICE_URL used:', GIG_SERVICE_URL);
+console.log("GIG_SERVICE_URL from env:", import.meta.env.VITE_GIG_SERVICE_URL);
+console.log("Final GIG_SERVICE_URL used:", GIG_SERVICE_URL);
 
 export const gigServiceAPI: GigServiceAPI = {
   async create(gigData: ExpertGigCreateData): Promise<ExpertGig> {
     const url = `${GIG_SERVICE_URL}/gigs/`;
-    
+
     // Debug logging
-    console.log('Sending POST request to:', url);
-    console.log('Gig data being sent:', gigData);
-    
+    console.log("Sending POST request to:", url);
+    console.log("Gig data being sent:", gigData);
+
     const response = await fetch(url, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${await getIdToken()}`
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${await getIdToken()}`,
       },
-      body: JSON.stringify(gigData)
+      body: JSON.stringify(gigData),
     });
-    
-    console.log('Response status:', response.status);
-    console.log('Response headers:', response.headers);
-    
+
+    console.log("Response status:", response.status);
+    console.log("Response headers:", response.headers);
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Error response body:', errorText);
+      console.error("Error response body:", errorText);
       throw new Error(`Failed to create gig: ${response.status} ${errorText}`);
     }
-    
+
     return response.json();
   },
 
   async getByExpert(expertId: string): Promise<ExpertGig> {
     const response = await fetch(`${GIG_SERVICE_URL}/gigs/expert/${expertId}`);
-    
+
     if (!response.ok) {
-      throw new Error('Expert gig not found');
+      throw new Error("Expert gig not found");
     }
-    
+
     return response.json();
   },
 
@@ -164,32 +166,32 @@ export const gigServiceAPI: GigServiceAPI = {
         params.append(key, value.toString());
       }
     });
-    
+
     const response = await fetch(`${GIG_SERVICE_URL}/gigs/public?${params}`);
-    
+
     if (!response.ok) {
-      throw new Error('Failed to fetch gigs');
+      throw new Error("Failed to fetch gigs");
     }
-    
+
     return response.json();
   },
 
   async updateMy(updates: Partial<ExpertGigCreateData>): Promise<ExpertGig> {
     const response = await fetch(`${GIG_SERVICE_URL}/gigs/my/gig`, {
-      method: 'PUT',
+      method: "PUT",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${await getIdToken()}`
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${await getIdToken()}`,
       },
-      body: JSON.stringify(updates)
+      body: JSON.stringify(updates),
     });
-    
+
     if (!response.ok) {
-      throw new Error('Failed to update gig');
+      throw new Error("Failed to update gig");
     }
-    
+
     return response.json();
-  }
+  },
 };
 
 // Helper to get Firebase ID token
@@ -203,9 +205,9 @@ async function getIdToken(): Promise<string> {
     // if (user) {
     //   return await user.getIdToken();
     // }
-    return 'dev-mock-token'; // For development only
+    return "dev-mock-token"; // For development only
   } catch (error) {
-    console.error('Failed to get ID token:', error);
-    return 'dev-mock-token';
+    console.error("Failed to get ID token:", error);
+    return "dev-mock-token";
   }
 }

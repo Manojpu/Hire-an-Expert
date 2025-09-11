@@ -36,7 +36,24 @@ class Category(Base):
     def __repr__(self):
         return f"<Category(id={self.id}, name='{self.name}')>"
 
+class Certification(Base):
+    """
+    Stores certifications uploaded by experts.
+    """
+    print("Certification model loaded")
 
+    __tablename__ = "certifications"
+
+    id = Column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True
+    )
+    gig_id = Column(String, index=True)  # Foreign key to Gig
+    url = Column(String, nullable=False)  # URL to the stored certification document
+    thumbnail_url = Column(String, nullable=True)  # URL to the thumbnail image
+    uploaded_at = Column(DateTime, server_default=func.now())
+
+    def __repr__(self):
+        return f"<Certification(id={self.id}, gig_id='{self.gig_id}', url='{self.url}', thumbnail_url='{self.thumbnail_url}')>"
 
 class Gig(Base):
     print("Gig model loaded")
