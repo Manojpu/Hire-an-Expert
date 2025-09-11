@@ -21,9 +21,9 @@ const Experts = lazy(() => import("@/pages/Experts"));
 const ClientDashboard = lazy(() => import("@/pages/ClientDashboard"));
 
 const ProtectedRoute = ({ children, role }: { children: JSX.Element; role?: string }) => {
-  const { state } = useAuth();
-  if (!state.user) return <Navigate to="/" replace />;
-  if (role && state.user.role !== role) return <Navigate to="/" replace />;
+  const { user, loggedIn } = useAuth();
+  if (!loggedIn || !user) return <Navigate to="/" replace />;
+  if (role && user.role !== role) return <Navigate to="/" replace />;
   return children;
 };
 
@@ -42,11 +42,13 @@ const AppRoutes = () => (
         }
       />
 
+      {/* Standalone pages (no header/footer) */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<SignUp />} />
+
       {/* Main layout with footer */}
       <Route path="/" element={<MainLayout />}>
         <Route index element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<SignUp />} />
         <Route path="categories" element={<Category />} />
         <Route path="category/:slug" element={<Category />} />
         <Route path="expert/:slug" element={<Expert />} />
@@ -59,6 +61,14 @@ const AppRoutes = () => (
           element={
             <ProtectedRoute>
               <Chat />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="profile/:userId"
+          element={
+            <ProtectedRoute>
+              <Profile />
             </ProtectedRoute>
           }
         />
@@ -95,7 +105,7 @@ const AppRoutes = () => (
             </ProtectedRoute>
           }
         />
-        <Route path="experts" element={<Experts />} />
+  <Route path="experts" element={<Experts />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

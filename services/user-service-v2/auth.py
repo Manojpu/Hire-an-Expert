@@ -9,25 +9,29 @@ from config import settings
 from database import get_async_db
 from models import User, UserRole
 
+
 # Initialize Firebase Admin SDK
 try:
-    # Check if Firebase app is already initialized
     firebase_admin.get_app()
+    print("Firebase app already initialized")
 except ValueError:
-    # Initialize Firebase with service account
+    print("Initializing Firebase Admin SDK...")
+
     cred = credentials.Certificate({
         "type": "service_account",
         "project_id": settings.firebase_project_id,
         "private_key_id": settings.firebase_private_key_id,
-        "private_key": settings.firebase_private_key.replace("\\n", "\n") if settings.firebase_private_key else None,
+        "private_key": settings.firebase_private_key.replace("\\n", "\n"),
         "client_email": settings.firebase_client_email,
         "client_id": settings.firebase_client_id,
         "auth_uri": settings.firebase_auth_uri,
         "token_uri": settings.firebase_token_uri,
         "auth_provider_x509_cert_url": settings.firebase_auth_provider_x509_cert_url,
-        "client_x509_cert_url": settings.firebase_client_x509_cert_url
+        "client_x509_cert_url": settings.firebase_client_x509_cert_url,
     })
+
     initialize_app(cred)
+    print("Firebase Admin SDK initialized successfully")
 
 # Security scheme
 security = HTTPBearer()
@@ -43,27 +47,45 @@ async def get_current_user(
     try:
         # Verify Firebase token
         token = credentials.credentials
+        print(f"🔐 Attempting to verify token: {token[:50]}...")
+        print(f"🔐 Token length: {len(token)}")
+        print(f"🔐 Token type: {type(token)}")
+        
+        # Add Firebase app info
+        try:
+            app = firebase_admin.get_app()
+            print(f"🔐 Firebase app initialized: {app.project_id}")
+        except Exception as app_error:
+            print(f"🔐 Firebase app error: {app_error}")
+        
         decoded_token = auth.verify_id_token(token)
         firebase_uid = decoded_token['uid']
+        print(f"✅ Token verified successfully for Firebase UID: {firebase_uid}")
+        print(f"✅ Decoded token keys: {list(decoded_token.keys())}")
         
         # Get user from database
         result = await db.execute(select(User).where(User.firebase_uid == firebase_uid))
         user = result.scalar_one_or_none()
         
         if not user:
+            print(f"User not found in database for Firebase UID: {firebase_uid}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
         
+        print(f"User found in database: {user.id}")
         return user
         
-    except auth.InvalidIdTokenError:
+    except auth.InvalidIdTokenError as e:
+        print(f"Invalid ID token error: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication token"
         )
     except Exception as e:
+        print(f"Authentication error: {e}")
+        print(f"Error type: {type(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication failed"

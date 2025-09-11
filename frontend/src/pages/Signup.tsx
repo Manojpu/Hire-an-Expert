@@ -88,7 +88,7 @@ const Signup: React.FC = () => {
           body: JSON.stringify({ 
             firebase_uid: userCredential.user.uid,
             email: formData.email,
-            full_name: userCredential.user.displayName || formData.email.split('@')[0],
+            name: userCredential.user.displayName || formData.email.split('@')[0],  // Change from full_name to name
             is_expert: true,
             expert_profiles: []
           }),
@@ -137,7 +137,7 @@ const Signup: React.FC = () => {
           body: JSON.stringify({ 
             firebase_uid: userCredential.user.uid,
             email: userCredential.user.email,
-            full_name: userCredential.user.displayName || userCredential.user.email?.split('@')[0] || 'User',
+            name: userCredential.user.displayName || userCredential.user.email?.split('@')[0] || 'User',  // Change from full_name to name
             is_expert: true,
             expert_profiles: []
           }),

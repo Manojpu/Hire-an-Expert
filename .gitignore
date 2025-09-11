@@ -139,3 +139,11 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 services/auth-service/serviceAccountKey.json
+
+# Ignore Python virtual environment folders
+venv/
+
+.env
+
+__pycache__/
+*.pyc

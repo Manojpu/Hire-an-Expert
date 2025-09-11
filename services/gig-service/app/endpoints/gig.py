@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, status
 from app.db import schemas
 from sqlalchemy.orm import Session
-from typing import List, Optional
+
+from typing import List
 from app.db import crud, session
 from app.utils.logger import get_logger
 
@@ -10,15 +11,14 @@ logger = get_logger(__name__)
 
 router = APIRouter()
 
-@router.post("/", response_model=schemas.GigPrivateResponse, status_code=status.HTTP_201_CREATED)
-def create_expert_gig(
+@router.post("/", response_model=schemas.GigResponse,status_code=status.HTTP_201_CREATED)
+def create_new_gig(
     gig: schemas.GigCreate,
     db: Session = Depends(session.get_db),
-    current_user_id: str = Depends(session.get_current_user_id)  # Firebase UID
+    current_user_id: int = Depends(session.get_current_user_id)
 ):
     """
-    Create a new expert gig/profile from application.
-    This corresponds to the ApplyExpert form submission.
+    Create a new gig.
     """
     try:
         logger.info(f"Creating new gig for expert: {current_user_id}")
@@ -86,8 +86,7 @@ def get_gig_detail(
     db: Session = Depends(session.get_db)
 ):
     """
-    Get detailed gig information for expert profile page.
-    This feeds the Expert.tsx component.
+    Get a gig by ID.
     """
     logger.info(f"Fetching gig details for gig ID: {gig_id}")
     db_gig = crud.get_gig(db=db, gig_id=gig_id)
@@ -100,9 +99,11 @@ def get_gig_detail(
     
     return db_gig
 
-@router.get("/expert/{expert_id}", response_model=schemas.GigDetailResponse)
-def get_gig_by_expert_id(
-    expert_id: str,
+# Endpoint to get a list of all gigs (Public)
+@router.get("/", response_model=List[schemas.GigResponse])
+def get_all_gigs(
+    skip: int = 0,
+    limit: int = 100,
     db: Session = Depends(session.get_db)
 ):
     """
@@ -137,88 +138,26 @@ def get_my_gig(
 def update_my_gig(
     gig_update: schemas.GigUpdate,
     db: Session = Depends(session.get_db),
-    current_user_id: str = Depends(session.get_current_user_id)
+    current_user_id: int = Depends(session.get_current_user_id)
 ):
     """
-    Update expert's own gig.
-    Used in expert dashboard for profile management.
+    Update a gig by ID.
     """
-    # First find the expert's gig
-    db_gig = crud.get_gig_by_expert(db=db, expert_id=current_user_id)
+    db_gig = crud.update_gig(db=db, gig_id=gig_id, gig_update=gig_update)
     if not db_gig:
-        raise HTTPException(status_code=404, detail="No gig found for this expert")
-    
-    updated_gig = crud.update_gig(db=db, gig_id=db_gig.id, gig_update=gig_update)
-    if not updated_gig:
-        raise HTTPException(status_code=404, detail="Failed to update gig")
-    
-    return updated_gig
+        return {"error": "Gig not found"}, status.HTTP_404_NOT_FOUND
+    return db_gig
 
-@router.delete("/my/gig", status_code=status.HTTP_204_NO_CONTENT)
-def delete_my_gig(
+@router.delete("/{gig_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_gig(
+    gig_id: str,
     db: Session = Depends(session.get_db),
-    current_user_id: str = Depends(session.get_current_user_id)
+    current_user_id: int = Depends(session.get_current_user_id)
 ):
     """
-    Delete expert's own gig.
+    Delete a gig by ID.
     """
-    db_gig = crud.get_gig_by_expert(db=db, expert_id=current_user_id)
-    if not db_gig:
-        raise HTTPException(status_code=404, detail="No gig found for this expert")
-    
-    success = crud.delete_gig(db=db, gig_id=db_gig.id)
+    success = crud.delete_gig(db=db, gig_id=gig_id)
     if not success:
-        raise HTTPException(status_code=500, detail="Failed to delete gig")
-
-# Admin endpoints
-@router.get("/admin/pending", response_model=List[schemas.GigPrivateResponse])
-def get_pending_gigs(
-    page: int = Query(1, ge=1),
-    size: int = Query(10, ge=1, le=100),
-    db: Session = Depends(session.get_db),
-    # Add admin authentication here
-):
-    """
-    Get gigs pending approval (admin only).
-    """
-    skip = (page - 1) * size
-    return crud.get_pending_gigs(db=db, skip=skip, limit=size)
-
-@router.patch("/admin/{gig_id}/status", response_model=schemas.GigDetailResponse)
-def update_gig_status(
-    gig_id: str,
-    status_update: schemas.GigStatusUpdate,
-    db: Session = Depends(session.get_db),
-    # Add admin authentication here
-):
-    """
-    Update gig status (admin only).
-    Used for approving/rejecting expert applications.
-    """
-    updated_gig = crud.update_gig_status(db=db, gig_id=gig_id, status_update=status_update)
-    if not updated_gig:
-        raise HTTPException(status_code=404, detail="Gig not found")
-    
-    return updated_gig
-
-@router.patch("/{gig_id}/metrics", response_model=schemas.GigDetailResponse)
-def update_gig_metrics(
-    gig_id: str,
-    rating: Optional[float] = Query(None, ge=0, le=5),
-    add_consultation: bool = Query(False),
-    db: Session = Depends(session.get_db)
-):
-    """
-    Update gig metrics (rating, consultation count).
-    Called from booking/review services.
-    """
-    updated_gig = crud.update_gig_metrics(
-        db=db, 
-        gig_id=gig_id, 
-        rating=rating, 
-        add_consultation=add_consultation
-    )
-    if not updated_gig:
-        raise HTTPException(status_code=404, detail="Gig not found")
-    
-    return updated_gig
+        return {"error": "Gig not found"}, status.HTTP_404_NOT_FOUND
+    return {"message": "Gig deleted successfully"}

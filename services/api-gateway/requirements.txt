@@ -1,0 +1,19 @@
+# FastAPI and core dependencies (compatible versions)
+fastapi==0.68.0
+uvicorn[standard]==0.15.0
+pydantic==1.8.2
+starlette==0.14.2
+
+# HTTP client
+httpx==0.24.1
+
+# Middleware and security
+slowapi==0.1.8
+python-multipart==0.0.6
+
+# Environment and configuration
+python-dotenv==1.0.0
+
+# Development dependencies
+pytest==7.4.0
+pytest-asyncio==0.21.0

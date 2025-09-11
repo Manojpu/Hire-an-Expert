@@ -29,12 +29,14 @@ class User(Base):
     role = Column(Enum(UserRole), default=UserRole.CLIENT, nullable=False)
     bio = Column(Text)
     profile_image_url = Column(String)
+    location = Column(String)  # User's geographical location (e.g., "New York, USA")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     is_expert = Column(Boolean, default=True)
     
     # Relationship
     expert_profiles = relationship("ExpertProfile", back_populates="user")
+    preferences = relationship("Preference", back_populates="user", cascade="all, delete-orphan")
     
     
     def __repr__(self):
@@ -57,17 +59,23 @@ class ExpertProfile(Base):
     def __repr__(self):
         return f"<ExpertProfile(id={self.id}, user_id={self.user_id}, specialization={self.specialization})>"
 
-class VerificationDocument(Base):
-    __tablename__ = "verification_documents"
+
+class Preference(Base):
+    __tablename__ = "preferences"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    expert_profile_id = Column(UUID(as_uuid=True), ForeignKey("expert_profiles.id", ondelete="CASCADE"), nullable=False)
-    document_type = Column(Enum(DocumentType), nullable=False)
-    document_url = Column(String, nullable=False)
-    uploaded_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    key = Column(String(100), nullable=False)  # e.g., "email_notifications", "sms_notifications"
+    value = Column(String(500), nullable=False)  # e.g., "true", "false", or complex JSON values
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    
+    # Composite unique constraint to prevent duplicate keys per user
+    __table_args__ = (UniqueConstraint('user_id', 'key', name='unique_user_preference'),)
     
     # Relationship
-    expert_profile = relationship("ExpertProfile", backref="verification_documents")
+    user = relationship("User", back_populates="preferences")
     
     def __repr__(self):
-        return f"<VerificationDocument(id={self.id}, expert_profile_id={self.expert_profile_id}, document_type={self.document_type})>"
+        return f"<Preference(id={self.id}, user_id={self.user_id}, key={self.key}, value={self.value})>"
+
