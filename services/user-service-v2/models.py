@@ -12,6 +12,11 @@ class UserRole(str, enum.Enum):
     EXPERT = "expert"
     ADMIN = "admin"
 
+class DocumentType(str, enum.Enum):
+    ID_PROOF = "ID_PROOF"
+    PROFESSIONAL_LICENSE = "PROFESSIONAL_LICENSE"
+    OTHER = "OTHER"
+
 
 class User(Base):
     __tablename__ = "users"
@@ -44,6 +49,7 @@ class ExpertProfile(Base):
     specialization = Column(String(100), nullable=False)
     description = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    is_verified = Column(Boolean, default=False)
     
     # Relationship
     user = relationship("User", back_populates="expert_profiles")
@@ -51,3 +57,17 @@ class ExpertProfile(Base):
     def __repr__(self):
         return f"<ExpertProfile(id={self.id}, user_id={self.user_id}, specialization={self.specialization})>"
 
+class VerificationDocument(Base):
+    __tablename__ = "verification_documents"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    expert_profile_id = Column(UUID(as_uuid=True), ForeignKey("expert_profiles.id", ondelete="CASCADE"), nullable=False)
+    document_type = Column(Enum(DocumentType), nullable=False)
+    document_url = Column(String, nullable=False)
+    uploaded_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    
+    # Relationship
+    expert_profile = relationship("ExpertProfile", backref="verification_documents")
+    
+    def __repr__(self):
+        return f"<VerificationDocument(id={self.id}, expert_profile_id={self.expert_profile_id}, document_type={self.document_type})>"
