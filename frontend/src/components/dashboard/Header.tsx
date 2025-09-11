@@ -21,11 +21,11 @@ const navItems: NavItem[] = [
 ];
 
 const Header: React.FC<{ onMenuToggle?: () => void }> = ({ onMenuToggle }) => {
-  const { state } = useAuth();
+  const { state, user } = useAuth();
   const location = useLocation();
   const hasNotifications = true; // TODO: Replace with actual notifications state
 
-  const userRole = state.user?.role || 'expert';
+  const userRole = user?.role || 'expert';
   const filteredNavItems = navItems.filter(
     item => item.role === 'all' || item.role === userRole
   );
@@ -89,10 +89,10 @@ const Header: React.FC<{ onMenuToggle?: () => void }> = ({ onMenuToggle }) => {
             <div className="flex items-center gap-3 pl-2">
               <div className="flex items-center gap-3 p-1.5 rounded-full transition-colors hover:bg-[#f5f5f5] cursor-pointer">
                 <div className="relative h-8 w-8 rounded-full ring-2 ring-[#00b22d]/10 overflow-hidden bg-[#f5f5f5] flex items-center justify-center">
-                  {state.user?.profileImage ? (
+                  {user?.profileImage ? (
                     <img
-                      src={state.user.profileImage}
-                      alt={state.user.name || 'User avatar'}
+                      src={user.profileImage}
+                      alt={user.name || 'User avatar'}
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -101,13 +101,12 @@ const Header: React.FC<{ onMenuToggle?: () => void }> = ({ onMenuToggle }) => {
                   <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-[#00b22d] ring-2 ring-white" />
                 </div>
                 <div className="hidden md:block">
-                  <p className="text-sm font-medium leading-none">{state.user?.name?.split(' ')[0] || 'Guest'}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{state.user?.role || 'Expert'}</p>
+                  <p className="text-sm font-medium leading-none">{user?.name?.split(' ')[0] || 'Guest'}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{user?.role || 'Expert'}</p>
                 </div>
               </div>
             </div>
           </div>
-        </div>
         
         {/* Navigation Items - Mobile */}
         <div className="md:hidden overflow-x-auto">
