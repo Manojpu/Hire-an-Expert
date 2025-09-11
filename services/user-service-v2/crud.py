@@ -4,7 +4,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.orm import Session 
 from typing import List, Optional, Dict, Any
 import uuid
-from models import User,  UserRole, ExpertProfile
+from models import User,  UserRole, ExpertProfile, Preference
 from schemas import UserCreate, UserUpdate, PreferenceCreate, PreferenceUpdate, ProvisionIn, ExpertProfileIn, UserOut, ExpertProfileOut, UserResponse, PaginationParams, PaginatedResponse, ErrorResponse, ValidationErrorResponse, SuccessResponse
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -12,17 +12,28 @@ from sqlalchemy.orm import selectinload
 
 
 # User CRUD operations    
-def upsert_user(db: Session, uid: str, email: str, full_name: str, is_expert=True, expert_profiles=[]):
+def upsert_user(db: Session, uid: str, email: str, name: str, is_expert=True, expert_profiles=[]):  # Changed full_name to name
     user = db.query(User).filter(User.firebase_uid == uid).first()
     if user:
         user.email = email
-        user.name = full_name
+        user.name = name  # Changed from full_name to name
         user.is_expert = is_expert
     else:
-        user = User(firebase_uid=uid, email=email, name=full_name, is_expert=is_expert)
+        user = User(firebase_uid=uid, email=email, name=name, is_expert=is_expert)  # Changed from full_name to name
         db.add(user)
         db.commit()
         db.refresh(user)
+        
+        # Create default preferences for new users
+        default_preferences = [
+            Preference(user_id=user.id, key="email_notifications", value="true"),
+            Preference(user_id=user.id, key="sms_notifications", value="false"),
+            Preference(user_id=user.id, key="marketing_emails", value="true"),
+            Preference(user_id=user.id, key="profile_visibility", value="true"),
+            Preference(user_id=user.id, key="contact_visibility", value="true"),
+        ]
+        for pref in default_preferences:
+            db.add(pref)
 
     # handle expert profiles
     if is_expert and expert_profiles:
@@ -44,7 +55,8 @@ async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
         phone=user_data.phone,
         role=user_data.role,
         bio=user_data.bio, 
-        profile_image_url=user_data.profile_image_url
+        profile_image_url=user_data.profile_image_url,
+        location=user_data.location
     )
     db.add(db_user)
     await db.commit()
@@ -149,4 +161,82 @@ async def get_users_count(db: AsyncSession, role: Optional[UserRole] = None) -> 
     if role:
         query = query.where(User.role == role)
     result = await db.execute(query)
-    return len(result.scalars().all()) 
+    return len(result.scalars().all())
+
+
+# Preference CRUD operations
+async def create_preference(db: AsyncSession, user_id: uuid.UUID, preference_data: PreferenceCreate) -> Preference:
+    """Create a new preference for a user"""
+    db_preference = Preference(
+        user_id=user_id,
+        key=preference_data.key,
+        value=preference_data.value
+    )
+    db.add(db_preference)
+    await db.commit()
+    await db.refresh(db_preference)
+    return db_preference
+
+
+async def get_user_preferences(db: AsyncSession, user_id: uuid.UUID) -> List[Preference]:
+    """Get all preferences for a user"""
+    result = await db.execute(
+        select(Preference).where(Preference.user_id == user_id)
+    )
+    return result.scalars().all()
+
+
+async def get_preference_by_key(db: AsyncSession, user_id: uuid.UUID, key: str) -> Optional[Preference]:
+    """Get a specific preference by key for a user"""
+    result = await db.execute(
+        select(Preference).where(Preference.user_id == user_id, Preference.key == key)
+    )
+    return result.scalar_one_or_none()
+
+
+async def update_preference(db: AsyncSession, user_id: uuid.UUID, key: str, preference_data: PreferenceUpdate) -> Optional[Preference]:
+    """Update a preference value"""
+    stmt = update(Preference).where(
+        Preference.user_id == user_id, 
+        Preference.key == key
+    ).values(value=preference_data.value)
+    
+    await db.execute(stmt)
+    await db.commit()
+    
+    return await get_preference_by_key(db, user_id, key)
+
+
+async def upsert_preference(db: AsyncSession, user_id: uuid.UUID, key: str, value: str) -> Preference:
+    """Create or update a preference"""
+    existing = await get_preference_by_key(db, user_id, key)
+    
+    if existing:
+        # Update existing preference
+        await update_preference(db, user_id, key, PreferenceUpdate(value=value))
+        return await get_preference_by_key(db, user_id, key)
+    else:
+        # Create new preference
+        return await create_preference(db, user_id, PreferenceCreate(key=key, value=value))
+
+
+async def delete_preference(db: AsyncSession, user_id: uuid.UUID, key: str) -> bool:
+    """Delete a preference"""
+    preference = await get_preference_by_key(db, user_id, key)
+    if not preference:
+        return False
+    
+    await db.delete(preference)
+    await db.commit()
+    return True
+
+
+async def bulk_upsert_preferences(db: AsyncSession, user_id: uuid.UUID, preferences: List[PreferenceCreate]) -> List[Preference]:
+    """Bulk create or update preferences"""
+    result_preferences = []
+    
+    for pref in preferences:
+        upserted = await upsert_preference(db, user_id, pref.key, pref.value)
+        result_preferences.append(upserted)
+    
+    return result_preferences 

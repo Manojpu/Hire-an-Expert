@@ -64,6 +64,9 @@ export const AuthProvider = ({ children }) => {
     photoURL: firebaseUser.photoURL,
     emailVerified: firebaseUser.emailVerified,
     
+    // Firebase methods
+    getIdToken: () => getIdToken(firebaseUser),
+    
     // User Service profile data (if available)
     ...(userProfile && {
       id: userProfile.id,
@@ -72,9 +75,14 @@ export const AuthProvider = ({ children }) => {
       phone: userProfile.phone,
       bio: userProfile.bio,
       profile_image_url: userProfile.profile_image_url,
-      isExpert: userProfile.is_expert ,
+      location: userProfile.location,  // User's geographical location
+      isExpert: userProfile.is_expert,
       created_at: userProfile.created_at,
-      updated_at: userProfile.updated_at
+      updated_at: userProfile.updated_at,
+      
+      // Field mappings for frontend compatibility
+      profileImage: userProfile.profile_image_url,  // Map profile_image_url to profileImage
+      joinDate: userProfile.created_at  // Map created_at to joinDate for backward compatibility
     })
   } : null;
 
