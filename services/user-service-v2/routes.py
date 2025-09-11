@@ -9,11 +9,15 @@ from database import SyncSessionLocal, get_async_db
 from models import User, UserRole
 from schemas import (
     UserCreate, UserUpdate, UserResponse, UserOut, ProvisionIn,
-    SuccessResponse, PaginationParams, PaginatedResponse
+    SuccessResponse, PaginationParams, PaginatedResponse,
+    PreferenceCreate, PreferenceUpdate, PreferenceResponse, 
+    PreferenceBulkCreate, PreferenceBulkResponse, UserWithPreferences
 ) 
 from crud import (
     create_user, get_user_by_email, get_user_by_id, get_user_by_firebase_uid, get_users, update_user, delete_user,
-    firebase_uid_exists, email_exists, upsert_user
+    firebase_uid_exists, email_exists, upsert_user,
+    create_preference, get_user_preferences, get_preference_by_key, update_preference, 
+    upsert_preference, delete_preference, bulk_upsert_preferences
 )
 from auth import get_current_user, get_current_admin, get_user_by_id_or_current, get_optional_user
 
@@ -32,6 +36,18 @@ def get_db():
 @router.get("/health")
 def health():
     return {"ok": True}
+
+@router.get("/test/request")
+async def test_request(request: Request):
+    """Test endpoint to see if requests are reaching the server"""
+    print(f"🔍 TEST endpoint hit!")
+    print(f"   Authorization header: {request.headers.get('authorization', 'NOT FOUND')}")
+    print(f"   Headers: {dict(request.headers)}")
+    return {
+        "message": "Request received",
+        "has_auth_header": "authorization" in request.headers,
+        "auth_header": request.headers.get('authorization', 'NOT FOUND')
+    }
 
 # @router.post("/internal/users/provision", response_model=UserOut)
 # async def provision_user(request: Request, db: Session = Depends(get_db)):
@@ -62,7 +78,7 @@ async def provision_user(request: Request, db: Session = Depends(get_db)):
         db, 
         uid=payload.firebase_uid, 
         email=payload.email, 
-        full_name=payload.full_name,
+        name=payload.name,  # Changed from full_name to name
         is_expert=payload.is_expert,
         expert_profiles=payload.expert_profiles
     )
@@ -147,11 +163,48 @@ async def create_user_endpoint(
 async def update_user_endpoint(
     user_id: str,
     user_data: UserUpdate,
-    current_user: User = Depends(get_user_by_id_or_current),
+    # current_user: User = Depends(get_user_by_id_or_current),
     db: AsyncSession = Depends(get_async_db)
 ):
     """
-    Update user information
+    Update user information 
+    """
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user ID format"
+        )
+    
+    # Check if email already exists (if being updated)
+    if user_data.email:
+        existing_user = await get_user_by_email(db, user_data.email)
+        if existing_user and existing_user.id != user_uuid:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="User with this email already exists"
+            )
+    
+    updated_user = await update_user(db, user_uuid, user_data)
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    return updated_user
+
+
+# Temporary test endpoint without authentication
+@router.put("/test/users/{user_id}", response_model=UserResponse)
+async def update_user_test_endpoint(
+    user_id: str,
+    user_data: UserUpdate,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    Update user information (test endpoint without auth)
     """
     try:
         user_uuid = uuid.UUID(user_id)
@@ -241,5 +294,132 @@ async def delete_user_admin(
         )
     
     return SuccessResponse(message="User deleted successfully")
+
+
+# Preference endpoints
+@router.get("/users/{user_id}/preferences", response_model=List[PreferenceResponse])
+async def get_user_preferences_endpoint(
+    user_id: str,
+    request: Request,
+    # current_user: User = Depends(get_user_by_id_or_current),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Get all preferences for a user"""
+    print(f"🔍 GET preferences endpoint hit for user_id: {user_id}")
+    print(f"   Authorization header: {request.headers.get('authorization', 'NOT FOUND')}")
+    # print(f"   Current user from auth: {current_user}")
+    
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user ID format"
+        )
+    
+    preferences = await get_user_preferences(db, user_uuid)
+    print(f"✅ Returning {len(preferences)} preferences for user {user_id}")
+    return preferences
+
+
+@router.post("/users/{user_id}/preferences", response_model=PreferenceResponse, status_code=status.HTTP_201_CREATED)
+async def create_preference_endpoint(
+    user_id: str,
+    preference_data: PreferenceCreate,
+    # current_user: User = Depends(get_user_by_id_or_current),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Create a new preference for a user"""
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user ID format"
+        )
+    
+    # Check if preference already exists
+    existing = await get_preference_by_key(db, user_uuid, preference_data.key)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Preference with key '{preference_data.key}' already exists"
+        )
+    
+    preference = await create_preference(db, user_uuid, preference_data)
+    return preference
+
+
+@router.put("/users/{user_id}/preferences/{preference_key}", response_model=PreferenceResponse)
+async def update_preference_endpoint(
+    user_id: str,
+    preference_key: str,
+    preference_data: PreferenceUpdate,
+    # current_user: User = Depends(get_user_by_id_or_current),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Update a preference value"""
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user ID format"
+        )
+    
+    updated_preference = await update_preference(db, user_uuid, preference_key, preference_data)
+    if not updated_preference:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Preference not found"
+        )
+    
+    return updated_preference
+
+
+@router.put("/users/{user_id}/preferences", response_model=List[PreferenceResponse])
+async def bulk_upsert_preferences_endpoint(
+    user_id: str,
+    preferences_data: PreferenceBulkCreate,
+    # current_user: User = Depends(get_user_by_id_or_current),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Bulk create or update preferences"""
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user ID format"
+        )
+    
+    preferences = await bulk_upsert_preferences(db, user_uuid, preferences_data.preferences)
+    return preferences
+
+
+@router.delete("/users/{user_id}/preferences/{preference_key}", response_model=SuccessResponse)
+async def delete_preference_endpoint(
+    user_id: str,
+    preference_key: str,
+    # current_user: User = Depends(get_user_by_id_or_current),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Delete a preference"""
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user ID format"
+        )
+    
+    success = await delete_preference(db, user_uuid, preference_key)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Preference not found"
+        )
+    
+    return SuccessResponse(message="Preference deleted successfully")
 
 

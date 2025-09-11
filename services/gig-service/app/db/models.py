@@ -1,10 +1,9 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, func, Text, Boolean, Enum
+from sqlalchemy import Column, Integer, String, Float, DateTime, func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, Float, DateTime, func, Text, Boolean, Enum, ForeignKey
 import uuid
-import enum
 
 Base = declarative_base()
 
@@ -63,7 +62,6 @@ class Gig(Base):
     print("Gig model loaded")
     __tablename__ = 'gigs'
     
-    # Basic Information
     id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     expert_id = Column(String, index=True)  # Firebase UID from User Service
     category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=False)  # Foreign key to Category
@@ -86,8 +84,8 @@ class Gig(Base):
     
     # Timestamps
     created_at = Column(DateTime, server_default=func.now())
+    expert_id = Column(Integer, index=True) 
     updated_at = Column(DateTime, onupdate=func.now())
-    approved_at = Column(DateTime, nullable=True)
     
     def __repr__(self):
-        return f"<Gig(id={self.id}, expert_id={self.expert_id}, title='{self.title}', status={self.status})>"
+        return f"<Gig(id={self.id}, expert_id={self.expert_id}, title='{self.title}', price={self.price})>"

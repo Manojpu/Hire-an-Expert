@@ -4,6 +4,8 @@ from app.core.config import settings
 import os
 from dotenv import load_dotenv
 
+
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
@@ -11,6 +13,8 @@ import os
 from dotenv import load_dotenv
 import platform
 import socket
+
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -44,4 +48,4 @@ def get_db():
 def get_current_user_id():
     # TODO: Implement proper authentication with JWT tokens
     # For now, return a hardcoded expert ID for testing purposes only
-    return "1"  # Mock user ID for development (as string)
+    return 1  # Mock user ID for development
