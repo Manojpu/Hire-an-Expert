@@ -3,6 +3,10 @@ from app.db import schemas
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.db import crud, session
+from app.utils.logger import get_logger
+
+# Get logger for this module
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -17,11 +21,13 @@ def create_expert_gig(
     This corresponds to the ApplyExpert form submission.
     """
     try:
-    
-        print(f"Creating gig for expert: {current_user_id}")
+        logger.info(f"Creating new gig for expert: {current_user_id}")
+        logger.debug(f"Gig data received: {gig.dict()}")
+        
         # Check if category exists before creating gig
         category = crud.get_category(db, gig.category_id)
         if not category:
+            logger.warning(f"Category with ID {gig.category_id} not found when creating gig for user {current_user_id}")
             raise HTTPException(status_code=404, detail=f"Category with ID {gig.category_id} not found")
             
         db_gig = crud.create_gig(db=db, gig=gig, expert_id=current_user_id)
@@ -33,9 +39,9 @@ def create_expert_gig(
         return complete_gig
         
     except Exception as e:
-        print(f"Error in create_expert_gig: {e}")
+        logger.error(f"Error in create_expert_gig for user {current_user_id}: {e}")
         import traceback
-        traceback.print_exc()
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Failed to create gig: {str(e)}")
 
 @router.get("/public", response_model=schemas.GigListResponse)
@@ -83,6 +89,7 @@ def get_gig_detail(
     Get detailed gig information for expert profile page.
     This feeds the Expert.tsx component.
     """
+    logger.info(f"Fetching gig details for gig ID: {gig_id}")
     db_gig = crud.get_gig(db=db, gig_id=gig_id)
     if not db_gig:
         raise HTTPException(status_code=404, detail="Gig not found")
