@@ -79,3 +79,17 @@ class Preference(Base):
     def __repr__(self):
         return f"<Preference(id={self.id}, user_id={self.user_id}, key={self.key}, value={self.value})>"
 
+class VerificationDocument(Base):
+    __tablename__ = "verification_documents"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    document_type = Column(Enum(DocumentType), nullable=False)
+    document_url = Column(String, nullable=False)  # URL to the stored document (e.g., in S3)
+    uploaded_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    
+    # Relationship back reference
+    user = relationship("User", back_populates="verification_documents")
+
+    def __repr__(self):
+        return f"<VerificationDocument(id={self.id}, user_id={self.user_id}, document_type={self.document_type})>"
