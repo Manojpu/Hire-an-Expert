@@ -3,18 +3,18 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import MainLayout from "@/layouts/MainLayout";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { useAuth } from "@/context/auth/AuthContext.jsx";
-import Login from "@/pages/Login.jsx";
-import SignUp from "@/pages/Signup.jsx";
+import Login from "@/pages/Login.tsx";
+import SignUp from "@/pages/Signup.tsx";
 
 const Home = lazy(() => import("@/pages/Home"));
-const Category = lazy(() => import("@/pages/Category"));
+const Category = lazy(() => import("@/pages/GigCategory"));
 const Expert = lazy(() => import("@/pages/Expert"));
 const Book = lazy(() => import("@/pages/Book"));
 const Chat = lazy(() => import("@/pages/Chat"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const ExpertDashboard = lazy(() => import("@/pages/ExpertDashboard"));
 const Admin = lazy(() => import("@/pages/Admin"));
-const BecomeExpert = lazy(() => import("@/pages/BecomeExpert"));
+const BecomeExpert = lazy(() => import("@/pages/CreateGig"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const MyBookings = lazy(() => import("@/pages/MyBookings"));
 const Experts = lazy(() => import("@/pages/Experts"));
@@ -80,7 +80,7 @@ const AppRoutes = () => (
             </ProtectedRoute>
           }
         />
-        <Route path="become-expert" element={<BecomeExpert />} />
+        <Route path="create-gig" element={<BecomeExpert />} />
         <Route
           path="my-bookings"
           element={

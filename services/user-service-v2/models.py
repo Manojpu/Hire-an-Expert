@@ -9,6 +9,7 @@ from database import Base
 
 class UserRole(str, enum.Enum):
     CLIENT = "client"
+    EXPERT = "expert"
     ADMIN = "admin"
 
 
@@ -25,7 +26,7 @@ class User(Base):
     profile_image_url = Column(String)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
-    is_expert = Column(Boolean, default=False)
+    is_expert = Column(Boolean, default=True)
     
     # Relationship
     expert_profiles = relationship("ExpertProfile", back_populates="user")

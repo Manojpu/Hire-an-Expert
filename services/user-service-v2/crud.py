@@ -6,11 +6,13 @@ from typing import List, Optional, Dict, Any
 import uuid
 from models import User,  UserRole, ExpertProfile
 from schemas import UserCreate, UserUpdate, PreferenceCreate, PreferenceUpdate, ProvisionIn, ExpertProfileIn, UserOut, ExpertProfileOut, UserResponse, PaginationParams, PaginatedResponse, ErrorResponse, ValidationErrorResponse, SuccessResponse
+from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
 
 
 # User CRUD operations    
-def upsert_user(db: Session, uid: str, email: str, full_name: str, is_expert=False, expert_profiles=[]):
+def upsert_user(db: Session, uid: str, email: str, full_name: str, is_expert=True, expert_profiles=[]):
     user = db.query(User).filter(User.firebase_uid == uid).first()
     if user:
         user.email = email
@@ -56,11 +58,18 @@ async def get_user_by_id(db: AsyncSession, user_id: uuid.UUID) -> Optional[User]
     return result.scalar_one_or_none()
 
 
-async def get_user_by_firebase_uid(db: AsyncSession, firebase_uid: str) -> Optional[User]:
-    """Get user by Firebase UID"""
-    result = await db.execute(select(User).where(User.firebase_uid == firebase_uid))
-    return result.scalar_one_or_none()
+# async def get_user_by_firebase_uid(db: AsyncSession, firebase_uid: str) -> Optional[User]:
+#     """Get user by Firebase UID"""
+#     result = await db.execute(select(User).where(User.firebase_uid == firebase_uid))
+#     return result.scalar_one_or_none()
 
+async def get_user_by_firebase_uid(db: AsyncSession, firebase_uid: str):
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.expert_profiles))
+        .where(User.firebase_uid == firebase_uid)
+    )
+    return result.scalar_one_or_none()
 
 async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
     """Get user by email"""

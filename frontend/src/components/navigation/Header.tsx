@@ -1,17 +1,42 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, User, Search } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
-const Header = () => {
+import { Menu, X, User, Search, LogOut, ChevronDown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/context/auth/AuthContext';
+import { doSignOut } from '@/firebase/auth.js';
+
+
+const Header = () => { 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  // const { state, logout } = useAuth();
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const { user, loggedIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const handleSignOut = () => {
-    // logout();
-    navigate('/');
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsProfileDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await doSignOut();
+      setIsProfileDropdownOpen(false);
+      navigate('/');
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
   };
 
   // Function to check if a route is active
@@ -58,9 +83,9 @@ const Header = () => {
               How it Works
             </Link>
             <Link 
-              to="/become-expert" 
+              to="/create-gig" 
               className={`transition-all duration-200 hover:font-bold ${
-                isActiveRoute('/become-expert') 
+                isActiveRoute('/create-gig') 
                   ? 'text-foreground font-bold bg-primary/10 px-3 py-1 rounded-md' 
                   : 'text-muted-foreground hover:text-foreground'
               }`}
@@ -81,17 +106,108 @@ const Header = () => {
             </div>
           </div>
 
-          {/* Desktop Login Button (right-most) */}
-          <div className="hidden md:flex items-center ml-4">
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => navigate('/login')}
-              className="bg-gradient-primary text-white px-4 py-2 rounded-md shadow-md hover:shadow-lg transform transition-all duration-200 hover:scale-[1.02] flex items-center"
-            >
-              <User className="h-4 w-4 mr-2" />
-              Login
-            </Button>
+
+          {/* Desktop Actions */}
+          <div className="hidden md:flex items-center space-x-4">
+            {loggedIn && user ? (
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted transition-colors"
+                >
+                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    {user.photoURL ? (
+                      <img 
+                        src={user.photoURL} 
+                        alt={user.displayName || user.email} 
+                        className="h-8 w-8 rounded-full object-cover"
+                      />
+                    ) : (
+                      <User className="h-4 w-4" />
+                    )}
+                  </div>
+                  <span className="text-sm font-medium">
+                    {user.displayName || user.email?.split('@')[0] || 'User'}
+                  </span>
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+
+                {/* Profile Dropdown */}
+                {isProfileDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-background border border-border rounded-lg shadow-lg z-50">
+                    <div className="py-1">
+                      <button
+                        onClick={() => {
+                          navigate('/profile');
+                          setIsProfileDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-muted transition-colors"
+                      >
+                        Profile
+                      </button>
+                      <button
+                        onClick={() => {
+                          navigate('/my-bookings');
+                          setIsProfileDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-muted transition-colors"
+                      >
+                        My Bookings
+                      </button>
+                      {user.isExpert && (
+                        <button
+                          onClick={() => {
+                            navigate('/expert-dashboard');
+                            setIsProfileDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-muted transition-colors"
+                        >
+                          Expert Dashboard
+                        </button>
+                      )}
+                      {user.role === 'admin' && (
+                        <button
+                          onClick={() => {
+                            navigate('/admin-dashboard');
+                            setIsProfileDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-muted transition-colors"
+                        >
+                          Admin Dashboard
+                        </button>
+                      )}
+                      <hr className="my-1 border-border" />
+                      <button
+                        onClick={handleSignOut}
+                        className="w-full text-left px-4 py-2 text-sm text-destructive hover:bg-muted transition-colors flex items-center gap-2"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => navigate('/login')}
+                >
+                  Login
+                </Button>
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  className="bg-gradient-primary hover:opacity-90"
+                  onClick={() => navigate('/signup')}
+                >
+                  Sign Up
+                </Button>
+              </>
+            )}
+
           </div>
 
           {/* Mobile Menu Button */}
@@ -130,9 +246,9 @@ const Header = () => {
                 How it Works
               </Link>
               <Link
-                to="/become-expert"
+                to="/create-gig"
                 className={`transition-all duration-200 hover:font-bold px-2 py-1 ${
-                  isActiveRoute('/become-expert') 
+                  isActiveRoute('/create-gig') 
                     ? 'text-foreground font-bold bg-primary/10 rounded-md' 
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
@@ -140,18 +256,106 @@ const Header = () => {
               >
                 Create A Gig
               </Link>
+
+              
+              {/* Mobile Menu Actions */}
               <div className="flex flex-col space-y-2 pt-4 border-t border-border">
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => { setIsMenuOpen(false); navigate('/login'); }}
-                  className="bg-gradient-primary text-white w-full px-4 py-2 rounded-md shadow-sm hover:shadow-md"
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <User className="h-4 w-4" />
-                    Login
-                  </div>
-                </Button>
+                {loggedIn && user ? (
+                  <>
+                    <div className="flex items-center gap-2 px-2 py-2">
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        {user.photoURL ? (
+                          <img 
+                            src={user.photoURL} 
+                            alt={user.displayName || user.email} 
+                            className="h-8 w-8 rounded-full object-cover"
+                          />
+                        ) : (
+                          <User className="h-4 w-4" />
+                        )}
+                      </div>
+                      <span className="text-sm font-medium">
+                        {user.displayName || user.email?.split('@')[0] || 'User'}
+                      </span>
+                    </div>
+                    <button 
+                      onClick={() => { 
+                        navigate('/profile'); 
+                        setIsMenuOpen(false); 
+                      }} 
+                      className="text-left px-2 py-1 hover:bg-muted rounded-md transition-colors"
+                    >
+                      Profile
+                    </button>
+                    <button 
+                      onClick={() => { 
+                        navigate('/my-bookings'); 
+                        setIsMenuOpen(false); 
+                      }} 
+                      className="text-left px-2 py-1 hover:bg-muted rounded-md transition-colors"
+                    >
+                      My Bookings
+                    </button>
+                    {user.isExpert && (
+                      <button 
+                        onClick={() => { 
+                          navigate('/expert-dashboard'); 
+                          setIsMenuOpen(false); 
+                        }} 
+                        className="text-left px-2 py-1 hover:bg-muted rounded-md transition-colors"
+                      >
+                        Expert Dashboard
+                      </button>
+                    )}
+                    {user.role === 'admin' && (
+                      <button 
+                        onClick={() => { 
+                          navigate('/admin-dashboard'); 
+                          setIsMenuOpen(false); 
+                        }} 
+                        className="text-left px-2 py-1 hover:bg-muted rounded-md transition-colors"
+                      >
+                        Admin Dashboard
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => { 
+                        handleSignOut(); 
+                        setIsMenuOpen(false); 
+                      }} 
+                      className="text-left px-2 py-1 hover:bg-muted rounded-md transition-colors text-destructive flex items-center gap-2"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Sign Out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        navigate('/login');
+                        setIsMenuOpen(false);
+                      }}
+                      className="mx-2"
+                    >
+                      Login
+                    </Button>
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      className="bg-gradient-primary mx-2"
+                      onClick={() => {
+                        navigate('/signup');
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      Sign Up
+                    </Button>
+                  </>
+                )}
+
               </div>
             </div>
           </div>
