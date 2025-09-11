@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request, Form, File, UploadFile
 from sqlalchemy.orm import Session
 import os
+import shutil
+from models import DocumentType
 from config import settings
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
@@ -20,10 +22,14 @@ from crud import (
     firebase_uid_exists, email_exists, upsert_user,
     create_preference, get_user_preferences, get_preference_by_key, update_preference, 
     upsert_preference, delete_preference, bulk_upsert_preferences,
-    create_verification_document, get_verification_documents, get_verification_document_by_id, delete_verification_document,
+    create_verification_document, get_verification_documents, get_documents_by_user, get_verification_document_by_id, delete_verification_document,
     update_expert_verification_status, get_all_expert_profiles
 )
 from auth import get_current_user, get_current_admin, get_user_by_id_or_current, get_optional_user
+# Removing problematic relative import
+
+UPLOAD_DIRECTORY = "./uploads"
+os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
 
 router = APIRouter()
 
@@ -426,177 +432,59 @@ async def delete_preference_endpoint(
     
     return SuccessResponse(message="Preference deleted successfully")
 
-
-# =========================================================================
-# VERIFICATION DOCUMENT ENDPOINTS
-# =========================================================================
-
-@router.post("/users/{user_id}/verification-documents", response_model=VerificationDocumentResponse, tags=["Verification Documents"])
-async def upload_verification_document(
-    user_id: uuid.UUID, 
-    document: VerificationDocumentCreate, 
+@router.post(
+    "/users/documents",
+    response_model=VerificationDocumentResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload a verification document"
+)
+def upload_verification_document(
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db)
+    document_type: DocumentType = Form(...),
+    file: UploadFile = File(...)
 ):
     """
-    Upload a verification document for a user.
-    Only admins can upload documents for other users.
+    Uploads a verification document for the authenticated user.
+    - Receives a file and its type.
+    - Saves the file to a storage location.
+    - Creates a record in the verification_documents table.
     """
-    # Check if the current user is uploading their own document or is an admin
-    if str(current_user.id) != str(user_id) and current_user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to upload documents for other users"
-        )
-    
-    # Ensure the user exists
-    user = await get_user_by_id(db, user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
-    # Create the verification document
-    new_document = await create_verification_document(db, user_id, document)
-    return new_document
+    try:
+        # Create a secure, unique filename
+        file_extension = os.path.splitext(file.filename)[1]
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        file_location = os.path.join(UPLOAD_DIRECTORY, unique_filename)
 
-@router.get("/users/{user_id}/verification-documents", response_model=List[VerificationDocumentResponse], tags=["Verification Documents"])
-async def get_user_verification_documents(
-    user_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db)
-):
-    """
-    Get all verification documents for a user.
-    Users can only see their own documents, admins can see any user's documents.
-    """
-    # Check if the current user is accessing their own documents or is an admin
-    if str(current_user.id) != str(user_id) and current_user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access documents for other users"
-        )
-    
-    # Ensure the user exists
-    user = await get_user_by_id(db, user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
-    # Get the verification documents
-    documents = await get_verification_documents(db, user_id)
-    return documents
+        # Save the file to the local directory
+        with open(file_location, "wb+") as file_object:
+            shutil.copyfileobj(file.file, file_object)
+        
+        # Create a URL path to access the file
+        # In a real app, this would be an S3 URL
+        document_url = f"/static/{unique_filename}"
 
-@router.delete("/verification-documents/{document_id}", response_model=SuccessResponse, tags=["Verification Documents"])
-async def delete_document(
-    document_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db)
-):
-    """
-    Delete a verification document.
-    Users can only delete their own documents, admins can delete any document.
-    """
-    # Get the document first to check ownership
-    document = await get_verification_document_by_id(db, document_id)
-    if not document:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Document not found"
+        # Create the database record
+        db_document = create_verification_document(
+            db=db,
+            user_id=current_user.id,
+            document_type=document_type,
+            document_url=document_url
         )
-    
-    # Check if the current user owns the document or is an admin
-    if str(document.user_id) != str(current_user.id) and current_user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to delete this document"
-        )
-    
-    # Delete the document
-    success = await delete_verification_document(db, document_id)
-    if not success:
+        return db_document
+
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete document"
+            detail=f"Could not upload file: {e}"
         )
-    
-    return SuccessResponse(message="Document deleted successfully")
 
-
-# =========================================================================
-# EXPERT VERIFICATION ENDPOINTS
-# =========================================================================
-
-@router.put("/experts/{expert_profile_id}/verification", response_model=ExpertVerificationResponse, tags=["Expert Verification"])
-async def verify_expert(
-    expert_profile_id: uuid.UUID,
-    verification: ExpertVerificationUpdate,
-    current_user: User = Depends(get_current_admin),  # Only admins can verify experts
-    db: AsyncSession = Depends(get_async_db)
+@router.get("/users/documents", response_model=List[VerificationDocumentResponse], summary="Get user's documents")
+def get_user_documents(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """
-    Verify or unverify an expert profile.
-    Only admins can use this endpoint.
-    """
-    # Update the expert's verification status
-    expert_profile = await update_expert_verification_status(db, expert_profile_id, verification.is_verified)
-    
-    if not expert_profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Expert profile not found"
-        )
-    
-    # Create response
-    return ExpertVerificationResponse(
-        user_id=expert_profile.user_id,
-        expert_profile_id=expert_profile.id,
-        specialization=expert_profile.specialization,
-        is_verified=expert_profile.is_verified
-    )
+    """Retrieves all verification documents for the authenticated user."""
+    return get_documents_by_user(db=db, user_id=current_user.id)
 
-@router.get("/experts/verified", response_model=List[ExpertVerificationResponse], tags=["Expert Verification"])
-async def get_verified_experts(
-    db: AsyncSession = Depends(get_async_db)
-):
-    """
-    Get all verified expert profiles.
-    This endpoint is public.
-    """
-    expert_profiles = await get_all_expert_profiles(db, verified_only=True)
-    
-    return [
-        ExpertVerificationResponse(
-            user_id=profile.user_id,
-            expert_profile_id=profile.id,
-            specialization=profile.specialization,
-            is_verified=profile.is_verified
-        ) 
-        for profile in expert_profiles
-    ]
-
-@router.get("/experts", response_model=List[ExpertVerificationResponse], tags=["Expert Verification"])
-async def get_all_experts(
-    verified_only: bool = Query(False, description="Filter to only verified experts"),
-    current_user: User = Depends(get_current_admin),  # Only admins can see all experts
-    db: AsyncSession = Depends(get_async_db)
-):
-    """
-    Get all expert profiles with verification status.
-    Only admins can use this endpoint.
-    """
-    expert_profiles = await get_all_expert_profiles(db, verified_only=verified_only)
-    
-    return [
-        ExpertVerificationResponse(
-            user_id=profile.user_id,
-            expert_profile_id=profile.id,
-            specialization=profile.specialization,
-            is_verified=profile.is_verified
-        ) 
-        for profile in expert_profiles
-    ]
 
