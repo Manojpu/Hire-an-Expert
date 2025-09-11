@@ -8,6 +8,7 @@ from typing import AsyncIterator
 
 from app.db import session
 from app.endpoints import gig
+from app.endpoints import category
 
 app = FastAPI(title="Gig Service")
 
@@ -31,6 +32,8 @@ def read_root():
     return {"message": "Gig Service", "status": "Running", "port": 8002}
 
 app.include_router(gig.router, prefix="/gigs", tags=["gigs"])
+
+app.include_router(category.router, prefix="/categories", tags=["categories"])
 
 # 🚀 Run migrations using lifespan pattern instead of deprecated on_event
 @contextlib.asynccontextmanager

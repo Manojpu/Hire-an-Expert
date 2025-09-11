@@ -17,10 +17,20 @@ def create_expert_gig(
     This corresponds to the ApplyExpert form submission.
     """
     try:
+    
         print(f"Creating gig for expert: {current_user_id}")
+        # Check if category exists before creating gig
+        category = crud.get_category(db, gig.category_id)
+        if not category:
+            raise HTTPException(status_code=404, detail=f"Category with ID {gig.category_id} not found")
+            
         db_gig = crud.create_gig(db=db, gig=gig, expert_id=current_user_id)
         print(f"Gig creation completed: {db_gig.id}")
-        return db_gig
+        
+        # We need to fetch the complete gig with relationship data for the response
+        # Because the crud.create_gig doesn't populate the relationship
+        complete_gig = crud.get_gig(db=db, gig_id=db_gig.id)
+        return complete_gig
         
     except Exception as e:
         print(f"Error in create_expert_gig: {e}")
@@ -44,12 +54,11 @@ def get_public_gigs(
     This feeds the Category.tsx component.
     """
     filters = schemas.GigFilters(
-        category=category_id,
+        category_id=category_id,
         min_rate=min_rate,
         max_rate=max_rate,
-        min_rating=min_rating,
         search_query=search_query,
-        # status=schemas.GigStatusEnum.ACTIVE  # Only show active gigs
+        status=schemas.GigStatus.ACTIVE  # Only show active gigs
     )
     
     skip = (page - 1) * size
@@ -79,7 +88,7 @@ def get_gig_detail(
         raise HTTPException(status_code=404, detail="Gig not found")
     
     # Only show approved/active gigs to public
-    if db_gig.status not in [schemas.GigStatusEnum.APPROVED.value, schemas.GigStatusEnum.ACTIVE.value]:
+    if db_gig.status not in [schemas.GigStatus.APPROVED, schemas.GigStatus.ACTIVE]:
         raise HTTPException(status_code=404, detail="Gig not available")
     
     return db_gig
@@ -97,7 +106,7 @@ def get_gig_by_expert_id(
     if not db_gig:
         raise HTTPException(status_code=404, detail="Expert gig not found")
     
-    if db_gig.status not in [schemas.GigStatusEnum.APPROVED.value, schemas.GigStatusEnum.ACTIVE.value]:
+    if db_gig.status not in [schemas.GigStatus.APPROVED, schemas.GigStatus.ACTIVE]:
         raise HTTPException(status_code=404, detail="Expert profile not available")
     
     return db_gig
