@@ -15,6 +15,7 @@ from schemas import (
 )
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+# Removing problematic relative import
 
 
 
@@ -249,17 +250,30 @@ async def bulk_upsert_preferences(db: AsyncSession, user_id: uuid.UUID, preferen
     return result_preferences 
 
 # Verification Document CRUD operations
-async def create_verification_document(db: AsyncSession, user_id: uuid.UUID, doc_data: VerificationDocumentCreate) -> VerificationDocument:
-    """Create a new verification document"""
-    document = VerificationDocument(
+def create_verification_document(
+    db: Session,
+    user_id: uuid.UUID,
+    document_type: DocumentType,
+    document_url: str
+) -> VerificationDocument:
+    """
+    Creates a new verification document record in the database.
+    """
+    db_document = VerificationDocument(
         user_id=user_id,
-        document_type=doc_data.document_type,
-        document_url=doc_data.document_url
+        document_type=document_type,
+        document_url=document_url
     )
-    db.add(document)
-    await db.commit()
-    await db.refresh(document)
-    return document
+    db.add(db_document)
+    db.commit()
+    db.refresh(db_document)
+    return db_document
+
+def get_documents_by_user(db: Session, user_id: uuid.UUID) -> List[VerificationDocument]:
+    """
+    Retrieves all verification documents for a specific user.
+    """
+    return db.query(VerificationDocument).filter(VerificationDocument.user_id == user_id).all()
 
 async def get_verification_documents(db: AsyncSession, user_id: uuid.UUID) -> List[VerificationDocument]:
     """Get all verification documents for a user"""
