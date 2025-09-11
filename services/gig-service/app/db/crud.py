@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session , joinedload
 from sqlalchemy import or_
 
 # Import the correct models and schemas for your new structure
@@ -119,7 +119,7 @@ def get_gigs_filtered(
     db: Session, filters: GigFilters, skip: int = 0, limit: int = 100
 ) -> List[Gig]:
     """Retrieves a list of gigs based on filter criteria."""
-    query = db.query(Gig)
+    query = db.query(Gig).options(joinedload(Gig.category))
 
     if filters.category_id:
         query = query.filter(Gig.category_id == filters.category_id)
