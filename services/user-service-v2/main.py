@@ -39,7 +39,13 @@ app = FastAPI(
     description="User Service for Hire an Expert Platform",
     docs_url="/",
     redoc_url="/redoc",
-    lifespan=lifespan
+    lifespan=lifespan,
+    openapi_tags=[
+        {"name": "Users", "description": "User management operations"},
+        {"name": "Preferences", "description": "User preferences management"},
+        {"name": "Verification Documents", "description": "Document upload and verification"},
+        {"name": "Expert Verification", "description": "Expert profile verification"}
+    ]
 )
 
 # Add CORS middleware

@@ -37,6 +37,7 @@ class User(Base):
     # Relationship
     expert_profiles = relationship("ExpertProfile", back_populates="user")
     preferences = relationship("Preference", back_populates="user", cascade="all, delete-orphan")
+    verification_documents = relationship("VerificationDocument", back_populates="user", cascade="all, delete-orphan")
     
     
     def __repr__(self):
