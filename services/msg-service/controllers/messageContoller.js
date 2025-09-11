@@ -5,19 +5,37 @@ exports.sendMessage = async (req, res) => {
   const { senderId, receiverId, text, conversationId } = req.body;
 
   try {
-    let convo = await Conversation.findById(conversationId);
-    if (!convo) {
+    let convo;
+    let actualConversationId;
+
+    if (conversationId) {
+      // Try to find existing conversation
+      convo = await Conversation.findById(conversationId);
+      if (convo) {
+        actualConversationId = convo._id;
+      } else {
+        // Create new conversation with the provided ID
+        convo = new Conversation({ 
+          _id: conversationId,
+          senderId, 
+          receiverId 
+        });
+        await convo.save();
+        actualConversationId = convo._id;
+      }
+    } else {
+      // No conversationId provided, create a new one
       convo = new Conversation({ senderId, receiverId });
       await convo.save();
+      actualConversationId = convo._id;
     }
 
     const message = new Message({
       senderId,
       receiverId,
       text,
-      conversationId: convo._id,
+      conversationId: actualConversationId,
     });
-
 
     await message.save();
 
