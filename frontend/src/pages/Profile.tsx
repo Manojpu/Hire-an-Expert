@@ -1,5 +1,6 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { Camera, Mail, Phone, MapPin, Calendar, Settings, Star, Clock } from 'lucide-react';
 import Header from '@/components/navigation/Header';
 import Footer from '@/components/ui/footer';
@@ -12,29 +13,302 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/auth/AuthContext';
 import { mockBookings, experts } from '@/data/mockData';
 import { format } from 'date-fns';
 
+// Utility function to safely format dates
+const safeFormatDate = (dateValue: string | number | Date | undefined | null, formatString: string, fallback: string = 'Not available'): string => {
+  if (!dateValue) return fallback;
+  try {
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) return fallback;
+    return format(date, formatString);
+  } catch (error) {
+    console.error('Date formatting error:', error);
+    return fallback;
+  }
+};
+
 const Profile = () => {
-  const { state } = useAuth();
+  const { userId } = useParams();
+  const { user: currentUser, loggedIn } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditing, setIsEditing] = useState(false);
-
-  const user = state.user;
-  const userBookings = mockBookings.filter(booking => booking.clientId === user?.id);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
   
-  if (!user) {
+  // Profile editing states
+  const [editedProfile, setEditedProfile] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    bio: '',
+    location: ''
+  });
+  
+  // Preference states
+  const [preferences, setPreferences] = useState({
+    email_notifications: true,
+    sms_notifications: false,
+    marketing_emails: true,
+    profile_visibility: true,
+    contact_visibility: true
+  });
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const [savingPreferences, setSavingPreferences] = useState(false);
+
+  // If no userId in URL, show current user's profile
+  // If userId in URL, show that specific user's profile
+  const isOwnProfile = !userId || userId === (currentUser?.uid || currentUser?.id);
+  const user = isOwnProfile ? currentUser : null; // You might want to fetch user data by userId here
+  
+  const userBookings = mockBookings.filter(booking => booking.clientId === user?.id);
+  // Load user preferences on component mount
+  useEffect(() => {
+    const loadUserPreferences = async () => {
+      try {
+        const response = await fetch(`http://127.0.0.1:8001/users/${user.id}/preferences`, {
+          headers: {
+            'Authorization': `Bearer ${await user.getIdToken?.()}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const userPrefs = await response.json();
+          const prefsObj = {};
+          userPrefs.forEach(pref => {
+            prefsObj[pref.key] = pref.value === 'true';
+          });
+          setPreferences(prev => ({ ...prev, ...prefsObj }));
+        }
+        setPreferencesLoaded(true);
+      } catch (error) {
+        console.error('Error loading preferences:', error);
+        setPreferencesLoaded(true);
+      }
+    };
+
+    if (user?.id && isOwnProfile) {
+      loadUserPreferences();
+    }
+  }, [user?.id, isOwnProfile, user]);
+
+  // Initialize edited profile when user data is available
+  useEffect(() => {
+    if (user) {
+      setEditedProfile({
+        name: user.name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        bio: user.bio || '',
+        location: user.location || ''
+      });
+    }
+  }, [user]);
+
+  const savePreferences = async (updatedPreferences) => {
+    setSavingPreferences(true);
+    try {
+      const prefArray = Object.entries(updatedPreferences).map(([key, value]) => ({
+        key,
+        value: value.toString()
+      }));
+
+      const response = await fetch(`http://127.0.0.1:8001/users/${user.id}/preferences`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${await user.getIdToken?.()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ preferences: prefArray })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        const errorMessage = errorData?.detail || `Failed to save preferences (${response.status})`;
+        console.error('Error saving preferences:', errorMessage);
+        setSaveMessage(`Error saving preferences: ${errorMessage}. Please try again.`);
+        setTimeout(() => setSaveMessage(''), 6000);
+      } else {
+        // Show brief success message for preferences
+        setSaveMessage('Preferences saved successfully!');
+        setTimeout(() => setSaveMessage(''), 2000);
+      }
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      setSaveMessage('Error saving preferences: Unable to connect to server. Please try again.');
+      setTimeout(() => setSaveMessage(''), 6000);
+    } finally {
+      setSavingPreferences(false);
+    }
+  };
+
+  const handlePreferenceChange = (key, value) => {
+    const updatedPreferences = { ...preferences, [key]: value };
+    setPreferences(updatedPreferences);
+    savePreferences(updatedPreferences);
+  };
+
+  const handleProfileInputChange = (field, value) => {
+    setEditedProfile(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const saveProfileChanges = async () => {
+    if (!user?.id) return;
+    
+    setIsSaving(true);
+    setSaveMessage('');
+    
+    console.log('Saving profile changes:', editedProfile);
+    console.log('User ID:', user.id);
+    console.log('Current user object:', user);
+    
+    try {
+      // Get the Firebase ID token with detailed logging
+      let authToken = null;
+      try {
+        console.log('Attempting to get Firebase token...');
+        authToken = await user.getIdToken?.();
+        console.log('Firebase token obtained:', authToken ? 'Yes' : 'No');
+        if (authToken) {
+          console.log('Token preview:', authToken.substring(0, 50) + '...');
+        }
+      } catch (tokenError) {
+        console.error('Error getting Firebase token:', tokenError);
+        setSaveMessage('Error getting authentication token. Please sign out and sign back in.');
+        setTimeout(() => setSaveMessage(''), 8000);
+        return;
+      }
+
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      
+      // Only add Authorization header if we have a token
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+        console.log('Authorization header added');
+      } else {
+        console.log('No authentication token available');
+      }
+
+      console.log('Making API request to:', `http://127.0.0.1:8001/users/${user.id}`);
+      console.log('Request headers:', headers);
+      console.log('Request body:', editedProfile);
+
+      const response = await fetch(`http://127.0.0.1:8001/users/${user.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(editedProfile)
+      });
+
+      console.log('API Response received');
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+      // If authentication fails, try the test endpoint
+      // if (response.status === 401 && authToken) {
+      //   console.log('Authentication failed, trying test endpoint...');
+      //   response = await fetch(`http://127.0.0.1:8001/test/users/${user.id}`, {
+      //     method: 'PUT',
+      //     headers: {
+      //       'Content-Type': 'application/json'
+      //     },
+      //     body: JSON.stringify(editedProfile)
+      //   });
+      //   console.log('Test endpoint response status:', response.status);
+      // }
+
+      console.log('Final response status:', response.status);
+      console.log('Final response ok:', response.ok);
+
+      if (response.ok) {
+        setIsEditing(false);
+        setSaveMessage('Profile updated successfully!');
+        // Clear message after 3 seconds
+        setTimeout(() => setSaveMessage(''), 3000);
+      } else {
+        // Get specific error message from response
+        const errorData = await response.json().catch(() => null);
+        console.log('Error response data:', errorData);
+        
+        let errorMessage;
+        if (response.status === 401) {
+          errorMessage = 'Invalid authentication token. Please sign out and sign back in.';
+        } else if (response.status === 403) {
+          errorMessage = 'You do not have permission to update this profile.';
+        } else if (response.status === 404) {
+          errorMessage = 'User profile not found.';
+        } else if (response.status === 422) {
+          errorMessage = errorData?.detail || 'Invalid profile data. Please check your inputs.';
+        } else {
+          errorMessage = errorData?.detail || `Failed to update profile (${response.status})`;
+        }
+        
+        setSaveMessage(`Error updating profile: ${errorMessage}`);
+        setTimeout(() => setSaveMessage(''), 8000);
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        setSaveMessage('Error updating profile: Unable to connect to server. Please check your connection and try again.');
+      } else {
+        setSaveMessage('Error updating profile: An unexpected error occurred. Please try again.');
+      }
+      setTimeout(() => setSaveMessage(''), 8000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const cancelEditing = () => {
+    // Reset to original values
+    setEditedProfile({
+      name: user.name || '',
+      email: user.email || '',
+      phone: user.phone || '',
+      bio: user.bio || '',
+      location: user.location || ''
+    });
+    setIsEditing(false);
+    setSaveMessage('');
+  };
+
+  const handleEditToggle = () => {
+    if (isEditing) {
+      const hasChanges = JSON.stringify(editedProfile) !== JSON.stringify({
+        name: user.name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        bio: user.bio || '',
+        location: user.location || ''
+      });
+      
+      if (hasChanges) {
+        saveProfileChanges();
+      } else {
+        setIsEditing(false);
+      }
+    } else {
+      setIsEditing(true);
+    }
+  };
+  
+  if (!loggedIn || !user) {
     return null;
   }
 
   const getExpertById = (expertId: string) => experts.find(e => e.id === expertId);
 
   return (
-    <div className="min-h-screen bg-background ">
-      <Header />
+    <div className="min-h-screen bg-transparent ">
       
-      <main className="container mx-auto px-4 py-8">
+      <main className="container px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Profile Header */}
           <Card className="mb-8">
@@ -62,13 +336,15 @@ const Profile = () => {
                         {user.location}
                       </div>
                     )}
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      Joined {format(new Date(user.joinDate), 'MMM yyyy')}
-                    </div>
-                    {user.verified && (
+                    {(user.created_at || user.joinDate) && (
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" />
+                        Joined {safeFormatDate(user.created_at || user.joinDate, 'MMM yyyy')}
+                      </div>
+                    )}
+                    {user.emailVerified && (
                       <Badge variant="secondary" className="text-xs">
-                        ✓ Verified
+                        ✓ Email Verified
                       </Badge>
                     )}
                   </div>
@@ -78,15 +354,49 @@ const Profile = () => {
                 <div className="flex gap-2">
                   <Button
                     variant={isEditing ? "default" : "outline"}
-                    onClick={() => setIsEditing(!isEditing)}
+                    onClick={handleEditToggle}
+                    disabled={isSaving}
                   >
                     <Settings className="h-4 w-4 mr-2" />
-                    {isEditing ? 'Save Changes' : 'Edit Profile'}
+                    {isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Edit Profile'}
                   </Button>
+                  {isEditing && (
+                    <Button
+                      variant="outline"
+                      onClick={cancelEditing}
+                      disabled={isSaving}
+                    >
+                      Cancel
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* Save Message */}
+          {saveMessage && (
+            <Card className={`mb-4 ${saveMessage.includes('Error') ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between">
+                  <p className={`text-sm ${saveMessage.includes('Error') ? 'text-red-800' : 'text-green-800'}`}>
+                    {saveMessage}
+                  </p>
+                  {saveMessage.includes('Error') && isEditing && (
+                    <Button 
+                      size="sm" 
+                      onClick={saveProfileChanges}
+                      disabled={isSaving}
+                      variant="outline"
+                      className="ml-4 border-red-300 text-red-700 hover:bg-red-100"
+                    >
+                      {isSaving ? 'Retrying...' : 'Retry'}
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -108,7 +418,8 @@ const Profile = () => {
                       <Label htmlFor="name">Full Name</Label>
                       <Input
                         id="name"
-                        defaultValue={user.name}
+                        value={editedProfile.name}
+                        onChange={(e) => handleProfileInputChange('name', e.target.value)}
                         disabled={!isEditing}
                       />
                     </div>
@@ -117,7 +428,8 @@ const Profile = () => {
                       <Input
                         id="email"
                         type="email"
-                        defaultValue={user.email}
+                        value={editedProfile.email}
+                        onChange={(e) => handleProfileInputChange('email', e.target.value)}
                         disabled={!isEditing}
                       />
                     </div>
@@ -126,6 +438,8 @@ const Profile = () => {
                       <Input
                         id="phone"
                         type="tel"
+                        value={editedProfile.phone}
+                        onChange={(e) => handleProfileInputChange('phone', e.target.value)}
                         placeholder="Enter your phone number"
                         disabled={!isEditing}
                       />
@@ -134,7 +448,9 @@ const Profile = () => {
                       <Label htmlFor="location">Location</Label>
                       <Input
                         id="location"
-                        defaultValue={user.location}
+                        value={editedProfile.location}
+                        onChange={(e) => handleProfileInputChange('location', e.target.value)}
+                        placeholder="e.g., New York, USA"
                         disabled={!isEditing}
                       />
                     </div>
@@ -144,6 +460,8 @@ const Profile = () => {
                     <Label htmlFor="bio">Bio</Label>
                     <Textarea
                       id="bio"
+                      value={editedProfile.bio}
+                      onChange={(e) => handleProfileInputChange('bio', e.target.value)}
                       placeholder="Tell us about yourself..."
                       disabled={!isEditing}
                       rows={3}
@@ -194,9 +512,9 @@ const Profile = () => {
                               <div>
                                 <span className="text-muted-foreground">Date & Time:</span>
                                 <p className="font-medium">
-                                  {format(new Date(booking.dateTime), 'MMM dd, yyyy')}
+                                  {safeFormatDate(booking.dateTime, 'MMM dd, yyyy')}
                                   <br />
-                                  {format(new Date(booking.dateTime), 'h:mm a')}
+                                  {safeFormatDate(booking.dateTime, 'h:mm a')}
                                 </p>
                               </div>
                               <div>
@@ -244,7 +562,12 @@ const Profile = () => {
             <TabsContent value="preferences" className="space-y-6 mt-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Notification Preferences</CardTitle>
+                  <CardTitle className="flex items-center justify-between">
+                    Notification Preferences
+                    {savingPreferences && (
+                      <span className="text-sm text-muted-foreground">Saving...</span>
+                    )}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -254,7 +577,11 @@ const Profile = () => {
                         Receive email updates about your bookings
                       </p>
                     </div>
-                    <Switch id="email-notifications" defaultChecked />
+                    <Switch 
+                      id="email-notifications" 
+                      checked={preferences.email_notifications}
+                      onCheckedChange={(checked) => handlePreferenceChange('email_notifications', checked)}
+                    />
                   </div>
                   
                   <div className="flex items-center justify-between">
@@ -264,7 +591,11 @@ const Profile = () => {
                         Receive SMS reminders before consultations
                       </p>
                     </div>
-                    <Switch id="sms-notifications" />
+                    <Switch 
+                      id="sms-notifications" 
+                      checked={preferences.sms_notifications}
+                      onCheckedChange={(checked) => handlePreferenceChange('sms_notifications', checked)}
+                    />
                   </div>
                   
                   <div className="flex items-center justify-between">
@@ -274,14 +605,23 @@ const Profile = () => {
                         Receive updates about new experts and features
                       </p>
                     </div>
-                    <Switch id="marketing-emails" defaultChecked />
+                    <Switch 
+                      id="marketing-emails" 
+                      checked={preferences.marketing_emails}
+                      onCheckedChange={(checked) => handlePreferenceChange('marketing_emails', checked)}
+                    />
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Privacy Settings</CardTitle>
+                  <CardTitle className="flex items-center justify-between">
+                    Privacy Settings
+                    {savingPreferences && (
+                      <span className="text-sm text-muted-foreground">Saving...</span>
+                    )}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -291,7 +631,11 @@ const Profile = () => {
                         Allow others to see your profile and reviews
                       </p>
                     </div>
-                    <Switch id="profile-visibility" defaultChecked />
+                    <Switch 
+                      id="profile-visibility" 
+                      checked={preferences.profile_visibility}
+                      onCheckedChange={(checked) => handlePreferenceChange('profile_visibility', checked)}
+                    />
                   </div>
                   
                   <div className="flex items-center justify-between">
@@ -301,7 +645,11 @@ const Profile = () => {
                         Show your contact details to booked experts
                       </p>
                     </div>
-                    <Switch id="contact-visibility" defaultChecked />
+                    <Switch 
+                      id="contact-visibility" 
+                      checked={preferences.contact_visibility}
+                      onCheckedChange={(checked) => handlePreferenceChange('contact_visibility', checked)}
+                    />
                   </div>
                 </CardContent>
               </Card>

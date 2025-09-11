@@ -21,9 +21,9 @@ const Experts = lazy(() => import("@/pages/Experts"));
 const ClientDashboard = lazy(() => import("@/pages/ClientDashboard"));
 
 const ProtectedRoute = ({ children, role }: { children: JSX.Element; role?: string }) => {
-  const { state } = useAuth();
-  if (!state.user) return <Navigate to="/" replace />;
-  if (role && state.user.role !== role) return <Navigate to="/" replace />;
+  const { user, loggedIn } = useAuth();
+  if (!loggedIn || !user) return <Navigate to="/" replace />;
+  if (role && user.role !== role) return <Navigate to="/" replace />;
   return children;
 };
 
@@ -61,6 +61,14 @@ const AppRoutes = () => (
           element={
             <ProtectedRoute>
               <Chat />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="profile/:userId"
+          element={
+            <ProtectedRoute>
+              <Profile />
             </ProtectedRoute>
           }
         />
