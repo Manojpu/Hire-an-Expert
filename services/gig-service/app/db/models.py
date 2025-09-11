@@ -14,30 +14,38 @@ class GigStatus(str, enum.Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
 
-class ExpertCategory(str, enum.Enum):
-    AUTOMOBILE_ADVICE = "automobile-advice"
-    ELECTRONIC_DEVICE_ADVICE = "electronic-device-advice"
-    HOME_APPLIANCE_GUIDANCE = "home-appliance-guidance"
-    EDUCATION_CAREER_GUIDANCE = "education-career-guidance"
+class Category(Base):
+    """
+    Stores the main service categories for organizing gigs.
+    [cite_start]This aligns with the four main categories specified in your SRS[cite: 94].
+    """
+    print("Category model loaded")
+
+    __tablename__ = "categories"
+
+    id = Column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True
+    )
+    name = Column(String(100), unique=True, nullable=False)
+    slug = Column(
+        String(100), unique=True, nullable=False
+    )  # URL-friendly name, e.g., "automobile-advice"
+
+    created_at = Column(DateTime, server_default=func.now())
+
+    def __repr__(self):
+        return f"<Category(id={self.id}, name='{self.name}')>"
+
+
 
 class Gig(Base):
+    print("Gig model loaded")
     __tablename__ = 'gigs'
     
     # Basic Information
     id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     expert_id = Column(String, index=True)  # Firebase UID from User Service
-    user_id = Column(String, index=True)    # Internal user ID
-    
-    # Basic Profile Info (from ApplyExpert step 0)
-    name = Column(String, nullable=False)
-    title = Column(String, nullable=False)  # Professional headline
-    bio = Column(Text)
-    profile_image_url = Column(String)
-    banner_image_url = Column(String)
-    languages = Column(ARRAY(String))  # List of languages
-    
-    # Expertise & Services (from ApplyExpert step 1)
-    category = Column(Enum(ExpertCategory), nullable=False)
+    category_id = Column(UUID(as_uuid=True), nullable=False)  # Foreign key to Category
     service_description = Column(Text)
     hourly_rate = Column(Float, nullable=False)
     currency = Column(String, default='LKR')
@@ -45,22 +53,13 @@ class Gig(Base):
     response_time = Column(String, default='< 24 hours')
     
     # Qualifications (from ApplyExpert step 2)
-    education = Column(Text)
-    experience = Column(Text)
-    certifications = Column(ARRAY(String))  # File URLs/paths
-    
-    # Verification (from ApplyExpert step 3)
-    government_id_url = Column(String)
-    professional_license_url = Column(String)
-    references = Column(Text)
-    background_check_consent = Column(Boolean, default=False)
+    expertise_areas = Column(ARRAY(String))  # List of expertise areas
+    experience_years = Column(Integer)
+    work_experience = Column(Text)  # New field for work experience details
     
     # System fields
     status = Column(Enum(GigStatus), default=GigStatus.DRAFT)
-    is_verified = Column(Boolean, default=False)
-    rating = Column(Float, default=0.0)
-    total_reviews = Column(Integer, default=0)
-    total_consultations = Column(Integer, default=0)
+
     
     # Timestamps
     created_at = Column(DateTime, server_default=func.now())
