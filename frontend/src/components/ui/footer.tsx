@@ -48,7 +48,7 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/become-expert" className="text-primary-foreground/80 hover:text-secondary transition-colors">
+                <Link to="/create-gig" className="text-primary-foreground/80 hover:text-secondary transition-colors">
                   Become an Expert
                 </Link>
               </li>

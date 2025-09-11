@@ -1,46 +1,58 @@
-
 import React, { useState, FormEvent } from "react";
 import { getIdToken } from "firebase/auth";
 import { useAuth } from "../context/auth/AuthContext.jsx";
 import { Navigate, Link } from "react-router-dom";
-import { doSignInWithEmailAndPassword, doSignInWithGoogle } from "../firebase/auth.js";
+import { doCreateUserWithEmailAndPassword, doSignInWithGoogle } from "../firebase/auth.js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Loader2, User, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface LoginFormData {
+interface SignupFormData {
   email: string;
   password: string;
+  confirmPassword: string;
 }
 
-const Login: React.FC = () => {
+const Signup: React.FC = () => {
   const { loggedIn } = useAuth();
-  const [formData, setFormData] = useState<LoginFormData>({
+  const [formData, setFormData] = useState<SignupFormData>({
     email: "",
-    password: ""
+    password: "",
+    confirmPassword: ""
   });
   const [showPassword, setShowPassword] = useState<boolean>(false);
-  const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
+  const [isSigningUp, setIsSigningUp] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
-
   const validateForm = (): boolean => {
-    if (!formData.email || !formData.password) {
-      setErrorMessage("Email and password are required");
+    if (!formData.email || !formData.password || !formData.confirmPassword) {
+      setErrorMessage("All fields are required");
       return false;
     }
+    
+    if (formData.password !== formData.confirmPassword) {
+      setErrorMessage("Passwords do not match");
+      return false;
+    }
+    
+    if (formData.password.length < 6) {
+      setErrorMessage("Password must be at least 6 characters");
+      return false;
+    }
+    
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       setErrorMessage("Please enter a valid email address");
       return false;
     }
-    setErrorMessage("");
+    
     return true;
   };
 
-  const handleInputChange = (field: keyof LoginFormData) => (
+  const handleInputChange = (field: keyof SignupFormData) => (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
     setFormData(prev => ({
@@ -53,85 +65,127 @@ const Login: React.FC = () => {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
-    if (!validateForm() || isSigningIn) return;
+    if (!validateForm() || isSigningUp) return;
 
+    setIsSigningUp(true);
+    setErrorMessage("");
 
-    setIsSigningIn(true);
     try {
-
-      // Sign in with Firebase Auth
-      const userCredential = await doSignInWithEmailAndPassword(formData.email, formData.password);
+      // Create user with Firebase Auth
+      const userCredential = await doCreateUserWithEmailAndPassword(formData.email, formData.password);
       
       // Get ID token for backend authentication
-
       const idToken = await getIdToken(userCredential.user);
+
+      // Create user profile in User Service
       try {
-        const response = await fetch("http://127.0.0.1:8001/ping", {
+        const response = await fetch("http://127.0.0.1:8001/internal/users/provision", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${idToken}`
+            "X-Webhook-Secret": "7f6b8e2e6b9147f0b34a84d5b673d3e85d3a21b6b3c847c0a9e32f8f8a172ab4"
           },
+          body: JSON.stringify({ 
+            firebase_uid: userCredential.user.uid,
+            email: formData.email,
+            full_name: userCredential.user.displayName || formData.email.split('@')[0],
+            is_expert: true,
+            expert_profiles: []
+          }),
         });
 
         if (response.ok) {
           const result = await response.json();
-          console.log("Backend validation successful:", result);
+          console.log("User profile created successfully:", result);
         } else {
-          console.warn("Backend validation failed, but login still successful");
+          console.warn("User profile creation failed, but Firebase signup successful");
         }
       } catch (backendError) {
-        console.warn("Backend validation error (login still successful):", (backendError as Error).message);
+        console.warn("User service error (Firebase signup still successful):", (backendError as Error).message);
       }
 
-      console.log("Login successful!");
+      console.log("Signup successful!");
       
     } catch (error) {
-      console.error("Login error:", error);
-      setErrorMessage((error as Error).message || "An error occurred during login");
-
+      console.error("Signup error:", error);
+      setErrorMessage((error as Error).message || "An error occurred during signup");
     } finally {
-      setIsSigningIn(false);
+      setIsSigningUp(false);
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignUp = async () => {
+    if (isSigningUp) return;
 
-    if (isSigningIn) return;
-    setIsSigningIn(true);
+    setIsSigningUp(true);
+    setErrorMessage("");
+
     try {
       const userCredential = await doSignInWithGoogle();
+      
+      // Get ID token for backend authentication
       const idToken = await getIdToken(userCredential.user);
+
+      // Create user profile in User Service
       try {
-        const response = await fetch("http://127.0.0.1:8001/ping", {
+        const response = await fetch("http://127.0.0.1:8001/internal/users/provision", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${idToken}`
+            "X-Webhook-Secret": "7f6b8e2e6b9147f0b34a84d5b673d3e85d3a21b6b3c847c0a9e32f8f8a172ab4"
           },
+          body: JSON.stringify({ 
+            firebase_uid: userCredential.user.uid,
+            email: userCredential.user.email,
+            full_name: userCredential.user.displayName || userCredential.user.email?.split('@')[0] || 'User',
+            is_expert: true,
+            expert_profiles: []
+          }),
         });
 
         if (response.ok) {
           const result = await response.json();
-          console.log("Google login successful:", result);
+          console.log("Google signup successful:", result);
         } else {
-          console.warn("Backend validation failed, but Google login still successful");
+          console.warn("User profile creation failed, but Google signup successful");
         }
       } catch (backendError) {
-        console.warn("Backend validation error (Google login still successful):", (backendError as Error).message);
+        console.warn("User service error (Google signup still successful):", (backendError as Error).message);
       }
 
     } catch (error) {
-      console.error("Google login error:", error);
-      setErrorMessage((error as Error).message || "An error occurred during Google login");
-
+      console.error("Google signup error:", error);
+      setErrorMessage((error as Error).message || "An error occurred during Google signup");
     } finally {
-      setIsSigningIn(false);
+      setIsSigningUp(false);
     }
   };
 
-  return (
+  // Password strength indicator
+  const getPasswordStrength = (password: string) => {
+    if (!password) return { strength: 0, text: "", color: "" };
+    
+    let score = 0;
+    if (password.length >= 6) score++;
+    if (password.length >= 8) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[a-z]/.test(password)) score++;
+    if (/[0-9]/.test(password)) score++;
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+    
+    if (score < 2) return { strength: 1, text: "Weak", color: "text-destructive" };
+    if (score < 4) return { strength: 2, text: "Medium", color: "text-warning" };
+    return { strength: 3, text: "Strong", color: "text-success" };
+  };
 
+  const passwordStrength = getPasswordStrength(formData.password);
+
+  // Redirect if user is already logged in
+  if (loggedIn) {
+    return <Navigate to="/dashboard" replace={true} />;
+  }
+
+  return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-background to-secondary-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6 animate-fade-in">
         {/* Logo & Brand */}
@@ -145,29 +199,29 @@ const Login: React.FC = () => {
               <span className="text-foreground">ddWise</span>
             </span>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
-          <p className="text-muted-foreground">Sign in to your account to continue</p>
+          <h1 className="text-2xl font-bold text-foreground">Create your account</h1>
+          <p className="text-muted-foreground">Join our community of experts and clients</p>
         </div>
 
-        {/* Login Card */}
+        {/* Signup Card */}
         <Card className="shadow-hover border-border/50 bg-background/80 backdrop-blur-sm">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-xl font-semibold text-center">Sign In</CardTitle>
+            <CardTitle className="text-xl font-semibold text-center">Sign Up</CardTitle>
             <CardDescription className="text-center">
-              Enter your credentials to access your account
+              Create your account to get started
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Google Sign In Button */}
+            {/* Google Sign Up Button */}
             <Button
               type="button"
               variant="outline"
               size="lg"
               className="w-full relative hover:bg-accent/50 transition-all duration-200"
-              onClick={handleGoogleSignIn}
-              disabled={isSigningIn}
+              onClick={handleGoogleSignUp}
+              disabled={isSigningUp}
             >
-              {isSigningIn ? (
+              {isSigningUp ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <svg className="h-4 w-4" viewBox="0 0 24 24">
@@ -202,7 +256,7 @@ const Login: React.FC = () => {
               </div>
             </div>
 
-            {/* Login Form */}
+            {/* Signup Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-medium text-foreground">
@@ -217,7 +271,7 @@ const Login: React.FC = () => {
                     onChange={handleInputChange("email")}
                     placeholder="Enter your email"
                     className="pl-10 transition-all duration-200 focus:ring-primary/20"
-                    disabled={isSigningIn}
+                    disabled={isSigningUp}
                     required
                   />
                 </div>
@@ -234,16 +288,16 @@ const Login: React.FC = () => {
                     type={showPassword ? "text" : "password"}
                     value={formData.password}
                     onChange={handleInputChange("password")}
-                    placeholder="Enter your password"
+                    placeholder="Create a password"
                     className="pl-10 pr-10 transition-all duration-200 focus:ring-primary/20"
-                    disabled={isSigningIn}
+                    disabled={isSigningUp}
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    disabled={isSigningIn}
+                    disabled={isSigningUp}
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -251,6 +305,71 @@ const Login: React.FC = () => {
                       <Eye className="h-4 w-4" />
                     )}
                   </button>
+                </div>
+                
+                {/* Password Strength Indicator */}
+                {formData.password && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-muted-foreground">Password strength:</span>
+                      <span className={cn("font-medium", passwordStrength.color)}>
+                        {passwordStrength.text}
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-1.5">
+                      <div 
+                        className={cn(
+                          "h-1.5 rounded-full transition-all duration-300",
+                          passwordStrength.strength === 1 && "w-1/3 bg-destructive",
+                          passwordStrength.strength === 2 && "w-2/3 bg-warning",
+                          passwordStrength.strength === 3 && "w-full bg-success"
+                        )}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="confirmPassword" className="text-sm font-medium text-foreground">
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={formData.confirmPassword}
+                    onChange={handleInputChange("confirmPassword")}
+                    placeholder="Confirm your password"
+                    className={cn(
+                      "pl-10 pr-10 transition-all duration-200 focus:ring-primary/20",
+                      formData.confirmPassword && formData.password !== formData.confirmPassword 
+                        ? "border-destructive focus:ring-destructive/20" 
+                        : formData.confirmPassword && formData.password === formData.confirmPassword 
+                        ? "border-success focus:ring-success/20" 
+                        : ""
+                    )}
+                    disabled={isSigningUp}
+                    required
+                  />
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
+                    {formData.confirmPassword && formData.password === formData.confirmPassword && (
+                      <CheckCircle className="h-4 w-4 text-success" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      disabled={isSigningUp}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -261,13 +380,15 @@ const Login: React.FC = () => {
                 </div>
               )}
 
-              {/* Forgot Password Link */}
-              <div className="text-right">
-                <Link
-                  to="/forgot-password"
-                  className="text-sm text-primary hover:text-primary/80 font-medium transition-colors"
-                >
-                  Forgot your password?
+              {/* Terms and Privacy */}
+              <div className="text-xs text-muted-foreground">
+                By creating an account, you agree to our{" "}
+                <Link to="/terms" className="text-primary hover:text-primary/80 font-medium">
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
+                <Link to="/privacy" className="text-primary hover:text-primary/80 font-medium">
+                  Privacy Policy
                 </Link>
               </div>
 
@@ -276,28 +397,28 @@ const Login: React.FC = () => {
                 type="submit"
                 size="lg"
                 className="w-full bg-gradient-primary hover:opacity-90 transition-all duration-200"
-                disabled={isSigningIn}
+                disabled={isSigningUp}
               >
-                {isSigningIn ? (
+                {isSigningUp ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Signing in...
+                    Creating account...
                   </>
                 ) : (
-                  "Sign In"
+                  "Create Account"
                 )}
               </Button>
             </form>
 
-            {/* Sign Up Link */}
+            {/* Sign In Link */}
             <div className="text-center pt-4 border-t border-border">
               <p className="text-sm text-muted-foreground">
-                Don't have an account?{" "}
+                Already have an account?{" "}
                 <Link
-                  to="/signup"
+                  to="/login"
                   className="text-primary hover:text-primary/80 font-medium transition-colors"
                 >
-                  Sign up
+                  Sign in
                 </Link>
               </p>
             </div>
@@ -328,4 +449,4 @@ const Login: React.FC = () => {
   );
 };
 
-export default Login;
+export default Signup;
