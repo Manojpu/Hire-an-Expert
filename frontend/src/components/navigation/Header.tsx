@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+
 import { Menu, X, User, Search, LogOut, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/auth/AuthContext';
 import { doSignOut } from '@/firebase/auth.js';
+
 
 const Header = () => { 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -92,8 +94,8 @@ const Header = () => {
             </Link>
           </div>
 
-          {/* Search Bar */}
-          <div className="hidden lg:flex items-center flex-1 max-w-md mx-8">
+          {/* Search Bar (moved slightly left to make room for Login button) */}
+          <div className="hidden lg:flex items-center flex-1 max-w-md mx-4">
             <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <input
@@ -103,6 +105,7 @@ const Header = () => {
               />
             </div>
           </div>
+
 
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center space-x-4">
@@ -204,6 +207,7 @@ const Header = () => {
                 </Button>
               </>
             )}
+
           </div>
 
           {/* Mobile Menu Button */}
@@ -252,6 +256,7 @@ const Header = () => {
               >
                 Create A Gig
               </Link>
+
               
               {/* Mobile Menu Actions */}
               <div className="flex flex-col space-y-2 pt-4 border-t border-border">
@@ -350,6 +355,7 @@ const Header = () => {
                     </Button>
                   </>
                 )}
+
               </div>
             </div>
           </div>
