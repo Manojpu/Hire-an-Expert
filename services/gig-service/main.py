@@ -92,8 +92,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Shutdown: Any cleanup code would go here
     logger.info("🛑 Shutting down Gig Service...")
 
-# Attach the lifespan handler to the app
-app.router.lifespan_context = lifespan
+# # Attach the lifespan handler to the app
+# app.router.lifespan_context = lifespan
 
 if __name__ == "__main__":
     import uvicorn
