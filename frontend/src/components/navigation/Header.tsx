@@ -138,7 +138,7 @@ const Header = () => {
                     <div className="py-1">
                       <button
                         onClick={() => {
-                          navigate('/profile');
+                          navigate(`/profile/${user.uid || user.id}`);
                           setIsProfileDropdownOpen(false);
                         }}
                         className="w-full text-left px-4 py-2 text-sm hover:bg-muted transition-colors"
@@ -280,7 +280,7 @@ const Header = () => {
                     </div>
                     <button 
                       onClick={() => { 
-                        navigate('/profile'); 
+                        navigate(`/profile/${user.uid || user.id}`); 
                         setIsMenuOpen(false); 
                       }} 
                       className="text-left px-2 py-1 hover:bg-muted rounded-md transition-colors"

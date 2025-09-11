@@ -12,7 +12,7 @@ class ExpertProfileIn(BaseModel):
 class ProvisionIn(BaseModel):
     firebase_uid: str
     email: str
-    full_name: str
+    name: str  # Changed from full_name to name
     is_expert: Optional[bool] = True
     expert_profiles: Optional[List[ExpertProfileIn]] = []
 
@@ -41,6 +41,7 @@ class UserCreate(BaseModel):
     role: Optional[UserRole] = UserRole.CLIENT
     bio: Optional[str] = None
     profile_image_url: Optional[str] = None
+    location: Optional[str] = None
 
 class UserResponse(BaseModel):
     id: uuid.UUID
@@ -51,6 +52,7 @@ class UserResponse(BaseModel):
     role: UserRole
     bio: Optional[str]
     profile_image_url: Optional[str]
+    location: Optional[str]
     is_expert: bool
     created_at: datetime
     updated_at: datetime
@@ -67,6 +69,7 @@ class UserBase(BaseModel):
     role: UserRole = UserRole.CLIENT
     bio: Optional[str] = Field(None, max_length=1000)
     profile_image_url: Optional[str] = None
+    location: Optional[str] = Field(None, max_length=200)
 
 
 class UserUpdate(BaseModel):
@@ -75,6 +78,7 @@ class UserUpdate(BaseModel):
     phone: Optional[str] = Field(None, max_length=20)
     bio: Optional[str] = Field(None, max_length=1000)
     profile_image_url: Optional[str] = None
+    location: Optional[str] = Field(None, max_length=200)
 
 
 

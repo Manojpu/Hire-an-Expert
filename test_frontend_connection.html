@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Frontend Connection</title>
+</head>
+<body>
+    <h1>Test Frontend to Backend Connection</h1>
+    <button onclick="testConnection()">Test Connection</button>
+    <div id="result"></div>
+
+    <script>
+        async function testConnection() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                // Test 1: Health endpoint
+                const healthResponse = await fetch('http://127.0.0.1:8001/health');
+                const healthData = await healthResponse.json();
+                resultDiv.innerHTML += '<p>✅ Health endpoint works: ' + JSON.stringify(healthData) + '</p>';
+
+                // Test 2: Profile endpoint without auth (should get 401)
+                const profileResponse = await fetch('http://127.0.0.1:8001/users/test-user-id', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: 'Test User',
+                        email: 'test@example.com',
+                        phone: '123456789',
+                        bio: 'Test bio',
+                        location: 'Test location'
+                    })
+                });
+                
+                const profileData = await profileResponse.json();
+                resultDiv.innerHTML += '<p>Profile endpoint response (expect 401): Status ' + profileResponse.status + ' - ' + JSON.stringify(profileData) + '</p>';
+
+            } catch (error) {
+                resultDiv.innerHTML += '<p>❌ Error: ' + error.message + '</p>';
+                console.error('Connection test error:', error);
+            }
+        }
+    </script>
+</body>
+</html>
