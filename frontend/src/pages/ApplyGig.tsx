@@ -28,26 +28,36 @@ const ApplyExpert: React.FC = () => {
   const handleSubmit = async () => {
     // Validate form
     const errors = validateExpertApplication(form);
+
+    // Handle qualification documents
+    const qualificationDocsUrls = form.qualificationDocs
+      ? Array.from(form.qualificationDocs).map((file) =>
+          URL.createObjectURL(file)
+        )
+      : [];
+
     if (errors.length > 0) {
       alert("Please fix the following errors:\n" + errors.join("\n"));
       return;
     }
 
     try {
-      // Upload files and get URLs (placeholder - implement file upload service)
-      const profileImageUrl = form.photo
-        ? URL.createObjectURL(form.photo)
-        : undefined;
-      const bannerImageUrl = form.cover
-        ? URL.createObjectURL(form.cover)
-        : undefined;
+      // Simulate uploading qualification docs
+      const uploadedQualificationDocs =
+        qualificationDocsUrls.length > 0
+          ? await Promise.all(
+              qualificationDocsUrls.map((url) => {
+                console.log("Would upload file:", url);
+                return url; // Replace with actual upload logic later
+              })
+            )
+          : [];
 
-      // Convert form to gig service format
-      const gigData = convertFormToGigData(
-        form,
-        profileImageUrl,
-        bannerImageUrl
-      );
+      // Convert form to gig service format (pass only qualification docs now)
+      const gigData = convertFormToGigData({
+        ...form,
+        qualificationDocs: uploadedQualificationDocs,
+      });
 
       // Submit to Gig Service
       const createdGig = await gigServiceAPI.create(gigData);
@@ -63,21 +73,15 @@ const ApplyExpert: React.FC = () => {
 Your expert profile has been created and is pending approval.
 Gig ID: ${createdGig.id}
 Status: ${createdGig.status}`);
-
-      // Redirect to dashboard or success page
-      // navigate('/expert/dashboard');
     } catch (error) {
       console.error("Error submitting application:", error);
 
-      // Show detailed error message for debugging
       let errorMessage = "Failed to submit application. Please try again.";
       if (error instanceof Error) {
         errorMessage = `Failed to submit application: ${error.message}`;
       }
 
       alert(errorMessage);
-
-      // Also log the form data and converted gig data for debugging
       console.log("Form data:", form);
       console.log("Converted gig data:", convertFormToGigData(form));
     }
@@ -152,11 +156,31 @@ Status: ${createdGig.status}`);
                   <div>
                     <label className="text-sm">Expertise Areas</label>
                     <Textarea
-                      value={form.education || ""}
+                      value={form.expertise_areas || ""}
                       onChange={(e) =>
-                        handleChange("education", e.target.value)
+                        handleChange("expertise_areas", e.target.value)
                       }
                     />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium">
+                      Qualification Documents
+                    </label>
+                    <Input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png" // restrict to docs/images
+                      multiple
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        handleChange(
+                          "qualificationDocs",
+                          e.target.files || null
+                        )
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Upload certificates, diplomas, or relevant images (PDF,
+                      JPG, PNG). You can select multiple files.
+                    </p>
                   </div>
                   <div>
                     <label className="text-sm">Experience (in years)</label>
