@@ -2,11 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, Request, F
 from sqlalchemy.orm import Session
 import os
 import shutil
+import logging
 from models import DocumentType
 from config import settings
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 import uuid
+
+# Configure logger
+logger = logging.getLogger(__name__)
+
 from database import SyncSessionLocal, get_async_db
 from models import User, UserRole
 from schemas import (
@@ -485,6 +490,7 @@ def get_user_documents(
     current_user: User = Depends(get_current_user)
 ):
     """Retrieves all verification documents for the authenticated user."""
+    logger.info(f"🔍 GET documents endpoint hit for user_id: {current_user.id}")
     return get_documents_by_user(db=db, user_id=current_user.id)
 
 
