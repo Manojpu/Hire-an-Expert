@@ -250,8 +250,8 @@ async def bulk_upsert_preferences(db: AsyncSession, user_id: uuid.UUID, preferen
     return result_preferences 
 
 # Verification Document CRUD operations
-def create_verification_document(
-    db: Session,
+async def create_verification_document(
+    db: AsyncSession,
     user_id: uuid.UUID,
     document_type: DocumentType,
     document_url: str
@@ -265,15 +265,17 @@ def create_verification_document(
         document_url=document_url
     )
     db.add(db_document)
-    db.commit()
-    db.refresh(db_document)
+    await db.commit()
+    await db.refresh(db_document)
     return db_document
 
-def get_documents_by_user(db: Session, user_id: uuid.UUID) -> List[VerificationDocument]:
+async def get_documents_by_user(db: AsyncSession, user_id: uuid.UUID) -> List[VerificationDocument]:
     """
     Retrieves all verification documents for a specific user.
     """
-    return db.query(VerificationDocument).filter(VerificationDocument.user_id == user_id).all()
+    query = select(VerificationDocument).where(VerificationDocument.user_id == user_id)
+    result = await db.execute(query)
+    return result.scalars().all()
 
 async def get_verification_documents(db: AsyncSession, user_id: uuid.UUID) -> List[VerificationDocument]:
     """Get all verification documents for a user"""

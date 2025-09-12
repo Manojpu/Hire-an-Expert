@@ -12,8 +12,6 @@ from models import User, UserRole
 
 # Set up logger
 logger = logging.getLogger(__name__)
-# Set log level to DEBUG to show all log messages
-logging.basicConfig(level=logging.DEBUG)
 
 
 # Initialize Firebase Admin SDK

@@ -72,6 +72,7 @@ async def global_exception_handler(request, exc):
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
+    logger.debug("Health check requested")
     return {
         "status": "healthy",
         "service": settings.app_name,
@@ -101,5 +102,5 @@ if __name__ == "__main__":
         host=settings.host,
         port=settings.port,
         reload=settings.debug,
-        log_level="info"
+        log_level="debug"
     ) 
