@@ -299,7 +299,7 @@ const Header = () => {
                     {user.isExpert && (
                       <button 
                         onClick={() => { 
-                          navigate('/expert-dashboard'); 
+                          navigate('/expert'); 
                           setIsMenuOpen(false); 
                         }} 
                         className="text-left px-2 py-1 hover:bg-muted rounded-md transition-colors"
