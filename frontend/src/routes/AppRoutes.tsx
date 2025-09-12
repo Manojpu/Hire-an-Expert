@@ -12,7 +12,7 @@ const Expert = lazy(() => import("@/pages/Expert"));
 const Book = lazy(() => import("@/pages/Book"));
 const Chat = lazy(() => import("@/pages/Chat"));
 const Profile = lazy(() => import("@/pages/Profile"));
-const ExpertDashboard = lazy(() => import("@/pages/ExpertDashboard"));
+const ExpertDashboard = lazy(() => import("@/pages/expert/ExpertDashboard"));
 const Admin = lazy(() => import("@/pages/Admin"));
 const BecomeExpert = lazy(() => import("@/pages/CreateGig"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
@@ -20,26 +20,31 @@ const MyBookings = lazy(() => import("@/pages/MyBookings"));
 const Experts = lazy(() => import("@/pages/Experts"));
 const ClientDashboard = lazy(() => import("@/pages/ClientDashboard"));
 
-const ProtectedRoute = ({ children, role }: { children: JSX.Element; role?: string }) => {
+const ProtectedRoute = ({ children, role, isExpert }: { children: JSX.Element; role?: string; isExpert?: boolean }) => {
   const { user, loggedIn } = useAuth();
   if (!loggedIn || !user) return <Navigate to="/" replace />;
   if (role && user.role !== role) return <Navigate to="/" replace />;
+  if (isExpert && !user.isExpert) return <Navigate to="/" replace />;
   return children;
 };
 
 const AppRoutes = () => (
   <Suspense fallback={<div className="p-1">Loading...</div>}>
     <Routes>
-      {/* Expert Dashboard with its own layout (no footer) */}
+      {/* Expert Dashboard - New gig-based structure */}
       <Route
-        path="/expert-dashboard/*"
+        path="/expert/*"
         element={
-          <ProtectedRoute role="expert">
-            <DashboardLayout>
-              <ExpertDashboard />
-            </DashboardLayout>
+          <ProtectedRoute isExpert={true}>
+            <ExpertDashboard />
           </ProtectedRoute>
         }
+      />
+
+      {/* Legacy expert dashboard route - redirect to new structure */}
+      <Route
+        path="/expert-dashboard/*"
+        element={<Navigate to="/expert" replace />}
       />
 
       {/* Standalone pages (no header/footer) */}
