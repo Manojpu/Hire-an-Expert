@@ -16,6 +16,7 @@ import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/context/auth/AuthContext';
 import { mockBookings, experts } from '@/data/mockData';
 import { format } from 'date-fns';
+import { doPasswordUpdate } from '@/firebase/auth.js';
 
 // Utility function to safely format dates
 const safeFormatDate = (dateValue: string | number | Date | undefined | null, formatString: string, fallback: string = 'Not available'): string => {
@@ -57,6 +58,15 @@ const Profile = () => {
   });
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [savingPreferences, setSavingPreferences] = useState(false);
+
+  // Password update states
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [updatingPassword, setUpdatingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState('');
 
   // If no userId in URL, show current user's profile
   // If userId in URL, show that specific user's profile
@@ -298,6 +308,69 @@ const Profile = () => {
       setIsEditing(true);
     }
   };
+
+  const handlePasswordChange = (field, value) => {
+    setPasswordData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const updatePassword = async () => {
+    // Clear previous messages
+    setPasswordMessage('');
+
+    // Validation
+    if (!passwordData.newPassword || !passwordData.confirmPassword) {
+      setPasswordMessage('Please fill in all password fields.');
+      setTimeout(() => setPasswordMessage(''), 5000);
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordMessage('New passwords do not match.');
+      setTimeout(() => setPasswordMessage(''), 5000);
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      setPasswordMessage('Password must be at least 6 characters long.');
+      setTimeout(() => setPasswordMessage(''), 5000);
+      return;
+    }
+
+    setUpdatingPassword(true);
+
+    try {
+      await doPasswordUpdate(passwordData.newPassword);
+      setPasswordMessage('Password updated successfully!');
+      
+      // Clear password fields
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      
+      setTimeout(() => setPasswordMessage(''), 5000);
+    } catch (error) {
+      console.error('Error updating password:', error);
+      
+      let errorMessage = 'Failed to update password.';
+      if (error.code === 'auth/weak-password') {
+        errorMessage = 'Password is too weak. Please choose a stronger password.';
+      } else if (error.code === 'auth/requires-recent-login') {
+        errorMessage = 'For security, please sign out and sign back in before changing your password.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setPasswordMessage(errorMessage);
+      setTimeout(() => setPasswordMessage(''), 8000);
+    } finally {
+      setUpdatingPassword(false);
+    }
+  };
   
   if (!loggedIn || !user) {
     return null;
@@ -318,7 +391,9 @@ const Profile = () => {
                 <div className="relative">
                   <Avatar className="h-24 w-24">
                     <AvatarImage src={user.profileImage} alt={user.name} />
-                    <AvatarFallback className="text-2xl">{user.name.charAt(0)}</AvatarFallback>
+                    <AvatarFallback className="text-2xl">
+                      {user?.name?.charAt(0) ?? "?"}
+                    </AvatarFallback>
                   </Avatar>
                   <button className="absolute -bottom-2 -right-2 bg-primary hover:bg-primary/90 rounded-full p-2 text-primary-foreground">
                     <Camera className="h-4 w-4" />
@@ -661,22 +736,45 @@ const Profile = () => {
                   <CardTitle>Account Security</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="current-password">Current Password</Label>
-                    <Input id="current-password" type="password" />
-                  </div>
-                  
+                  {/* Password Message */}
+                  {passwordMessage && (
+                    <div className={`p-3 rounded-md ${passwordMessage.includes('successfully') || passwordMessage.includes('Success') 
+                      ? 'bg-green-50 border border-green-200 text-green-800' 
+                      : 'bg-red-50 border border-red-200 text-red-800'}`}>
+                      <p className="text-sm">{passwordMessage}</p>
+                    </div>
+                  )}
+
                   <div>
                     <Label htmlFor="new-password">New Password</Label>
-                    <Input id="new-password" type="password" />
+                    <Input 
+                      id="new-password" 
+                      type="password"
+                      value={passwordData.newPassword}
+                      onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
+                      disabled={updatingPassword}
+                      placeholder="Enter new password (min 6 characters)"
+                    />
                   </div>
                   
                   <div>
                     <Label htmlFor="confirm-password">Confirm New Password</Label>
-                    <Input id="confirm-password" type="password" />
+                    <Input 
+                      id="confirm-password" 
+                      type="password"
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => handlePasswordChange('confirmPassword', e.target.value)}
+                      disabled={updatingPassword}
+                      placeholder="Confirm new password"
+                    />
                   </div>
                   
-                  <Button>Update Password</Button>
+                  <Button 
+                    onClick={updatePassword}
+                    disabled={updatingPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+                  >
+                    {updatingPassword ? 'Updating Password...' : 'Update Password'}
+                  </Button>
                 </CardContent>
               </Card>
 
