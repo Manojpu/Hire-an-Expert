@@ -1,25 +1,41 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request, Form, File, UploadFile
 from sqlalchemy.orm import Session
 import os
+import shutil
+import logging
+from models import DocumentType
 from config import settings
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 import uuid
+
+# Configure logger
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
+
 from database import SyncSessionLocal, get_async_db
 from models import User, UserRole
 from schemas import (
     UserCreate, UserUpdate, UserResponse, UserOut, ProvisionIn,
     SuccessResponse, PaginationParams, PaginatedResponse,
     PreferenceCreate, PreferenceUpdate, PreferenceResponse, 
-    PreferenceBulkCreate, PreferenceBulkResponse, UserWithPreferences
+    PreferenceBulkCreate, PreferenceBulkResponse, UserWithPreferences,
+    VerificationDocumentCreate, VerificationDocumentResponse,
+    ExpertVerificationUpdate, ExpertVerificationResponse
 ) 
 from crud import (
     create_user, get_user_by_email, get_user_by_id, get_user_by_firebase_uid, get_users, update_user, delete_user,
     firebase_uid_exists, email_exists, upsert_user,
     create_preference, get_user_preferences, get_preference_by_key, update_preference, 
-    upsert_preference, delete_preference, bulk_upsert_preferences
+    upsert_preference, delete_preference, bulk_upsert_preferences,
+    create_verification_document, get_verification_documents, get_documents_by_user, get_verification_document_by_id, delete_verification_document,
+    update_expert_verification_status, get_all_expert_profiles
 )
 from auth import get_current_user, get_current_admin, get_user_by_id_or_current, get_optional_user
+# Removing problematic relative import
+
+UPLOAD_DIRECTORY = "./uploads"
+os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
 
 router = APIRouter()
 
@@ -83,6 +99,18 @@ async def provision_user(request: Request, db: Session = Depends(get_db)):
         expert_profiles=payload.expert_profiles
     )
     return user
+
+
+# ==============================================================
+# Added static endpoint before dynamic routes to avoid conflicts
+@router.get("/users/documents", response_model=List[VerificationDocumentResponse], summary="Get user's documents")
+async def get_user_documents(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Retrieves all verification documents for the authenticated user."""
+    logger.info(f"🔍 GET documents endpoint hit for user_id: {current_user.id}")
+    return await get_documents_by_user(db=db, user_id=current_user.id)
 
 # Public endpoints 
 @router.get("/users/{user_id}", response_model=UserResponse)
@@ -422,4 +450,49 @@ async def delete_preference_endpoint(
     
     return SuccessResponse(message="Preference deleted successfully")
 
+@router.post(
+    "/users/documents",
+    response_model=VerificationDocumentResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload a verification document"
+)
+async def upload_verification_document(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+    document_type: DocumentType = Form(...),
+    file: UploadFile = File(...)
+):
+    """
+    Uploads a verification document for the authenticated user.
+    - Receives a file and its type.
+    - Saves the file to a storage location.
+    - Creates a record in the verification_documents table.
+    """
+    try:
+        # Create a secure, unique filename
+        file_extension = os.path.splitext(file.filename)[1]
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        file_location = os.path.join(UPLOAD_DIRECTORY, unique_filename)
 
+        # Save the file to the local directory
+        with open(file_location, "wb+") as file_object:
+            shutil.copyfileobj(file.file, file_object)
+        
+        # Create a URL path to access the file
+        # In a real app, this would be an S3 URL
+        document_url = f"/static/{unique_filename}"
+
+        # Create the database record
+        db_document = await create_verification_document(
+            db=db,
+            user_id=current_user.id,
+            document_type=document_type,
+            document_url=document_url
+        )
+        return db_document
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Could not upload file: {e}"
+        )

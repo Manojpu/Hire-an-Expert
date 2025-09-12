@@ -5,17 +5,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional
 import firebase_admin
+import logging
 from config import settings
 from database import get_async_db
 from models import User, UserRole
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 
 # Initialize Firebase Admin SDK
 try:
     firebase_admin.get_app()
-    print("Firebase app already initialized")
+    logger.info("Firebase app already initialized")
 except ValueError:
-    print("Initializing Firebase Admin SDK...")
+    logger.info("Initializing Firebase Admin SDK...")
 
     cred = credentials.Certificate({
         "type": "service_account",
@@ -31,7 +35,7 @@ except ValueError:
     })
 
     initialize_app(cred)
-    print("Firebase Admin SDK initialized successfully")
+    logger.info("Firebase Admin SDK initialized successfully")
 
 # Security scheme
 security = HTTPBearer()
@@ -47,45 +51,45 @@ async def get_current_user(
     try:
         # Verify Firebase token
         token = credentials.credentials
-        print(f"🔐 Attempting to verify token: {token[:50]}...")
-        print(f"🔐 Token length: {len(token)}")
-        print(f"🔐 Token type: {type(token)}")
+        logger.debug(f"🔐 Attempting to verify token: {token[:50]}...")
+        logger.debug(f"🔐 Token length: {len(token)}")
+        logger.debug(f"🔐 Token type: {type(token)}")
         
         # Add Firebase app info
         try:
             app = firebase_admin.get_app()
-            print(f"🔐 Firebase app initialized: {app.project_id}")
+            logger.debug(f"🔐 Firebase app initialized: {app.project_id}")
         except Exception as app_error:
-            print(f"🔐 Firebase app error: {app_error}")
+            logger.error(f"🔐 Firebase app error: {app_error}")
         
         decoded_token = auth.verify_id_token(token)
         firebase_uid = decoded_token['uid']
-        print(f"✅ Token verified successfully for Firebase UID: {firebase_uid}")
-        print(f"✅ Decoded token keys: {list(decoded_token.keys())}")
+        logger.info(f"✅ Token verified successfully for Firebase UID: {firebase_uid}")
+        logger.debug(f"✅ Decoded token keys: {list(decoded_token.keys())}")
         
         # Get user from database
         result = await db.execute(select(User).where(User.firebase_uid == firebase_uid))
         user = result.scalar_one_or_none()
         
         if not user:
-            print(f"User not found in database for Firebase UID: {firebase_uid}")
+            logger.warning(f"User not found in database for Firebase UID: {firebase_uid}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
         
-        print(f"User found in database: {user.id}")
+        logger.info(f"User found in database: {user.id}")
         return user
         
     except auth.InvalidIdTokenError as e:
-        print(f"Invalid ID token error: {e}")
+        logger.error(f"Invalid ID token error: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication token"
         )
     except Exception as e:
-        print(f"Authentication error: {e}")
-        print(f"Error type: {type(e)}")
+        logger.error(f"Authentication error: {e}")
+        logger.error(f"Error type: {type(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication failed"
@@ -122,7 +126,7 @@ async def get_user_by_id_or_current(
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid user ID format"
+            detail="Invalid user ID format!!"
         )
     
     # Admin can access any user

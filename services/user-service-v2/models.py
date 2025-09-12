@@ -12,6 +12,11 @@ class UserRole(str, enum.Enum):
     EXPERT = "expert"
     ADMIN = "admin"
 
+class DocumentType(str, enum.Enum):
+    ID_PROOF = "ID_PROOF"
+    PROFESSIONAL_LICENSE = "PROFESSIONAL_LICENSE"
+    OTHER = "OTHER"
+
 
 class User(Base):
     __tablename__ = "users"
@@ -32,6 +37,7 @@ class User(Base):
     # Relationship
     expert_profiles = relationship("ExpertProfile", back_populates="user")
     preferences = relationship("Preference", back_populates="user", cascade="all, delete-orphan")
+    verification_documents = relationship("VerificationDocument", back_populates="user", cascade="all, delete-orphan")
     
     
     def __repr__(self):
@@ -46,6 +52,7 @@ class ExpertProfile(Base):
     specialization = Column(String(100), nullable=False)
     description = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    is_verified = Column(Boolean, default=False)
     
     # Relationship
     user = relationship("User", back_populates="expert_profiles")
@@ -73,3 +80,17 @@ class Preference(Base):
     def __repr__(self):
         return f"<Preference(id={self.id}, user_id={self.user_id}, key={self.key}, value={self.value})>"
 
+class VerificationDocument(Base):
+    __tablename__ = "verification_documents"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    document_type = Column(Enum(DocumentType), nullable=False)
+    document_url = Column(String, nullable=False)  # URL to the stored document (e.g., in S3)
+    uploaded_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    
+    # Relationship back reference
+    user = relationship("User", back_populates="verification_documents")
+
+    def __repr__(self):
+        return f"<VerificationDocument(id={self.id}, user_id={self.user_id}, document_type={self.document_type})>"

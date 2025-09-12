@@ -4,10 +4,18 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.orm import Session 
 from typing import List, Optional, Dict, Any
 import uuid
-from models import User,  UserRole, ExpertProfile, Preference
-from schemas import UserCreate, UserUpdate, PreferenceCreate, PreferenceUpdate, ProvisionIn, ExpertProfileIn, UserOut, ExpertProfileOut, UserResponse, PaginationParams, PaginatedResponse, ErrorResponse, ValidationErrorResponse, SuccessResponse
+from models import User, UserRole, ExpertProfile, Preference, VerificationDocument, DocumentType
+from schemas import (
+    UserCreate, UserUpdate, PreferenceCreate, PreferenceUpdate, 
+    ProvisionIn, ExpertProfileIn, UserOut, ExpertProfileOut, 
+    UserResponse, PaginationParams, PaginatedResponse, 
+    ErrorResponse, ValidationErrorResponse, SuccessResponse,
+    VerificationDocumentCreate, VerificationDocumentResponse,
+    ExpertVerificationUpdate, ExpertVerificationResponse
+)
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+# Removing problematic relative import
 
 
 
@@ -240,3 +248,77 @@ async def bulk_upsert_preferences(db: AsyncSession, user_id: uuid.UUID, preferen
         result_preferences.append(upserted)
     
     return result_preferences 
+
+# Verification Document CRUD operations
+async def create_verification_document(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    document_type: DocumentType,
+    document_url: str
+) -> VerificationDocument:
+    """
+    Creates a new verification document record in the database.
+    """
+    db_document = VerificationDocument(
+        user_id=user_id,
+        document_type=document_type,
+        document_url=document_url
+    )
+    db.add(db_document)
+    await db.commit()
+    await db.refresh(db_document)
+    return db_document
+
+async def get_documents_by_user(db: AsyncSession, user_id: uuid.UUID) -> List[VerificationDocument]:
+    """
+    Retrieves all verification documents for a specific user.
+    """
+    query = select(VerificationDocument).where(VerificationDocument.user_id == user_id)
+    result = await db.execute(query)
+    return result.scalars().all()
+
+async def get_verification_documents(db: AsyncSession, user_id: uuid.UUID) -> List[VerificationDocument]:
+    """Get all verification documents for a user"""
+    query = select(VerificationDocument).where(VerificationDocument.user_id == user_id)
+    result = await db.execute(query)
+    return result.scalars().all()
+
+async def get_verification_document_by_id(db: AsyncSession, doc_id: uuid.UUID) -> Optional[VerificationDocument]:
+    """Get a verification document by ID"""
+    query = select(VerificationDocument).where(VerificationDocument.id == doc_id)
+    result = await db.execute(query)
+    return result.scalar_one_or_none()
+
+async def delete_verification_document(db: AsyncSession, doc_id: uuid.UUID) -> bool:
+    """Delete a verification document"""
+    document = await get_verification_document_by_id(db, doc_id)
+    if not document:
+        return False
+    await db.delete(document)
+    await db.commit()
+    return True
+
+# Expert Verification CRUD operations
+async def update_expert_verification_status(db: AsyncSession, expert_profile_id: uuid.UUID, is_verified: bool) -> Optional[ExpertProfile]:
+    """Update the verification status of an expert profile"""
+    query = select(ExpertProfile).where(ExpertProfile.id == expert_profile_id)
+    result = await db.execute(query)
+    expert_profile = result.scalar_one_or_none()
+    
+    if not expert_profile:
+        return None
+    
+    expert_profile.is_verified = is_verified
+    await db.commit()
+    await db.refresh(expert_profile)
+    return expert_profile
+
+async def get_all_expert_profiles(db: AsyncSession, verified_only: bool = False) -> List[ExpertProfile]:
+    """Get all expert profiles, optionally filtered by verification status"""
+    query = select(ExpertProfile).options(selectinload(ExpertProfile.user))
+    
+    if verified_only:
+        query = query.where(ExpertProfile.is_verified == True)
+    
+    result = await db.execute(query)
+    return result.scalars().all()
