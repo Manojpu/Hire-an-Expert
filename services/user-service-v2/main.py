@@ -10,7 +10,7 @@ from routes import router
 import logging
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
@@ -39,7 +39,13 @@ app = FastAPI(
     description="User Service for Hire an Expert Platform",
     docs_url="/",
     redoc_url="/redoc",
-    lifespan=lifespan
+    lifespan=lifespan,
+    openapi_tags=[
+        {"name": "Users", "description": "User management operations"},
+        {"name": "Preferences", "description": "User preferences management"},
+        {"name": "Verification Documents", "description": "Document upload and verification"},
+        {"name": "Expert Verification", "description": "Expert profile verification"}
+    ]
 )
 
 # Add CORS middleware
@@ -66,6 +72,7 @@ async def global_exception_handler(request, exc):
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
+    logger.debug("Health check requested")
     return {
         "status": "healthy",
         "service": settings.app_name,
@@ -95,5 +102,5 @@ if __name__ == "__main__":
         host=settings.host,
         port=settings.port,
         reload=settings.debug,
-        log_level="info"
+        log_level="debug"
     ) 
