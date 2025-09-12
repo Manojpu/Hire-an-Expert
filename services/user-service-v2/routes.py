@@ -100,6 +100,18 @@ async def provision_user(request: Request, db: Session = Depends(get_db)):
     )
     return user
 
+
+# ==============================================================
+# Added static endpoint before dynamic routes to avoid conflicts
+@router.get("/users/documents", response_model=List[VerificationDocumentResponse], summary="Get user's documents")
+async def get_user_documents(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Retrieves all verification documents for the authenticated user."""
+    logger.info(f"🔍 GET documents endpoint hit for user_id: {current_user.id}")
+    return await get_documents_by_user(db=db, user_id=current_user.id)
+
 # Public endpoints 
 @router.get("/users/{user_id}", response_model=UserResponse)
 async def get_user_public(
@@ -484,14 +496,3 @@ async def upload_verification_document(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Could not upload file: {e}"
         )
-
-@router.get("/users/documents", response_model=List[VerificationDocumentResponse], summary="Get user's documents")
-async def get_user_documents(
-    db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Retrieves all verification documents for the authenticated user."""
-    logger.info(f"🔍 GET documents endpoint hit for user_id: {current_user.id}")
-    return await get_documents_by_user(db=db, user_id=current_user.id)
-
-
