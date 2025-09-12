@@ -11,6 +11,7 @@ import uuid
 
 # Configure logger
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
 
 from database import SyncSessionLocal, get_async_db
 from models import User, UserRole
@@ -443,8 +444,8 @@ async def delete_preference_endpoint(
     status_code=status.HTTP_201_CREATED,
     summary="Upload a verification document"
 )
-def upload_verification_document(
-    db: Session = Depends(get_db),
+async def upload_verification_document(
+    db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user),
     document_type: DocumentType = Form(...),
     file: UploadFile = File(...)
@@ -470,7 +471,7 @@ def upload_verification_document(
         document_url = f"/static/{unique_filename}"
 
         # Create the database record
-        db_document = create_verification_document(
+        db_document = await create_verification_document(
             db=db,
             user_id=current_user.id,
             document_type=document_type,
@@ -485,12 +486,12 @@ def upload_verification_document(
         )
 
 @router.get("/users/documents", response_model=List[VerificationDocumentResponse], summary="Get user's documents")
-def get_user_documents(
-    db: Session = Depends(get_db),
+async def get_user_documents(
+    db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
 ):
     """Retrieves all verification documents for the authenticated user."""
     logger.info(f"🔍 GET documents endpoint hit for user_id: {current_user.id}")
-    return get_documents_by_user(db=db, user_id=current_user.id)
+    return await get_documents_by_user(db=db, user_id=current_user.id)
 
 
