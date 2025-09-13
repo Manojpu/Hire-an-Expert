@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List, Dict
 from datetime import datetime
 import uuid
-from models import UserRole
+from models import UserRole,DocumentType
 from pydantic import ConfigDict
 
 
@@ -147,3 +147,32 @@ class PaginatedResponse(BaseModel):
     page: int
     size: int
     pages: int 
+    
+# Verification Document schemas
+class VerificationDocumentBase(BaseModel):
+    document_type: DocumentType
+    document_url: str
+
+class VerificationDocumentCreate(VerificationDocumentBase):
+    pass
+
+class VerificationDocumentResponse(VerificationDocumentBase):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    uploaded_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+# Expert verification schemas
+class ExpertVerificationUpdate(BaseModel):
+    is_verified: bool
+    
+class ExpertVerificationResponse(BaseModel):
+    user_id: uuid.UUID
+    expert_profile_id: uuid.UUID
+    specialization: str
+    is_verified: bool
+    
+    class Config:
+        from_attributes = True
