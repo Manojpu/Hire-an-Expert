@@ -12,14 +12,17 @@ const MOCK_GIGS: ExpertGig[] = [
     profile_image_url: 'https://via.placeholder.com/150',
     banner_image_url: 'https://via.placeholder.com/800x200',
     languages: ['English', 'Sinhala'],
-    category: 'education-career-guidance',
+  category_id: 1,
     service_description: 'I provide comprehensive technology consulting services including system architecture, digital transformation strategies, and IT project management.',
     hourly_rate: 5000,
     currency: 'LKR',
     availability_preferences: 'Available Monday to Friday, 9 AM to 6 PM',
     education: 'PhD in Computer Science, University of Colombo',
     experience: '15+ years in technology consulting and project management',
-    certifications: ['AWS Solutions Architect', 'PMP Certified'],
+    certifications: [
+      { url: 'https://certs.com/aws-solutions-architect.pdf' },
+      { url: 'https://certs.com/pmp-certified.pdf' }
+    ],
     references: 'Available upon request',
     background_check_consent: true,
     status: 'active',
@@ -41,14 +44,17 @@ const MOCK_GIGS: ExpertGig[] = [
     profile_image_url: 'https://via.placeholder.com/150',
     banner_image_url: 'https://via.placeholder.com/800x200',
     languages: ['English', 'Sinhala'],
-    category: 'automobile-advice',
+  category_id: 2,
     service_description: 'I offer strategic business consulting services including market analysis, business planning, and operational optimization.',
     hourly_rate: 6000,
     currency: 'LKR',
     availability_preferences: 'Available Tuesday to Saturday, 10 AM to 5 PM',
     education: 'MBA in Strategic Management, University of Sri Jayewardenepura',
     experience: '12+ years in business strategy and management consulting',
-    certifications: ['Six Sigma Black Belt', 'Certified Management Consultant'],
+    certifications: [
+      { url: 'https://certs.com/six-sigma-black-belt.pdf' },
+      { url: 'https://certs.com/certified-management-consultant.pdf' }
+    ],
     references: 'Available upon request',
     background_check_consent: true,
     status: 'active',
@@ -70,14 +76,17 @@ const MOCK_GIGS: ExpertGig[] = [
     profile_image_url: 'https://via.placeholder.com/150',
     banner_image_url: 'https://via.placeholder.com/800x200',
     languages: ['English', 'Sinhala'],
-    category: 'electronic-device-advice',
+  category_id: 3,
     service_description: 'I provide comprehensive digital marketing services including SEO, social media marketing, and online advertising strategies.',
     hourly_rate: 4500,
     currency: 'LKR',
     availability_preferences: 'Flexible schedule, available for urgent consultations',
     education: 'Bachelor in Marketing, University of Kelaniya',
     experience: '8+ years in digital marketing and brand management',
-    certifications: ['Google Ads Certified', 'Facebook Blueprint Certified'],
+    certifications: [
+      { url: 'https://certs.com/google-ads-certified.pdf' },
+      { url: 'https://certs.com/facebook-blueprint-certified.pdf' }
+    ],
     references: 'Available upon request',
     background_check_consent: true,
     status: 'pending',
@@ -111,21 +120,17 @@ interface Certificate {
 
 export interface ExpertGigCreateData {
   // Basic Information (Step 0)
-  name: string;
-  title: string;
+  name?: string;
+  title?: string;
   bio?: string;
   profile_image_url?: string;
   banner_image_url?: string;
-  languages: string[];
+  languages?: string[];
 
   // Expertise & Services (Step 1)
-  category:
-    | "automobile-advice"
-    | "electronic-device-advice"
-    | "home-appliance-guidance"
-    | "education-career-guidance";
+  category_id: number | string;
   service_description?: string;
-  hourly_rate: number;
+  hourly_rate?: number;
   currency?: string;
   availability_preferences?: string;
 
@@ -138,7 +143,7 @@ export interface ExpertGigCreateData {
   government_id_url?: string;
   professional_license_url?: string;
   references?: string;
-  background_check_consent: boolean;
+  background_check_consent?: boolean;
 }
 
 export interface ExpertGig extends ExpertGigCreateData {
@@ -181,32 +186,19 @@ export function convertFormToGigData(
   certificationUrls: string[] = []
 ): ExpertGigCreateData {
   return {
-    category: getCategorySlug(form.categories || ""),
+    category_id: form.category_id,
     service_description: form.serviceDesc || "",
     hourly_rate: Number(form.rate) || 0,
     currency: "LKR",
     availability_preferences: form.availabilityNotes || "",
-
-    // Qualifications
-
     experience: form.experience || "",
-    certifications: certificationUrls, // Use the uploaded certification URLs
-
-    // Verification
+    certifications: certificationUrls.map(url => ({ url })),
     references: form.references || "",
     background_check_consent: form.bgConsent || false,
   };
 }
 
-function getCategorySlug(category: string): ExpertGigCreateData["category"] {
-  const mapping: Record<string, ExpertGigCreateData["category"]> = {
-    "Automobile Advice": "automobile-advice",
-    "Electronic Device Advice": "electronic-device-advice",
-    "Home Appliance Guidance": "home-appliance-guidance",
-    "Education & Career Guidance": "education-career-guidance",
-  };
-  return mapping[category] || "automobile-advice";
-}
+
 
 // API client for Gig Service
 const GIG_SERVICE_URL =
@@ -279,7 +271,11 @@ export const gigServiceAPI: GigServiceAPI = {
         availability_preferences: 'Monday to Friday: 9:00 AM - 6:00 PM, Saturday: 9:00 AM - 2:00 PM',
         education: 'BSc in Mechanical Engineering from University of Moratuwa, Advanced Automotive Technology Certificate',
         experience: '15 years as Senior Automotive Engineer at Toyota Lanka, 5 years as Independent Consultant',
-        certifications: ['ASE Certified Master Technician', 'Hybrid Vehicle Specialist', 'Advanced Engine Diagnostics'],
+        certifications: [
+          { url: 'https://certs.com/ase-certified-master-technician.pdf' },
+          { url: 'https://certs.com/hybrid-vehicle-specialist.pdf' },
+          { url: 'https://certs.com/advanced-engine-diagnostics.pdf' }
+        ],
         government_id_url: '/docs/nic-rajesh.pdf',
         professional_license_url: '/docs/engineering-license.pdf',
         references: 'Dr. Kumara Silva (Former Supervisor) - 077-1234567',
@@ -310,7 +306,10 @@ export const gigServiceAPI: GigServiceAPI = {
         availability_preferences: 'Tuesday to Saturday: 10:00 AM - 5:00 PM',
         education: 'BSc in Electronic Engineering, MSc in Consumer Electronics',
         experience: '12 years in consumer electronics industry, 3 years as technical consultant',
-        certifications: ['Smart Home Technology Specialist', 'Consumer Electronics Expert'],
+        certifications: [
+          { url: 'https://certs.com/smart-home-technology-specialist.pdf' },
+          { url: 'https://certs.com/consumer-electronics-expert.pdf' }
+        ],
         government_id_url: '/docs/nic-rajesh.pdf',
         professional_license_url: '/docs/electronics-license.pdf',
         references: 'Eng. Nimal Fernando - 077-9876543',
@@ -341,7 +340,10 @@ export const gigServiceAPI: GigServiceAPI = {
         availability_preferences: 'Weekdays: 6:00 PM - 9:00 PM, Weekends: 10:00 AM - 4:00 PM',
         education: 'PhD in Educational Psychology, MBA in Human Resources',
         experience: '10 years as University Career Counselor, 5 years private consulting',
-        certifications: ['Certified Career Development Facilitator', 'Professional Life Coach'],
+        certifications: [
+          { url: 'https://certs.com/career-development-facilitator.pdf' },
+          { url: 'https://certs.com/professional-life-coach.pdf' }
+        ],
         government_id_url: '/docs/nic-rajesh.pdf',
         professional_license_url: '/docs/counselor-license.pdf',
         references: 'Prof. Sandya Wijeratne - 077-5551234',

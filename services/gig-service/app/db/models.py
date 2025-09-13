@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, Float, DateTime, func, Text, Enum, ForeignKey
 import uuid
+import enum
 
 Base = declarative_base()
 
@@ -86,8 +87,8 @@ class Gig(Base):
     
     # Timestamps
     created_at = Column(DateTime, server_default=func.now())
-    expert_id = Column(Integer, index=True) 
     updated_at = Column(DateTime, onupdate=func.now())
+    approved_at = Column(DateTime, nullable=True)
     
     def __repr__(self):
-        return f"<Gig(id={self.id}, expert_id={self.expert_id}, title='{self.title}', price={self.price})>"
+        return f"<Gig(id={self.id}, expert_id={self.expert_id}, service_description='{self.service_description}', hourly_rate={self.hourly_rate})>"
