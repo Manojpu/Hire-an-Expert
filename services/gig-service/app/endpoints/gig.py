@@ -61,6 +61,7 @@ def get_public_gigs(
     Get public gigs for category/search pages.
     This feeds the Category.tsx component.
     """
+    logger.info(f"Fetching public gigs: category_id={category_id}, min_rate={min_rate}, max_rate={max_rate}, search_query={search_query}, min_experience_years={min_experience_years}, page={page}, size={size}")
     filters = schemas.GigFilters(
         category_id=category_id,
         min_rate=min_rate,
@@ -74,7 +75,7 @@ def get_public_gigs(
     gigs = crud.get_gigs_filtered(db=db, filters=filters, skip=skip, limit=size)
     total = crud.get_gigs_count(db=db, filters=filters)
     pages = (total + size - 1) // size
-
+    logger.info(f"Public gigs fetched: count={len(gigs)}, total={total}, pages={pages}")
     return schemas.GigListResponse(
         gigs=gigs,
         total=total,
@@ -95,12 +96,15 @@ def get_gig_detail(
     logger.info(f"Fetching gig details for gig ID: {gig_id}")
     db_gig = crud.get_gig(db=db, gig_id=gig_id)
     if not db_gig:
+        logger.warning(f"Gig not found for gig ID: {gig_id}")
         raise HTTPException(status_code=404, detail="Gig not found")
 
     # Only show approved/active gigs to public
     if db_gig.status not in [schemas.GigStatus.APPROVED, schemas.GigStatus.ACTIVE]:
+        logger.warning(f"Gig with ID {gig_id} is not available (status: {db_gig.status})")
         raise HTTPException(status_code=404, detail="Gig not available")
 
+    logger.info(f"Gig details returned for gig ID: {gig_id}")
     return db_gig
 
 
@@ -113,11 +117,10 @@ def get_all_gigs(
     """
     Get all gigs with pagination.
     """
+    logger.info(f"Fetching all gigs with skip={skip}, limit={limit}")
     gigs = crud.get_all_gigs(db=db, skip=skip, limit=limit)
 
-    # Patch: Add hardcoded fields for frontend display
     def enrich_gig(gig):
-        # Convert SQLAlchemy object to dict if needed
         gig_dict = gig.__dict__.copy() if hasattr(gig, '__dict__') else dict(gig)
         gig_dict["bio"] = "Experienced expert in the field. Contact for more info."
         gig_dict["banner_image_url"] = "/logo.png"
@@ -130,6 +133,7 @@ def get_all_gigs(
         return gig_dict
 
     enriched_gigs = [enrich_gig(g) for g in gigs]
+    logger.info(f"All gigs fetched: count={len(enriched_gigs)}")
     return enriched_gigs
 
 
@@ -142,13 +146,17 @@ def get_gig_by_expert(
     Get gig by expert Firebase UID.
     Used for expert profile lookups.
     """
+    logger.info(f"Fetching gig for expert ID: {expert_id}")
     db_gig = crud.get_gig_by_expert(db=db, expert_id=expert_id)
     if not db_gig:
+        logger.warning(f"Expert gig not found for expert ID: {expert_id}")
         raise HTTPException(status_code=404, detail="Expert gig not found")
 
     if db_gig.status not in [schemas.GigStatus.APPROVED, schemas.GigStatus.ACTIVE]:
+        logger.warning(f"Expert profile not available for expert ID: {expert_id} (status: {db_gig.status})")
         raise HTTPException(status_code=404, detail="Expert profile not available")
 
+    logger.info(f"Expert gig returned for expert ID: {expert_id}")
     return db_gig
 
 
@@ -161,10 +169,12 @@ def get_my_gig(
     Get expert's own gig for dashboard management.
     This feeds the ExpertDashboard components.
     """
+    logger.info(f"Fetching gig for current user ID: {current_user_id}")
     db_gig = crud.get_gig_by_expert(db=db, expert_id=current_user_id)
     if not db_gig:
+        logger.warning(f"No gig found for current user ID: {current_user_id}")
         raise HTTPException(status_code=404, detail="No gig found for this expert")
-
+    logger.info(f"Gig returned for current user ID: {current_user_id}")
     return db_gig
 
 
@@ -178,14 +188,18 @@ def update_my_gig(
     Update expert's own gig.
     """
     # First get the gig to ensure it belongs to the current user
+    logger.info(f"Updating gig for current user ID: {current_user_id}")
     db_gig = crud.get_gig_by_expert(db=db, expert_id=current_user_id)
     if not db_gig:
+        logger.warning(f"No gig found for current user ID: {current_user_id}")
         raise HTTPException(status_code=404, detail="No gig found for this expert")
 
     updated_gig = crud.update_gig(db=db, gig_id=db_gig.id, gig_update=gig_update)
     if not updated_gig:
+        logger.error(f"Failed to update gig for current user ID: {current_user_id}")
         raise HTTPException(status_code=404, detail="Failed to update gig")
 
+    logger.info(f"Gig updated for current user ID: {current_user_id}")
     return updated_gig
 
 
@@ -198,12 +212,16 @@ def delete_my_gig(
     Delete expert's own gig.
     """
     # First get the gig to ensure it belongs to the current user
+    logger.info(f"Deleting gig for current user ID: {current_user_id}")
     db_gig = crud.get_gig_by_expert(db=db, expert_id=current_user_id)
     if not db_gig:
+        logger.warning(f"No gig found for current user ID: {current_user_id}")
         raise HTTPException(status_code=404, detail="No gig found for this expert")
 
     success = crud.delete_gig(db=db, gig_id=db_gig.id)
     if not success:
+        logger.error(f"Failed to delete gig for current user ID: {current_user_id}")
         raise HTTPException(status_code=500, detail="Failed to delete gig")
 
+    logger.info(f"Gig deleted for current user ID: {current_user_id}")
     return None  # 204 No Content response
