@@ -80,7 +80,9 @@ class Gig(GigBase):
     class Config:
         from_attributes = True
 
-
+class GigResponse(Gig):
+    """Response model for a gig, identical to Gig for now."""
+    pass
 
 class GigListResponse(BaseModel):
     """Response model for a paginated list of gigs."""
