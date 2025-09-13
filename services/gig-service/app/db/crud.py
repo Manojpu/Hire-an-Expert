@@ -32,14 +32,29 @@ def get_all_categories(db: Session, skip: int = 0, limit: int = 100) -> list[typ
     logger.info(f"Retrieved {len(categories)} categories")
     return categories
 
-def get_category(db: Session, category_id: uuid.UUID) -> Optional[Category]:
-    """Retrieves a single category by its ID."""
-    logger.info(f"Retrieving category with ID: {category_id}")
-    category = db.query(Category).filter(Category.id == category_id).first()
+def get_category(db: Session, category_id: str) -> Optional[Category]:
+    """
+    Retrieves a single category by its ID or slug.
+    If category_id is a UUID, search by ID.
+    If category_id is a string that's not a valid UUID, search by slug.
+    """
+    logger.info(f"Retrieving category with ID or slug: {category_id}")
+    
+    # Try to parse as UUID first
+    try:
+        # If it's a valid UUID, search by ID
+        uuid_obj = uuid.UUID(category_id)
+        category = db.query(Category).filter(Category.id == uuid_obj).first()
+    except (ValueError, TypeError):
+        # If it's not a valid UUID, search by slug
+        logger.info(f"Category ID {category_id} is not a valid UUID, searching by slug instead")
+        category = db.query(Category).filter(Category.slug == category_id).first()
+    
     if category:
         logger.info(f"Category found: {category.name}")
     else:
-        logger.warning(f"Category with ID {category_id} not found")
+        logger.warning(f"Category with ID/slug {category_id} not found")
+    
     return category
 
 
@@ -51,12 +66,19 @@ def create_gig(db: Session, gig: GigCreate, expert_id: str) -> Gig:
     logger.debug(f"Gig data: {gig.dict()}")
     
     # Convert Pydantic model to dict, excluding any None values
-    gig_data = {k: v for k, v in gig.dict().items() if v is not None}
+    gig_data = {k: v for k, v in gig.dict().items() if v is not None and k != 'category_id'}
+    
+    # Get category by ID or slug
+    category = get_category(db, str(gig.category_id))
+    if not category:
+        logger.error(f"Category with ID/slug {gig.category_id} not found")
+        raise ValueError(f"Category with ID/slug {gig.category_id} not found")
     
     gig_id = str(uuid.uuid4())
     db_gig = Gig(
         id=gig_id,
         expert_id=expert_id,
+        category_id=category.id,  # Use the actual UUID from the retrieved category
         status=GigStatus.DRAFT,  # Gigs start as drafts by default
         currency="LKR",
         response_time="< 24 hours",
@@ -106,6 +128,18 @@ def update_gig(db: Session, gig_id: str, gig_update: GigUpdate) -> Optional[Gig]
         return None
 
     update_data = gig_update.dict(exclude_unset=True)
+    
+    # Handle category_id separately if provided
+    if 'category_id' in update_data:
+        category_id_or_slug = update_data.pop('category_id')
+        if category_id_or_slug:
+            category = get_category(db, str(category_id_or_slug))
+            if category:
+                db_gig.category_id = category.id
+            else:
+                logger.warning(f"Category with ID/slug {category_id_or_slug} not found, skipping category update")
+    
+    # Update other fields
     for field, value in update_data.items():
         setattr(db_gig, field, value)
     
@@ -169,7 +203,14 @@ def get_gigs_filtered(
     query = db.query(Gig).options(joinedload(Gig.category))
 
     if filters.category_id:
-        query = query.filter(Gig.category_id == filters.category_id)
+        # Get category by ID or slug
+        category = get_category(db, filters.category_id)
+        if category:
+            query = query.filter(Gig.category_id == category.id)
+        else:
+            # If category is not found, return empty list
+            logger.warning(f"Category with ID/slug {filters.category_id} not found, returning empty result")
+            return []
     
     if filters.min_rate is not None:
         query = query.filter(Gig.hourly_rate >= filters.min_rate)
@@ -197,7 +238,14 @@ def get_gigs_count(db: Session, filters: GigFilters) -> int:
     query = db.query(Gig)
 
     if filters.category_id:
-        query = query.filter(Gig.category_id == filters.category_id)
+        # Get category by ID or slug
+        category = get_category(db, filters.category_id)
+        if category:
+            query = query.filter(Gig.category_id == category.id)
+        else:
+            # If category is not found, return 0
+            logger.warning(f"Category with ID/slug {filters.category_id} not found, count is 0")
+            return 0
     
     if filters.min_rate is not None:
         query = query.filter(Gig.hourly_rate >= filters.min_rate)

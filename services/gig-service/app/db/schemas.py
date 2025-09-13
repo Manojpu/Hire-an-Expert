@@ -68,13 +68,13 @@ class GigBase(BaseModel):
 class GigCreate(GigBase):
     """Schema for creating a new gig. expert_id will be derived from the auth token."""
 
-    category_id: UUID4 = Field(..., description="The ID of the category this gig belongs to")
+    category_id: str = Field(..., description="The ID or slug of the category this gig belongs to")
 
 
 class GigUpdate(BaseModel):
     """Schema for updating an existing gig. All fields are optional."""
 
-    category_id: Optional[UUID4] = None
+    category_id: Optional[str] = None
     service_description: Optional[str] = Field(None, max_length=5000)
     hourly_rate: Optional[float] = Field(None, gt=0)
     availability_preferences: Optional[str] = Field(None, max_length=1000)
@@ -137,7 +137,7 @@ class GigDetailResponse(Gig):
 class GigFilters(BaseModel):
     """Schema for filtering and searching gigs."""
 
-    category_id: Optional[UUID4] = None
+    category_id: Optional[str] = None  # Can be either UUID or slug
     min_rate: Optional[float] = Field(None, ge=0)
     max_rate: Optional[float] = Field(None, ge=0)
     min_experience_years: Optional[int] = Field(None, ge=0)
