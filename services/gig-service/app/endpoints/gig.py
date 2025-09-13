@@ -26,7 +26,7 @@ def create_new_gig(
         logger.debug(f"Gig data received: {gig.dict()}")
 
         # Check if category exists before creating gig
-        category = crud.get_category(db, gig.category_id)
+        category = crud.get_category(db, str(gig.category_id))
         if not category:
             logger.warning(f"Category with ID {gig.category_id} not found when creating gig for user {current_user_id}")
             raise HTTPException(status_code=404, detail=f"Category with ID {gig.category_id} not found")

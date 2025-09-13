@@ -20,8 +20,6 @@ class Category(Base):
     Stores the main service categories for organizing gigs.
     [cite_start]This aligns with the four main categories specified in your SRS[cite: 94].
     """
-    print("Category model loaded")
-
     __tablename__ = "categories"
 
     id = Column(
@@ -43,8 +41,6 @@ class Certification(Base):
     """
     Stores certifications uploaded by experts.
     """
-    print("Certification model loaded")
-
     __tablename__ = "certifications"
 
     id = Column(
@@ -59,7 +55,6 @@ class Certification(Base):
         return f"<Certification(id={self.id}, gig_id='{self.gig_id}', url='{self.url}', thumbnail_url='{self.thumbnail_url}')>"
 
 class Gig(Base):
-    print("Gig model loaded")
     __tablename__ = 'gigs'
     
     id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
