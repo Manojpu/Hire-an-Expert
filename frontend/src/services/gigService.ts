@@ -1,11 +1,107 @@
 // Frontend utility to sync with Gig Service
 import { ExpertApplicationForm } from "@/types/expert";
 
+// Mock data for development
+const MOCK_GIGS: ExpertGig[] = [
+  {
+    id: 'gig-1',
+    expert_id: 'expert-123',
+    name: 'Dr. Rajesh Perera',
+    title: 'Senior Technology Consultant',
+    bio: 'Experienced technology consultant specializing in digital transformation and strategic IT planning.',
+    profile_image_url: 'https://via.placeholder.com/150',
+    banner_image_url: 'https://via.placeholder.com/800x200',
+    languages: ['English', 'Sinhala'],
+    category: 'education-career-guidance',
+    service_description: 'I provide comprehensive technology consulting services including system architecture, digital transformation strategies, and IT project management.',
+    hourly_rate: 5000,
+    currency: 'LKR',
+    availability_preferences: 'Available Monday to Friday, 9 AM to 6 PM',
+    education: 'PhD in Computer Science, University of Colombo',
+    experience: '15+ years in technology consulting and project management',
+    certifications: ['AWS Solutions Architect', 'PMP Certified'],
+    references: 'Available upon request',
+    background_check_consent: true,
+    status: 'active',
+    is_verified: true,
+    rating: 4.8,
+    total_reviews: 127,
+    total_consultations: 342,
+    response_time: '2 hours',
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-15T00:00:00Z',
+    approved_at: '2024-01-02T00:00:00Z'
+  },
+  {
+    id: 'gig-2',
+    expert_id: 'expert-123',
+    name: 'Dr. Rajesh Perera',
+    title: 'Business Strategy Advisor',
+    bio: 'Strategic business consultant helping companies optimize their operations and growth strategies.',
+    profile_image_url: 'https://via.placeholder.com/150',
+    banner_image_url: 'https://via.placeholder.com/800x200',
+    languages: ['English', 'Sinhala'],
+    category: 'automobile-advice',
+    service_description: 'I offer strategic business consulting services including market analysis, business planning, and operational optimization.',
+    hourly_rate: 6000,
+    currency: 'LKR',
+    availability_preferences: 'Available Tuesday to Saturday, 10 AM to 5 PM',
+    education: 'MBA in Strategic Management, University of Sri Jayewardenepura',
+    experience: '12+ years in business strategy and management consulting',
+    certifications: ['Six Sigma Black Belt', 'Certified Management Consultant'],
+    references: 'Available upon request',
+    background_check_consent: true,
+    status: 'active',
+    is_verified: true,
+    rating: 4.9,
+    total_reviews: 89,
+    total_consultations: 156,
+    response_time: '1.5 hours',
+    created_at: '2024-01-10T00:00:00Z',
+    updated_at: '2024-01-15T00:00:00Z',
+    approved_at: '2024-01-11T00:00:00Z'
+  },
+  {
+    id: 'gig-3',
+    expert_id: 'expert-123',
+    name: 'Dr. Rajesh Perera',
+    title: 'Digital Marketing Specialist',
+    bio: 'Digital marketing expert helping businesses establish strong online presence and drive growth.',
+    profile_image_url: 'https://via.placeholder.com/150',
+    banner_image_url: 'https://via.placeholder.com/800x200',
+    languages: ['English', 'Sinhala'],
+    category: 'electronic-device-advice',
+    service_description: 'I provide comprehensive digital marketing services including SEO, social media marketing, and online advertising strategies.',
+    hourly_rate: 4500,
+    currency: 'LKR',
+    availability_preferences: 'Flexible schedule, available for urgent consultations',
+    education: 'Bachelor in Marketing, University of Kelaniya',
+    experience: '8+ years in digital marketing and brand management',
+    certifications: ['Google Ads Certified', 'Facebook Blueprint Certified'],
+    references: 'Available upon request',
+    background_check_consent: true,
+    status: 'pending',
+    is_verified: false,
+    rating: 4.6,
+    total_reviews: 45,
+    total_consultations: 78,
+    response_time: '3 hours',
+    created_at: '2024-01-12T00:00:00Z',
+    updated_at: '2024-01-15T00:00:00Z'
+  }
+];
+
+// Development flag - set to true to use mock data
+const USE_MOCK_DATA = true;
+
 export interface GigServiceAPI {
   create: (gigData: ExpertGigCreateData) => Promise<ExpertGig>;
   getByExpert: (expertId: string) => Promise<ExpertGig>;
+  getMyGigs: () => Promise<ExpertGig[]>;
+  getGigById: (gigId: string) => Promise<ExpertGig>;
   getPublic: (filters: GigFilters) => Promise<GigListResponse>;
   updateMy: (updates: Partial<ExpertGigCreateData>) => Promise<ExpertGig>;
+  updateGig: (gigId: string, updates: Partial<ExpertGigCreateData>) => Promise<ExpertGig>;
 }
 
 interface Certificate {
@@ -159,6 +255,253 @@ export const gigServiceAPI: GigServiceAPI = {
     return response.json();
   },
 
+  async getMyGigs(): Promise<ExpertGig[]> {
+    // FOR DEVELOPMENT: Return mock data instead of API call
+    console.log('Using mock data for getMyGigs during development');
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const mockGigs: ExpertGig[] = [
+      {
+        id: 'gig-1',
+        expert_id: 'expert-123',
+        name: 'Dr. Rajesh Perera',
+        title: 'Automobile Expert & Mechanic Consultant',
+        bio: 'Experienced automotive engineer with 15+ years in the industry. Specialized in engine diagnostics, hybrid vehicles, and maintenance planning.',
+        profile_image_url: '/placeholder-avatar.jpg',
+        banner_image_url: '/placeholder-banner.jpg',
+        languages: ['English', 'Sinhala', 'Tamil'],
+        category: 'automobile-advice',
+        service_description: 'Professional automobile consultation covering engine diagnostics, maintenance scheduling, buying advice, and troubleshooting. I help clients make informed decisions about their vehicles.',
+        hourly_rate: 3500,
+        currency: 'LKR',
+        availability_preferences: 'Monday to Friday: 9:00 AM - 6:00 PM, Saturday: 9:00 AM - 2:00 PM',
+        education: 'BSc in Mechanical Engineering from University of Moratuwa, Advanced Automotive Technology Certificate',
+        experience: '15 years as Senior Automotive Engineer at Toyota Lanka, 5 years as Independent Consultant',
+        certifications: ['ASE Certified Master Technician', 'Hybrid Vehicle Specialist', 'Advanced Engine Diagnostics'],
+        government_id_url: '/docs/nic-rajesh.pdf',
+        professional_license_url: '/docs/engineering-license.pdf',
+        references: 'Dr. Kumara Silva (Former Supervisor) - 077-1234567',
+        background_check_consent: true,
+        status: 'active',
+        is_verified: true,
+        rating: 4.8,
+        total_reviews: 127,
+        total_consultations: 324,
+        response_time: '< 2 hours',
+        created_at: '2024-01-15T08:00:00Z',
+        updated_at: '2024-01-20T14:30:00Z',
+        approved_at: '2024-01-16T10:00:00Z'
+      },
+      {
+        id: 'gig-2',
+        expert_id: 'expert-123',
+        name: 'Dr. Rajesh Perera',
+        title: 'Electronics & Home Appliance Specialist',
+        bio: 'Electronics engineer specializing in home appliances, smart devices, and troubleshooting. Helping customers optimize their home technology.',
+        profile_image_url: '/placeholder-avatar.jpg',
+        banner_image_url: '/placeholder-banner.jpg',
+        languages: ['English', 'Sinhala'],
+        category: 'electronic-device-advice',
+        service_description: 'Expert guidance on home electronics, appliance selection, smart home setup, and technical troubleshooting. From refrigerators to smart TVs, I help you make the right choices.',
+        hourly_rate: 2800,
+        currency: 'LKR',
+        availability_preferences: 'Tuesday to Saturday: 10:00 AM - 5:00 PM',
+        education: 'BSc in Electronic Engineering, MSc in Consumer Electronics',
+        experience: '12 years in consumer electronics industry, 3 years as technical consultant',
+        certifications: ['Smart Home Technology Specialist', 'Consumer Electronics Expert'],
+        government_id_url: '/docs/nic-rajesh.pdf',
+        professional_license_url: '/docs/electronics-license.pdf',
+        references: 'Eng. Nimal Fernando - 077-9876543',
+        background_check_consent: true,
+        status: 'pending',
+        is_verified: true,
+        rating: 4.6,
+        total_reviews: 89,
+        total_consultations: 156,
+        response_time: '< 3 hours',
+        created_at: '2024-02-01T09:00:00Z',
+        updated_at: '2024-02-05T16:45:00Z',
+        approved_at: null
+      },
+      {
+        id: 'gig-3',
+        expert_id: 'expert-123',
+        name: 'Dr. Rajesh Perera',
+        title: 'Career Guidance & Education Counselor',
+        bio: 'Educational consultant and career counselor helping students and professionals navigate their academic and career paths.',
+        profile_image_url: '/placeholder-avatar.jpg',
+        banner_image_url: '/placeholder-banner.jpg',
+        languages: ['English', 'Sinhala'],
+        category: 'education-career-guidance',
+        service_description: 'Personalized career counseling, university selection guidance, skill development planning, and professional growth strategies.',
+        hourly_rate: 4200,
+        currency: 'LKR',
+        availability_preferences: 'Weekdays: 6:00 PM - 9:00 PM, Weekends: 10:00 AM - 4:00 PM',
+        education: 'PhD in Educational Psychology, MBA in Human Resources',
+        experience: '10 years as University Career Counselor, 5 years private consulting',
+        certifications: ['Certified Career Development Facilitator', 'Professional Life Coach'],
+        government_id_url: '/docs/nic-rajesh.pdf',
+        professional_license_url: '/docs/counselor-license.pdf',
+        references: 'Prof. Sandya Wijeratne - 077-5551234',
+        background_check_consent: true,
+        status: 'inactive',
+        is_verified: false,
+        rating: 4.9,
+        total_reviews: 203,
+        total_consultations: 445,
+        response_time: '< 1 hour',
+        created_at: '2024-01-20T11:00:00Z',
+        updated_at: '2024-02-10T13:20:00Z',
+        approved_at: '2024-01-22T15:30:00Z'
+      }
+    ];
+    
+    return mockGigs;
+    
+    // ORIGINAL API CALL (commented out for development)
+    /*
+    const response = await fetch(`${GIG_SERVICE_URL}/gigs/my/gigs`, {
+      headers: {
+        'Authorization': `Bearer ${await getIdToken()}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch my gigs');
+    }
+    
+    return response.json();
+    */
+  },
+
+  async getGigById(gigId: string): Promise<ExpertGig> {
+    // FOR DEVELOPMENT: Return mock data instead of API call
+    console.log('Using mock data for getGigById during development, gigId:', gigId);
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    const mockGigs: Record<string, ExpertGig> = {
+      'gig-1': {
+        id: 'gig-1',
+        expert_id: 'expert-123',
+        name: 'Dr. Rajesh Perera',
+        title: 'Automobile Expert & Mechanic Consultant',
+        bio: 'Experienced automotive engineer with 15+ years in the industry. Specialized in engine diagnostics, hybrid vehicles, and maintenance planning.',
+        profile_image_url: '/placeholder-avatar.jpg',
+        banner_image_url: '/placeholder-banner.jpg',
+        languages: ['English', 'Sinhala', 'Tamil'],
+        category: 'automobile-advice',
+        service_description: 'Professional automobile consultation covering engine diagnostics, maintenance scheduling, buying advice, and troubleshooting. I help clients make informed decisions about their vehicles.',
+        hourly_rate: 3500,
+        currency: 'LKR',
+        availability_preferences: 'Monday to Friday: 9:00 AM - 6:00 PM, Saturday: 9:00 AM - 2:00 PM',
+        education: 'BSc in Mechanical Engineering from University of Moratuwa, Advanced Automotive Technology Certificate',
+        experience: '15 years as Senior Automotive Engineer at Toyota Lanka, 5 years as Independent Consultant',
+        certifications: ['ASE Certified Master Technician', 'Hybrid Vehicle Specialist', 'Advanced Engine Diagnostics'],
+        government_id_url: '/docs/nic-rajesh.pdf',
+        professional_license_url: '/docs/engineering-license.pdf',
+        references: 'Dr. Kumara Silva (Former Supervisor) - 077-1234567',
+        background_check_consent: true,
+        status: 'active',
+        is_verified: true,
+        rating: 4.8,
+        total_reviews: 127,
+        total_consultations: 324,
+        response_time: '< 2 hours',
+        created_at: '2024-01-15T08:00:00Z',
+        updated_at: '2024-01-20T14:30:00Z',
+        approved_at: '2024-01-16T10:00:00Z'
+      },
+      'gig-2': {
+        id: 'gig-2',
+        expert_id: 'expert-123',
+        name: 'Dr. Rajesh Perera',
+        title: 'Electronics & Home Appliance Specialist',
+        bio: 'Electronics engineer specializing in home appliances, smart devices, and troubleshooting. Helping customers optimize their home technology.',
+        profile_image_url: '/placeholder-avatar.jpg',
+        banner_image_url: '/placeholder-banner.jpg',
+        languages: ['English', 'Sinhala'],
+        category: 'electronic-device-advice',
+        service_description: 'Expert guidance on home electronics, appliance selection, smart home setup, and technical troubleshooting. From refrigerators to smart TVs, I help you make the right choices.',
+        hourly_rate: 2800,
+        currency: 'LKR',
+        availability_preferences: 'Tuesday to Saturday: 10:00 AM - 5:00 PM',
+        education: 'BSc in Electronic Engineering, MSc in Consumer Electronics',
+        experience: '12 years in consumer electronics industry, 3 years as technical consultant',
+        certifications: ['Smart Home Technology Specialist', 'Consumer Electronics Expert'],
+        government_id_url: '/docs/nic-rajesh.pdf',
+        professional_license_url: '/docs/electronics-license.pdf',
+        references: 'Eng. Nimal Fernando - 077-9876543',
+        background_check_consent: true,
+        status: 'pending',
+        is_verified: true,
+        rating: 4.6,
+        total_reviews: 89,
+        total_consultations: 156,
+        response_time: '< 3 hours',
+        created_at: '2024-02-01T09:00:00Z',
+        updated_at: '2024-02-05T16:45:00Z',
+        approved_at: null
+      },
+      'gig-3': {
+        id: 'gig-3',
+        expert_id: 'expert-123',
+        name: 'Dr. Rajesh Perera',
+        title: 'Career Guidance & Education Counselor',
+        bio: 'Educational consultant and career counselor helping students and professionals navigate their academic and career paths.',
+        profile_image_url: '/placeholder-avatar.jpg',
+        banner_image_url: '/placeholder-banner.jpg',
+        languages: ['English', 'Sinhala'],
+        category: 'education-career-guidance',
+        service_description: 'Personalized career counseling, university selection guidance, skill development planning, and professional growth strategies.',
+        hourly_rate: 4200,
+        currency: 'LKR',
+        availability_preferences: 'Weekdays: 6:00 PM - 9:00 PM, Weekends: 10:00 AM - 4:00 PM',
+        education: 'PhD in Educational Psychology, MBA in Human Resources',
+        experience: '10 years as University Career Counselor, 5 years private consulting',
+        certifications: ['Certified Career Development Facilitator', 'Professional Life Coach'],
+        government_id_url: '/docs/nic-rajesh.pdf',
+        professional_license_url: '/docs/counselor-license.pdf',
+        references: 'Prof. Sandya Wijeratne - 077-5551234',
+        background_check_consent: true,
+        status: 'inactive',
+        is_verified: false,
+        rating: 4.9,
+        total_reviews: 203,
+        total_consultations: 445,
+        response_time: '< 1 hour',
+        created_at: '2024-01-20T11:00:00Z',
+        updated_at: '2024-02-10T13:20:00Z',
+        approved_at: '2024-01-22T15:30:00Z'
+      }
+    };
+    
+    const gig = mockGigs[gigId];
+    if (!gig) {
+      throw new Error('Gig not found');
+    }
+    
+    return gig;
+    
+    // ORIGINAL API CALL (commented out for development)
+    /*
+    const response = await fetch(`${GIG_SERVICE_URL}/gigs/${gigId}`, {
+      headers: {
+        'Authorization': `Bearer ${await getIdToken()}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Gig not found');
+    }
+    
+    return response.json();
+    */
+  },
+
   async getPublic(filters: GigFilters): Promise<GigListResponse> {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
@@ -192,6 +535,44 @@ export const gigServiceAPI: GigServiceAPI = {
 
     return response.json();
   },
+
+  async updateGig(gigId: string, updates: Partial<ExpertGigCreateData>): Promise<ExpertGig> {
+    // FOR DEVELOPMENT: Return mock updated data instead of API call
+    console.log('Using mock data for updateGig during development, gigId:', gigId, 'updates:', updates);
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Get the existing gig and merge with updates
+    const existingGig = await this.getGigById(gigId);
+    const updatedGig: ExpertGig = {
+      ...existingGig,
+      ...updates,
+      updated_at: new Date().toISOString()
+    };
+    
+    console.log('Mock gig updated successfully:', updatedGig);
+    return updatedGig;
+    
+    // ORIGINAL API CALL (commented out for development)
+    /*
+    const response = await fetch(`${GIG_SERVICE_URL}/gigs/${gigId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${await getIdToken()}`
+      },
+      body: JSON.stringify(updates)
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to update gig');
+    }
+    
+    return response.json();
+    */
+  }
+
 };
 
 // Helper to get Firebase ID token
@@ -211,3 +592,55 @@ async function getIdToken(): Promise<string> {
     return "dev-mock-token";
   }
 }
+
+// Simple API methods that use the mock data
+export const getMyGigs = async (): Promise<ExpertGig[]> => {
+  if (USE_MOCK_DATA) {
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return MOCK_GIGS;
+  }
+
+  return gigServiceAPI.getMyGigs();
+};
+
+export const getGigById = async (gigId: string): Promise<ExpertGig> => {
+  if (USE_MOCK_DATA) {
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const gig = MOCK_GIGS.find(g => g.id === gigId);
+    if (!gig) {
+      throw new Error('Gig not found');
+    }
+    return gig;
+  }
+
+  return gigServiceAPI.getGigById(gigId);
+};
+
+export const updateGig = async (gigId: string, formData: ExpertApplicationForm): Promise<ExpertGig> => {
+  if (USE_MOCK_DATA) {
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    const gigIndex = MOCK_GIGS.findIndex(g => g.id === gigId);
+    if (gigIndex === -1) {
+      throw new Error('Gig not found');
+    }
+    
+    // Convert form data to gig format
+    const gigData = convertFormToGigData(formData);
+    
+    // Update the mock gig with converted data
+    const updatedGig = {
+      ...MOCK_GIGS[gigIndex],
+      ...gigData,
+      updated_at: new Date().toISOString()
+    };
+    
+    MOCK_GIGS[gigIndex] = updatedGig;
+    return updatedGig;
+  }
+
+  const gigData = convertFormToGigData(formData);
+  return gigServiceAPI.updateGig(gigId, gigData);
+};
