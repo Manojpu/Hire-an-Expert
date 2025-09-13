@@ -1,3 +1,5 @@
+import { UUID } from "crypto";
+
 // Unified Expert/Gig Data Structure
 export interface ExpertGig {
   // Basic Information (from ApplyExpert step 0)
@@ -58,7 +60,7 @@ export const EXPERT_CATEGORIES = {
 // Form data structure for ApplyExpert
 export interface ExpertApplicationForm {
   // Step 1: Expertise & Services
-  categories: string; // Selected category
+  category_id: UUID; // Selected category
   serviceDesc: string; // Service Description
   rate: number; // Hourly Rate (Rs.)
   availabilityNotes: string; // Availability Preferences

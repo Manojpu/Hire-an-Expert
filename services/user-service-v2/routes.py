@@ -106,7 +106,7 @@ async def provision_user(request: Request, db: Session = Depends(get_db)):
 @router.get("/users/documents", response_model=List[VerificationDocumentResponse], summary="Get user's documents")
 async def get_user_documents(
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_user_by_id_or_current),
 ):
     """Retrieves all verification documents for the authenticated user."""
     logger.info(f"🔍 GET documents endpoint hit for user_id: {current_user.id}")
@@ -459,7 +459,7 @@ async def delete_preference_endpoint(
 )
 async def upload_verification_document(
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_user_by_id_or_current),
     document_type: DocumentType = Form(...),
     file: UploadFile = File(...)
 ):
