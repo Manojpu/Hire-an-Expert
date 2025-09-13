@@ -1,17 +1,88 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, func
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, ARRAY
+from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, Float, DateTime, func, Text, Boolean, Enum, ForeignKey
 import uuid
 
 Base = declarative_base()
 
+class GigStatus(str, enum.Enum):
+    DRAFT = "draft"
+    PENDING = "pending" 
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+
+class Category(Base):
+    """
+    Stores the main service categories for organizing gigs.
+    [cite_start]This aligns with the four main categories specified in your SRS[cite: 94].
+    """
+    print("Category model loaded")
+
+    __tablename__ = "categories"
+
+    id = Column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True
+    )
+    name = Column(String(100), unique=True, nullable=False)
+    slug = Column(
+        String(100), unique=True, nullable=False
+    )  # URL-friendly name, e.g., "automobile-advice"
+
+    created_at = Column(DateTime, server_default=func.now())
+    gigs = relationship("Gig", back_populates="category")
+
+
+    def __repr__(self):
+        return f"<Category(id={self.id}, name='{self.name}')>"
+
+class Certification(Base):
+    """
+    Stores certifications uploaded by experts.
+    """
+    print("Certification model loaded")
+
+    __tablename__ = "certifications"
+
+    id = Column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True
+    )
+    gig_id = Column(String, index=True)  # Foreign key to Gig
+    url = Column(String, nullable=False)  # URL to the stored certification document
+    thumbnail_url = Column(String, nullable=True)  # URL to the thumbnail image
+    uploaded_at = Column(DateTime, server_default=func.now())
+
+    def __repr__(self):
+        return f"<Certification(id={self.id}, gig_id='{self.gig_id}', url='{self.url}', thumbnail_url='{self.thumbnail_url}')>"
+
 class Gig(Base):
+    print("Gig model loaded")
     __tablename__ = 'gigs'
     
     id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
-    title = Column(String, index=True)
-    description = Column(String)
-    price = Column(Float)
+    expert_id = Column(String, index=True)  # Firebase UID from User Service
+    category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=False)  # Foreign key to Category
+    service_description = Column(Text)
+    hourly_rate = Column(Float, nullable=False)
+    currency = Column(String, default='LKR')
+    availability_preferences = Column(Text)
+    response_time = Column(String, default='< 24 hours')
+    
+    # Qualifications (from ApplyExpert step 2)
+    expertise_areas = Column(ARRAY(String))  # List of expertise areas
+    experience_years = Column(Integer)
+    work_experience = Column(Text)  # New field for work experience details
+    
+    # System fields
+    status = Column(Enum(GigStatus), default=GigStatus.DRAFT)
+
+    # Relationships
+    category = relationship("Category", back_populates="gigs")
+    
+    # Timestamps
     created_at = Column(DateTime, server_default=func.now())
     expert_id = Column(Integer, index=True) 
     updated_at = Column(DateTime, onupdate=func.now())
