@@ -191,7 +191,7 @@ async def create_user_endpoint(
 async def update_user_endpoint(
     user_id: str,
     user_data: UserUpdate,
-    # current_user: User = Depends(get_user_by_id_or_current),
+    current_user: User = Depends(get_user_by_id_or_current),
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -220,8 +220,9 @@ async def update_user_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    
-    return updated_user
+    print(f"User updated successfully: {updated_user}")
+    return UserResponse.model_validate(updated_user, from_attributes=True)
+
 
 
 # Temporary test endpoint without authentication
@@ -329,7 +330,7 @@ async def delete_user_admin(
 async def get_user_preferences_endpoint(
     user_id: str,
     request: Request,
-    # current_user: User = Depends(get_user_by_id_or_current),
+    current_user: User = Depends(get_user_by_id_or_current),
     db: AsyncSession = Depends(get_async_db)
 ):
     """Get all preferences for a user"""
