@@ -124,9 +124,9 @@ def get_all_gigs(
         gig_dict["profile_image_url"] = "/favicon.png"
         gig_dict["name"] = "Expert Name"
         gig_dict["title"] = "Professional Consultant"
-        gig_dict["rating"] = 4.8
-        gig_dict["total_reviews"] = 12
-        gig_dict["total_consultations"] = 25
+        gig_dict["rating"] = "4.8"
+        gig_dict["total_reviews"] = "12"
+        gig_dict["total_consultations"] = "25"
         return gig_dict
 
     enriched_gigs = [enrich_gig(g) for g in gigs]

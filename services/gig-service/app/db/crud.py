@@ -170,3 +170,16 @@ def get_gigs_count(db: Session, filters: GigFilters) -> int:
 def get_pending_gigs(db: Session, skip: int = 0, limit: int = 100) -> List[Gig]:
     """Get all gigs with pending status (awaiting admin approval)"""
     return db.query(Gig).filter(Gig.status == GigStatus.PENDING).offset(skip).limit(limit).all()
+
+def get_all_gigs(db: Session, skip: int = 0, limit: int = 100) -> list[type[Gig]]:
+    """Retrieves all gigs with pagination, regardless of status.
+
+    Args:
+        db: Database session
+        skip: Number of records to skip
+        limit: Maximum number of records to return
+
+    Returns:
+        List of Gig objects
+    """
+    return db.query(Gig).options(joinedload(Gig.category)).offset(skip).limit(limit).all()
