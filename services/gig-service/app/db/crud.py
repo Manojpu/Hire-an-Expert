@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Any
 from sqlalchemy.orm import Session , joinedload
 from sqlalchemy import or_
 
@@ -19,7 +19,7 @@ def create_category(db: Session, category: CategoryCreate) -> Category:
     db.refresh(db_category)
     return db_category
 
-def get_all_categories(db: Session, skip: int = 0, limit: int = 100) -> List[Category]:
+def get_all_categories(db: Session, skip: int = 0, limit: int = 100) -> list[type[Category]]:
     """Retrieves a list of all categories."""
     return db.query(Category).offset(skip).limit(limit).all()
 
@@ -52,7 +52,7 @@ def get_gig(db: Session, gig_id: str) -> Optional[Gig]:
     """Retrieves a single gig by its ID."""
     return db.query(Gig).filter(Gig.id == gig_id).first()
 
-def get_gigs_by_expert(db: Session, expert_id: str, skip: int = 0, limit: int = 100) -> List[Gig]:
+def get_gigs_by_expert(db: Session, expert_id: str, skip: int = 0, limit: int = 100) -> list[type[Gig]]:
     """Retrieves all gigs created by a specific expert."""
     return db.query(Gig).filter(Gig.expert_id == expert_id).offset(skip).limit(limit).all()
 
