@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Star, Clock, Users, MapPin, Briefcase, MessageCircle } from "lucide-react";
+import { Briefcase, Clock, MessageCircle, Users } from "lucide-react";
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { getAllCategories} from "@/services/categoryService.ts";
 
 // Import the new types
 import { gigServiceAPI } from "@/services/gigService";
-import {Gig} from "@/types/publicGigs.ts";
+import { Gig } from "@/types/publicGigs.ts";
 
 const PAGE_SIZE = 6;
 
@@ -18,23 +17,19 @@ const Category = () => {
     const [query, setQuery] = useState("");
     const [minPrice, setMinPrice] = useState(0);
     const [maxPrice, setMaxPrice] = useState(5000);
-    // minRating state is removed as it's not supported by the new GigFilters
     const [sort, setSort] = useState<"relevance" | "priceAsc" | "priceDesc" | "rating" | "experience">("relevance");
     const [page, setPage] = useState(1);
 
     // State for data
-    const [gigs, setGigs] = useState<Gig[]>([]); // Use the new Gig type
+    const [gigs, setGigs] = useState<Gig[]>([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         setLoading(true);
 
-        // The API call is updated to use the new filters.
-        // We assume `page`, `size`, and `sort` are handled by the service implementation,
-        // as they are common for paginated and sorted lists.
         gigServiceAPI.getPublic({
-            category_id: slug, // Adheres to the GigFilters interface
+            category_id: slug,
             min_rate: minPrice,
             max_rate: maxPrice,
             search_query: query,
@@ -43,7 +38,6 @@ const Category = () => {
             sort: sort,
         })
             .then((res) => {
-                // The response shape matches GigListResponse
                 setGigs(res.gigs);
                 setTotal(res.total);
             })
@@ -53,7 +47,6 @@ const Category = () => {
                 console.error("Failed to fetch gigs:", err);
             })
             .finally(() => setLoading(false));
-        // `minRating` is removed from dependencies, `sort` is added to make it functional.
     }, [slug, query, minPrice, maxPrice, sort, page]);
 
     const canLoadMore = gigs.length < total;
@@ -69,13 +62,11 @@ const Category = () => {
                         <span className="font-medium text-foreground capitalize">{categoryName}</span>
                     </nav>
                     <h1 className="text-3xl font-bold mt-2 capitalize">{categoryName}</h1>
-                    {/* Updated text to reflect services/gigs instead of experts */}
                     <p className="text-sm text-muted-foreground mt-1">{total} services available • Find the right professional for your needs</p>
                 </div>
 
                 <div className="hidden md:flex items-center gap-4">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        {/* Updated icon and text */}
                         <Users className="h-4 w-4" />
                         <div className="font-medium">{total} Services</div>
                     </div>
@@ -106,21 +97,17 @@ const Category = () => {
                             </div>
                         </div>
 
-                        {/* Minimum Rating filter is removed as the new Gig model doesn't contain rating data */}
-
                         <div className="mt-4">
                             <label className="text-sm font-medium">Sort By</label>
                             <select value={sort} onChange={(e) => { setSort(e.target.value as any); setPage(1); }} className="w-full mt-2 px-3 py-2 border border-border rounded-md text-sm bg-input">
                                 <option value="relevance">Relevance</option>
                                 <option value="priceAsc">Price: Low to High</option>
                                 <option value="priceDesc">Price: High to Low</option>
-                                {/* "Rating" sort option removed */}
                                 <option value="experience">Experience</option>
                             </select>
                         </div>
 
                         <div className="mt-6">
-                            {/* `setMinRating` is removed from the reset handler */}
                             <button onClick={() => { setQuery(""); setMinPrice(0); setMaxPrice(5000); setSort("relevance"); setPage(1); }} className="w-full px-3 py-2 bg-secondary text-secondary-foreground rounded-md text-sm">Reset Filters</button>
                         </div>
                     </div>
@@ -130,74 +117,89 @@ const Category = () => {
                 <section className="col-span-1 lg:col-span-3">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {loading && page === 1 ? (
-                            <div className="text-center text-muted-foreground">Loading services...</div>
+                            <div className="text-center text-muted-foreground col-span-full">Loading services...</div>
                         ) : gigs.length === 0 ? (
-                            <div className="text-center text-muted-foreground">No services found — try adjusting filters.</div>
+                            <div className="text-center text-muted-foreground col-span-full">No services found — try adjusting filters.</div>
                         ) : (
                             gigs.map((gig) => (
                                 <Card
-                                    key={gig.id} // Use gig.id
-                                    className="group hover:shadow-hover transition-all duration-300 hover:-translate-y-1 bg-background border-0"
+                                    key={gig.id}
+                                    className="group overflow-hidden hover:shadow-hover transition-all duration-300 hover:-translate-y-1 bg-background border-0 flex flex-col"
                                 >
-                                    <CardContent className="p-0">
-                                        {/* The banner is simplified as expert-specific images are not in the Gig model */}
-                                        <div className="relative h-36 bg-gradient-primary rounded-t-lg overflow-hidden flex items-center justify-center p-4">
-                                            <div className="absolute inset-0 bg-gradient-to-br from-primary/60 to-primary-dark/40" />
-                                            <div className="relative text-center text-white">
-                                                <div className="font-semibold text-lg drop-shadow">{gig.category.name}</div>
-                                                <div className="text-xs drop-shadow mt-1">{gig.expertise_areas.slice(0, 2).join(' • ')}</div>
+                                    <CardContent className="p-0 flex flex-col flex-grow">
+                                        {/* == Banner & Avatar Section == */}
+                                        <div className="relative">
+                                            {/* Future Thumbnail will go here */}
+                                             <img src={gig.thumbnail_url} className="w-full h-32 object-cover"  alt="Service Thumbnail"/>
+                                            {/*<div className="w-full h-32 bg-slate-200 dark:bg-slate-700 flex items-center justify-center">*/}
+                                            {/*    <span className="text-slate-400 text-xs">Thumbnail Placeholder</span>*/}
+                                            {/*</div>*/}
+
+                                            {/* Avatar Placeholder */}
+                                            <div className="absolute -bottom-8 left-4">
+                                                {/* Future Avatar will go here */}
+                                                {/* <img src={gig.expert.avatarUrl} className="w-16 h-16 rounded-full border-4 border-background object-cover" /> */}
+                                                <div className="w-16 h-16 rounded-full border-4 border-background bg-slate-300 dark:bg-slate-600 flex items-center justify-center">
+                                                    <Users className="h-8 w-8 text-slate-500 dark:text-slate-400" />
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div className="px-3 pb-6 pt-4">
-                                            {/* Title is now derived from expertise areas as expert name/title are unavailable */}
-                                            <h3 className="text-base font-bold text-foreground mb-2 group-hover:text-primary transition-colors h-10 line-clamp-2">
-                                                {gig.expertise_areas.join(', ')}
-                                            </h3>
+                                        {/* == Main Content Section == */}
+                                        <div className="p-4 pt-10 flex flex-col flex-grow">
+                                            {/* Expert Name Placeholder */}
+                                            <div className="mb-2">
+                                                {/*<h3 className="font-bold text-lg group-hover:text-primary transition-colors">*/}
+                                                {/*    Expert Name*/}
+                                                {/*</h3>*/}
+                                                <p className="text-sm text-muted-foreground -mt-1">{gig.category.name}</p>
+                                            </div>
 
-                                            {/* The main description of the service */}
-                                            {gig.service_description && (
-                                                <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{gig.service_description}</p>
-                                            )}
-
-                                            {/* Rating and review counts are removed */}
+                                            {/* Gig Title / Description */}
+                                            <p className="text-sm text-foreground mb-3 line-clamp-2 font-medium h-10">
+                                                {gig.service_description || gig.expertise_areas.join(', ')}
+                                            </p>
 
                                             <div className="grid grid-cols-2 gap-3 mb-4 text-xs text-muted-foreground">
-                                                <div className="flex items-center"><Clock className="h-3 w-3 mr-1" />{gig.response_time || '< 24 hours'}</div>
-                                                {/* Replaced location with experience years */}
-                                                <div className="flex items-center"><Briefcase className="h-3 w-3 mr-1" />{gig.experience_years ? `${gig.experience_years}+ years exp` : 'General Experience'}</div>
+                                                <div className="flex items-center"><Clock className="h-3 w-3 mr-1.5" />{gig.response_time || '< 24 hours'}</div>
+                                                <div className="flex items-center"><Briefcase className="h-3 w-3 mr-1.5" />{gig.experience_years ? `${gig.experience_years}+ years exp` : 'Experienced'}</div>
                                             </div>
 
-                                            <div className="flex items-center justify-between mb-4">
-                                                <div>
-                                                    <span className="text-lg font-bold text-foreground">{gig.currency} {gig.hourly_rate?.toLocaleString()}</span>
-                                                    <span className="text-sm text-muted-foreground"> /hour</span>
+                                            {/* Spacer to push price and buttons to the bottom */}
+                                            <div className="flex-grow" />
+
+                                            {/* Price & Actions */}
+                                            <div className="pt-2">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div>
+                                                        <span className="text-sm text-muted-foreground">Starts at</span>
+                                                        <p className="text-xl font-bold text-foreground -mt-1">{gig.currency} {gig.hourly_rate?.toLocaleString()}</p>
+                                                    </div>
                                                 </div>
-                                                {/* Consultation count is removed */}
-                                            </div>
 
-                                            <div className="flex gap-2">
-                                                {/* Links are updated to point to a gig-specific page using gig.id */}
-                                                <Link to={`/gig/${gig.id}`} className="flex-1">
-                                                    <Button variant="default" size="sm" className="w-full bg-gradient-primary">View Service</Button>
-                                                </Link>
-                                                <Link to={`/book/${gig.id}`}>
-                                                    <Button variant="outline" size="sm" className="px-3"><MessageCircle className="h-4 w-4" /></Button>
-                                                </Link>
+                                                <div className="flex gap-2">
+                                                    <Link to={`/gig/${gig.id}`} className="flex-1">
+                                                        <Button variant="default" size="sm" className="w-full bg-gradient-primary">View Service</Button>
+                                                    </Link>
+                                                    <Link to={`/book/${gig.id}`}>
+                                                        <Button variant="outline" size="sm" className="px-3"><MessageCircle className="h-4 w-4" /></Button>
+                                                    </Link>
+                                                </div>
                                             </div>
                                         </div>
                                     </CardContent>
                                 </Card>
+
                             ))
                         )}
                     </div>
 
                     {/* Load More / Empty State */}
-                    <div className="mt-6 flex items-center justify-center">
+                    <div className="mt-8 flex items-center justify-center">
                         {canLoadMore && !loading ? (
                             <button onClick={() => setPage((p) => p + 1)} className="px-4 py-2 bg-primary text-primary-foreground rounded-md">Load More</button>
                         ) : !loading && gigs.length > 0 ? (
-                            <div className="text-sm text-muted-foreground">Showing all results</div>
+                            <div className="text-sm text-muted-foreground">Showing all {total} results</div>
                         ) : null}
                         {loading && page > 1 && <div className="text-sm text-muted-foreground">Loading...</div>}
                     </div>

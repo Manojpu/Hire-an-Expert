@@ -27,6 +27,7 @@ export interface Gig {
     created_at: string;
     updated_at: string | null;
     approved_at: string | null;
+    thumbnail_url: string | null;
 }
 
 // GigListResponse interface matching the Python GigListResponse model

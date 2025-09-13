@@ -63,6 +63,7 @@ class GigBase(BaseModel):
     expertise_areas: List[str] = Field(default=[])
     experience_years: Optional[int] = Field(None, ge=0)
     work_experience: Optional[str] = Field(None, max_length=2000)  # New field for work experience details
+    thumbnail_url: Optional[str] = Field(None, max_length=2000)
 
 
 class GigCreate(GigBase):
