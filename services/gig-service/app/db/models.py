@@ -65,6 +65,7 @@ class Gig(Base):
     currency = Column(String, default='LKR')
     availability_preferences = Column(Text)
     response_time = Column(String, default='< 24 hours')
+    thumbnail_url = Column(String, nullable=True)
     
     # Qualifications (from ApplyExpert step 2)
     expertise_areas = Column(ARRAY(String))  # List of expertise areas
