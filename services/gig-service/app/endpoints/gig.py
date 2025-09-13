@@ -11,11 +11,12 @@ logger = get_logger(__name__)
 
 router = APIRouter()
 
+
 @router.post("/", response_model=schemas.Gig, status_code=status.HTTP_201_CREATED)
 def create_new_gig(
-    gig: schemas.GigCreate,
-    db: Session = Depends(session.get_db),
-    current_user_id: str = Depends(session.get_current_user_id)  # Changed to str
+        gig: schemas.GigCreate,
+        db: Session = Depends(session.get_db),
+        current_user_id: str = Depends(session.get_current_user_id)  # Changed to str
 ):
     """
     Create a new gig.
@@ -23,37 +24,38 @@ def create_new_gig(
     try:
         logger.info(f"Creating new gig for expert: {current_user_id}")
         logger.debug(f"Gig data received: {gig.dict()}")
-        
+
         # Check if category exists before creating gig
         category = crud.get_category(db, gig.category_id)
         if not category:
             logger.warning(f"Category with ID {gig.category_id} not found when creating gig for user {current_user_id}")
             raise HTTPException(status_code=404, detail=f"Category with ID {gig.category_id} not found")
-            
+
         db_gig = crud.create_gig(db=db, gig=gig, expert_id=current_user_id)
         logger.info(f"Gig creation completed: {db_gig.id}")  # Changed from print to logger
-        
+
         # We need to fetch the complete gig with relationship data for the response
         # Because the crud.create_gig doesn't populate the relationship
         complete_gig = crud.get_gig(db=db, gig_id=db_gig.id)
         return complete_gig
-        
+
     except Exception as e:
         logger.error(f"Error in create_new_gig for user {current_user_id}: {e}")
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Failed to create gig: {str(e)}")
 
+
 @router.get("/public", response_model=schemas.GigListResponse)
 def get_public_gigs(
-    category_id: Optional[str] = Query(None),  # Added Optional
-    min_rate: Optional[float] = Query(None, ge=0),
-    max_rate: Optional[float] = Query(None, ge=0),
-    min_rating: Optional[float] = Query(None, ge=0, le=5),
-    search_query: Optional[str] = Query(None, max_length=100),
-    page: int = Query(1, ge=1),
-    size: int = Query(10, ge=1, le=100),
-    db: Session = Depends(session.get_db)
+        category_id: Optional[str] = Query(None),  # Added Optional
+        min_rate: Optional[float] = Query(None, ge=0),
+        max_rate: Optional[float] = Query(None, ge=0),
+        search_query: Optional[str] = Query(None, max_length=100),
+        min_experience_years: Optional[int] = Query(None, ge=0),
+        page: int = Query(1, ge=1),
+        size: int = Query(10, ge=1, le=100),
+        db: Session = Depends(session.get_db)
 ):
     """
     Get public gigs for category/search pages.
@@ -64,14 +66,15 @@ def get_public_gigs(
         min_rate=min_rate,
         max_rate=max_rate,
         search_query=search_query,
-        status=schemas.GigStatus.ACTIVE  # Only show active gigs
+        status=schemas.GigStatus.ACTIVE,  # Only show active gigs
+        min_experience_years=min_experience_years
     )
-    
+
     skip = (page - 1) * size
     gigs = crud.get_gigs_filtered(db=db, filters=filters, skip=skip, limit=size)
     total = crud.get_gigs_count(db=db, filters=filters)
     pages = (total + size - 1) // size
-    
+
     return schemas.GigListResponse(
         gigs=gigs,
         total=total,
@@ -80,10 +83,11 @@ def get_public_gigs(
         pages=pages  # Added missing pages field
     )
 
+
 @router.get("/{gig_id}", response_model=schemas.GigDetailResponse)
 def get_gig_detail(
-    gig_id: str,
-    db: Session = Depends(session.get_db)
+        gig_id: str,
+        db: Session = Depends(session.get_db)
 ):
     """
     Get a gig by ID.
@@ -92,23 +96,25 @@ def get_gig_detail(
     db_gig = crud.get_gig(db=db, gig_id=gig_id)
     if not db_gig:
         raise HTTPException(status_code=404, detail="Gig not found")
-    
+
     # Only show approved/active gigs to public
     if db_gig.status not in [schemas.GigStatus.APPROVED, schemas.GigStatus.ACTIVE]:
         raise HTTPException(status_code=404, detail="Gig not available")
-    
+
     return db_gig
+
 
 @router.get("/", response_model=List[schemas.Gig])  # Fixed response model
 def get_all_gigs(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
-    db: Session = Depends(session.get_db)
+        skip: int = Query(0, ge=0),
+        limit: int = Query(100, ge=1, le=1000),
+        db: Session = Depends(session.get_db)
 ):
     """
     Get all gigs with pagination.
     """
     gigs = crud.get_all_gigs(db=db, skip=skip, limit=limit)
+
     # Patch: Add hardcoded fields for frontend display
     def enrich_gig(gig):
         # Convert SQLAlchemy object to dict if needed
@@ -126,10 +132,11 @@ def get_all_gigs(
     enriched_gigs = [enrich_gig(g) for g in gigs]
     return enriched_gigs
 
+
 @router.get("/expert/{expert_id}", response_model=schemas.Gig)  # New endpoint for expert gigs
 def get_gig_by_expert(
-    expert_id: str,
-    db: Session = Depends(session.get_db)
+        expert_id: str,
+        db: Session = Depends(session.get_db)
 ):
     """
     Get gig by expert Firebase UID.
@@ -138,16 +145,17 @@ def get_gig_by_expert(
     db_gig = crud.get_gig_by_expert(db=db, expert_id=expert_id)
     if not db_gig:
         raise HTTPException(status_code=404, detail="Expert gig not found")
-    
+
     if db_gig.status not in [schemas.GigStatus.APPROVED, schemas.GigStatus.ACTIVE]:
         raise HTTPException(status_code=404, detail="Expert profile not available")
-    
+
     return db_gig
+
 
 @router.get("/my/gig", response_model=schemas.GigPrivateResponse)
 def get_my_gig(
-    db: Session = Depends(session.get_db),
-    current_user_id: str = Depends(session.get_current_user_id)
+        db: Session = Depends(session.get_db),
+        current_user_id: str = Depends(session.get_current_user_id)
 ):
     """
     Get expert's own gig for dashboard management.
@@ -156,14 +164,15 @@ def get_my_gig(
     db_gig = crud.get_gig_by_expert(db=db, expert_id=current_user_id)
     if not db_gig:
         raise HTTPException(status_code=404, detail="No gig found for this expert")
-    
+
     return db_gig
+
 
 @router.put("/my/gig", response_model=schemas.GigPrivateResponse)
 def update_my_gig(
-    gig_update: schemas.GigUpdate,
-    db: Session = Depends(session.get_db),
-    current_user_id: str = Depends(session.get_current_user_id)  # Changed to str
+        gig_update: schemas.GigUpdate,
+        db: Session = Depends(session.get_db),
+        current_user_id: str = Depends(session.get_current_user_id)  # Changed to str
 ):
     """
     Update expert's own gig.
@@ -172,17 +181,18 @@ def update_my_gig(
     db_gig = crud.get_gig_by_expert(db=db, expert_id=current_user_id)
     if not db_gig:
         raise HTTPException(status_code=404, detail="No gig found for this expert")
-    
+
     updated_gig = crud.update_gig(db=db, gig_id=db_gig.id, gig_update=gig_update)
     if not updated_gig:
         raise HTTPException(status_code=404, detail="Failed to update gig")
-    
+
     return updated_gig
+
 
 @router.delete("/my/gig", status_code=status.HTTP_204_NO_CONTENT)
 def delete_my_gig(
-    db: Session = Depends(session.get_db),
-    current_user_id: str = Depends(session.get_current_user_id)  # Changed to str
+        db: Session = Depends(session.get_db),
+        current_user_id: str = Depends(session.get_current_user_id)  # Changed to str
 ):
     """
     Delete expert's own gig.
@@ -191,9 +201,9 @@ def delete_my_gig(
     db_gig = crud.get_gig_by_expert(db=db, expert_id=current_user_id)
     if not db_gig:
         raise HTTPException(status_code=404, detail="No gig found for this expert")
-    
+
     success = crud.delete_gig(db=db, gig_id=db_gig.id)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete gig")
-    
+
     return None  # 204 No Content response

@@ -115,6 +115,7 @@ class GigListResponse(BaseModel):
     total: int
     page: int
     size: int
+    pages: int  # Total number of pages
 
 
 class GigPrivateResponse(Gig):

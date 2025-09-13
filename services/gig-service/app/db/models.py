@@ -1,6 +1,3 @@
-import enum
-
-from sqlalchemy import Column, Integer, String, Float, DateTime, func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
@@ -80,7 +77,7 @@ class Gig(Base):
     work_experience = Column(Text)  # New field for work experience details
     
     # System fields
-    status = Column(Enum(GigStatus), default=GigStatus.DRAFT)
+    status = Column(Enum(GigStatus, name="gigstatus"), default=GigStatus.DRAFT)
 
     # Relationships
     category = relationship("Category", back_populates="gigs")
