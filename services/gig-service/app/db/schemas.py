@@ -1,12 +1,35 @@
-from pydantic import BaseModel, Field, UUID4
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
 import uuid
+from pydantic import BaseModel, Field, UUID4
+import enum
+from app.db.models import GigStatus
 
-# Import the Enum from your models file to ensure consistency
-from .models import GigStatus
 
+class UserRole(str, enum.Enum):
+    CLIENT = "client"
+    EXPERT = "expert"
+    ADMIN = "admin"
 
+class UserDTO(BaseModel):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4)
+    firebase_uid: str
+    name: str
+    email: str
+    phone: Optional[str] = None
+    role: UserRole = UserRole.CLIENT
+    bio: Optional[str] = None
+    profile_image_url: Optional[str] = None
+    location: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+    is_expert: bool = True
+
+    class Config:
+        from_attributes = True
+        json_encoders = {
+            uuid.UUID: str
+        }
 
 class CategoryBase(BaseModel):
     """Base schema for category data."""
@@ -31,7 +54,6 @@ class Category(CategoryBase):
         from_attributes = True
 
 
-
 class GigBase(BaseModel):
     """Base schema with common fields for a gig."""
 
@@ -41,18 +63,19 @@ class GigBase(BaseModel):
     expertise_areas: List[str] = Field(default=[])
     experience_years: Optional[int] = Field(None, ge=0)
     work_experience: Optional[str] = Field(None, max_length=2000)  # New field for work experience details
+    thumbnail_url: Optional[str] = Field(None, max_length=2000)
 
 
 class GigCreate(GigBase):
     """Schema for creating a new gig. expert_id will be derived from the auth token."""
 
-    category_id: UUID4 = Field(..., description="The ID of the category this gig belongs to")
+    category_id: str = Field(..., description="The ID or slug of the category this gig belongs to")
 
 
 class GigUpdate(BaseModel):
     """Schema for updating an existing gig. All fields are optional."""
 
-    category_id: Optional[UUID4] = None
+    category_id: Optional[str] = None
     service_description: Optional[str] = Field(None, max_length=5000)
     hourly_rate: Optional[float] = Field(None, gt=0)
     availability_preferences: Optional[str] = Field(None, max_length=1000)
@@ -81,6 +104,10 @@ class Gig(GigBase):
         from_attributes = True
 
 
+class GigResponse(Gig):
+    """Response model for a gig, identical to Gig for now."""
+    pass
+
 
 class GigListResponse(BaseModel):
     """Response model for a paginated list of gigs."""
@@ -89,6 +116,7 @@ class GigListResponse(BaseModel):
     total: int
     page: int
     size: int
+    pages: int  # Total number of pages
 
 
 class GigPrivateResponse(Gig):
@@ -110,7 +138,7 @@ class GigDetailResponse(Gig):
 class GigFilters(BaseModel):
     """Schema for filtering and searching gigs."""
 
-    category_id: Optional[UUID4] = None
+    category_id: Optional[str] = None  # Can be either UUID or slug
     min_rate: Optional[float] = Field(None, ge=0)
     max_rate: Optional[float] = Field(None, ge=0)
     min_experience_years: Optional[int] = Field(None, ge=0)
@@ -120,6 +148,6 @@ class GigFilters(BaseModel):
 
 class GigStatusUpdate(BaseModel):
     """Schema for updating a gig's status by admins."""
-    
+
     status: GigStatus
     rejection_reason: Optional[str] = Field(None, max_length=1000)
