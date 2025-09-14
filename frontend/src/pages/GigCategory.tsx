@@ -178,7 +178,10 @@ const Category = () => {
                                                 </div>
 
                                                 <div className="flex gap-2">
-                                                    <Link to={`/gig/${gig.id}`} className="flex-1">
+                                                    {/* <Link to={`/gig/${gig.id}`} className="flex-1">
+                                                        <Button variant="default" size="sm" className="w-full bg-gradient-primary">View Service</Button>
+                                                    </Link> */}
+                                                    <Link to={`/expert-profile`} className="flex-1">
                                                         <Button variant="default" size="sm" className="w-full bg-gradient-primary">View Service</Button>
                                                     </Link>
                                                     <Link to={`/book/${gig.id}`}>
