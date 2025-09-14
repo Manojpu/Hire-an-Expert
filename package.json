@@ -22,9 +22,21 @@
     "test:services": "concurrently \"curl http://localhost:8001/\" \"curl http://localhost:8002/\" \"curl http://localhost:8003/\" \"curl http://localhost:8004/\" \"curl http://localhost:8005/\""
   },
   "devDependencies": {
-    "concurrently": "^8.2.0"
+    "@babel/plugin-transform-react-jsx": "^7.27.1",
+    "@babel/preset-env": "^7.28.3",
+    "@babel/preset-react": "^7.27.1",
+    "@babel/preset-typescript": "^7.27.1",
+    "babel-jest": "^30.1.2",
+    "concurrently": "^8.2.0",
+    "identity-obj-proxy": "^3.0.0"
   },
-  "keywords": ["microservices", "api-gateway", "nodejs", "fastapi", "nextjs"],
+  "keywords": [
+    "microservices",
+    "api-gateway",
+    "nodejs",
+    "fastapi",
+    "nextjs"
+  ],
   "author": "",
   "license": "ISC"
 }

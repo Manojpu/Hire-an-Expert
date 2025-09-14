@@ -66,7 +66,7 @@ const Login: React.FC = () => {
 
       // Optional: validate with backend (don't block login if this fails)
       try {
-        const response = await fetch("http://127.0.0.1:8001/ping", {
+  const response = await fetch(`${import.meta.env.VITE_USER_SERVICE_URL}/ping`, {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
@@ -108,7 +108,7 @@ const Login: React.FC = () => {
 
       // Optional: validate with backend (don't block login if this fails)
       try {
-        const response = await fetch("http://127.0.0.1:8001/ping", {
+  const response = await fetch(`${import.meta.env.VITE_USER_SERVICE_URL}/ping`, {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
