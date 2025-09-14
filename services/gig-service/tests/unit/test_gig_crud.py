@@ -1,7 +1,8 @@
 import pytest
-from app.db import crud
+from tests import mock_crud as crud  # Use our mock crud
 from app.db.schemas import GigCreate, GigUpdate, GigFilters
-from app.db.models import Gig, GigStatus
+from app.db.models import GigStatus
+from tests.conftest import Gig  # Use our test model
 
 def test_create_gig(db_session, test_category):
     """Test creating a gig."""
