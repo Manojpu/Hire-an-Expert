@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 
-import { Menu, X, User, Search, LogOut, ChevronDown } from 'lucide-react';
+import { Menu, X, User, Search, LogOut, ChevronDown, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/auth/AuthContext';
 import { doSignOut } from '@/firebase/auth.js';
@@ -110,7 +110,20 @@ const Header = () => {
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center space-x-4">
             {loggedIn && user ? (
-              <div className="relative" ref={dropdownRef}>
+              <>
+                {/* Messages Icon */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/messages')}
+                  className="relative p-2 rounded-lg hover:bg-muted transition-colors"
+                >
+                  <MessageCircle className="h-5 w-5" />
+                  {/* Notification badge - you can add logic to show unread count */}
+                  {/* <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center">3</span> */}
+                </Button>
+
+                <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
                   className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted transition-colors"
@@ -188,6 +201,7 @@ const Header = () => {
                   </div>
                 )}
               </div>
+              </>
             ) : (
               <>
                 <Button 

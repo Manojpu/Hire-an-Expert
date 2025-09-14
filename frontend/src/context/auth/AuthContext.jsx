@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }) => {
       // Fetch user profile from User Service
       try {
         const idToken = await getIdToken(currentUser);
-        const response = await fetch(`http://127.0.0.1:8001/users/firebase/${currentUser.uid}`, {
+        const response = await fetch(`http://127.0.0.1:8006/users/firebase/${currentUser.uid}`, {
           headers: {
             'Authorization': `Bearer ${idToken}`,
             'Content-Type': 'application/json'

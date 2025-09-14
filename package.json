@@ -22,9 +22,15 @@
     "test:services": "concurrently \"curl http://localhost:8001/\" \"curl http://localhost:8002/\" \"curl http://localhost:8003/\" \"curl http://localhost:8004/\" \"curl http://localhost:8005/\""
   },
   "devDependencies": {
-    "concurrently": "^8.2.0"
+    "concurrently": "^8.2.2"
   },
-  "keywords": ["microservices", "api-gateway", "nodejs", "fastapi", "nextjs"],
+  "keywords": [
+    "microservices",
+    "api-gateway",
+    "nodejs",
+    "fastapi",
+    "nextjs"
+  ],
   "author": "",
   "license": "ISC"
 }

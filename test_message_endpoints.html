@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Message Endpoints</title>
+</head>
+<body>
+    <h1>Test Message Service Endpoints</h1>
+    
+    <h2>Direct to MSG Service (Port 8005)</h2>
+    <button onclick="testDirectMsgService()">Test Direct MSG Service Health</button>
+    <pre id="directResult"></pre>
+    
+    <h2>Through API Gateway (Port 8000)</h2>
+    <button onclick="testApiGateway()">Test API Gateway Health</button>
+    <pre id="gatewayResult"></pre>
+    
+    <h2>Test Conversations (No Auth)</h2>
+    <button onclick="testConversationsNoAuth()">Test Conversations Direct</button>
+    <pre id="conversationsResult"></pre>
+
+    <script>
+        async function testDirectMsgService() {
+            try {
+                const response = await fetch('http://localhost:8005/api/health');
+                const data = await response.text();
+                document.getElementById('directResult').textContent = `Status: ${response.status}\n${data}`;
+            } catch (error) {
+                document.getElementById('directResult').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function testApiGateway() {
+            try {
+                const response = await fetch('http://localhost:8000/health');
+                const data = await response.text();
+                document.getElementById('gatewayResult').textContent = `Status: ${response.status}\n${data}`;
+            } catch (error) {
+                document.getElementById('gatewayResult').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function testConversationsNoAuth() {
+            try {
+                const response = await fetch('http://localhost:8005/api/conversations/user/test123');
+                const data = await response.text();
+                document.getElementById('conversationsResult').textContent = `Status: ${response.status}\n${data}`;
+            } catch (error) {
+                document.getElementById('conversationsResult').textContent = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

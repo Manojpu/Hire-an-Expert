@@ -21,7 +21,7 @@ const Book = () => {
   const [description, setDescription] = useState('');
   const [language, setLanguage] = useState<string | null>(null);
   const [pendingBooking, setPendingBooking] = useState<Booking | null>(null);
-  const { state } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const expert = useMemo(() => MOCK_EXPERTS.find((e) => e.id === expertId || e.slug === expertId), [expertId]);
@@ -69,14 +69,14 @@ const Book = () => {
       toast({ title: 'Describe the consultation', description: 'Please add a short description of your consultation.' });
       return;
     }
-    if (!state.user) {
+    if (!user) {
       toast({ title: 'Sign in required', description: 'Please sign in to request a booking.' });
       return;
     }
 
     // create a pending booking request (expert must approve before payment)
     const booking = addBooking({ 
-      clientId: state.user.id, 
+      clientId: user.id, 
       expertId: expert.id, 
       service: 'Consultation', 
       dateTime: selectedSlotIso, 
