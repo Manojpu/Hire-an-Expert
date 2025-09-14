@@ -19,6 +19,7 @@ const NotFound = lazy(() => import("@/pages/NotFound"));
 const MyBookings = lazy(() => import("@/pages/MyBookings"));
 const Experts = lazy(() => import("@/pages/Experts"));
 const ClientDashboard = lazy(() => import("@/pages/ClientDashboard"));
+const ExpertProfile = lazy(() => import("@/pages/ExpertProfile"));
 
 const ProtectedRoute = ({ children, role, isExpert }: { children: JSX.Element; role?: string; isExpert?: boolean }) => {
   const { user, loggedIn } = useAuth();
@@ -94,6 +95,7 @@ const AppRoutes = () => (
           }
         />
         <Route path="create-gig" element={<BecomeExpert />} />
+        <Route path="expert-profile" element={<ExpertProfile />} />
         <Route
           path="my-bookings"
           element={
