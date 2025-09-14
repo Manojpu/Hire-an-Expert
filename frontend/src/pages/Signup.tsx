@@ -79,7 +79,7 @@ const Signup: React.FC = () => {
 
       // Create user profile in User Service
       try {
-        const response = await fetch("http://127.0.0.1:8001/internal/users/provision", {
+  const response = await fetch(`${import.meta.env.VITE_USER_SERVICE_URL}/internal/users/provision`, {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
@@ -128,7 +128,7 @@ const Signup: React.FC = () => {
 
       // Create user profile in User Service
       try {
-        const response = await fetch("http://127.0.0.1:8001/internal/users/provision", {
+  const response = await fetch(`${import.meta.env.VITE_USER_SERVICE_URL}/internal/users/provision`, {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
