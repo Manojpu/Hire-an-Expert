@@ -1,5 +1,6 @@
 // Frontend utility to sync with Gig Service
 import { ExpertApplicationForm } from "@/types/expert";
+import {GigFilters, GigListResponse} from "@/types/publicGigs.ts";
 
 // Mock data for development
 const MOCK_GIGS: ExpertGig[] = [
@@ -160,23 +161,19 @@ export interface ExpertGig extends ExpertGigCreateData {
   approved_at?: string;
 }
 
-export interface GigFilters {
-  category?: string;
-  min_rate?: number;
-  max_rate?: number;
-  min_rating?: number;
-  search_query?: string;
-  page?: number;
-  size?: number;
+interface GigCategory {
+    id: string;
+    name: string;
+    slug: string;
 }
 
-export interface GigListResponse {
-  gigs: ExpertGig[];
-  total: number;
-  page: number;
-  size: number;
-  pages: number;
-}
+// export interface GigListResponse {
+//   gigs: ExpertGig[];
+//   total: number;
+//   page: number;
+//   size: number;
+//   pages: number;
+// }
 
 // Convert ApplyExpert form to Gig Service format
 export function convertFormToGigData(
@@ -506,9 +503,11 @@ export const gigServiceAPI: GigServiceAPI = {
 
   async getPublic(filters: GigFilters): Promise<GigListResponse> {
     const params = new URLSearchParams();
+
+    // Map frontend filters to backend parameters
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
-        params.append(key, value.toString());
+        params.append(key, String(value));
       }
     });
 
