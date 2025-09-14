@@ -5,7 +5,7 @@ env/
 
 # Ignore environment variable files
 .env
-.env.*
+
 
 # Byte-compiled / cache
 __pycache__/
