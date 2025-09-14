@@ -8,13 +8,14 @@ services:
       - ENVIRONMENT=development
       - DEBUG=true
       - PORT=8000
-      - AUTH_SERVICE_URL=http://localhost:8001
-      - GIG_SERVICE_URL=http://localhost:8002
-      - BOOKING_SERVICE_URL=http://localhost:8003
-      - PAYMENT_SERVICE_URL=http://localhost:8004
-      - MESSAGE_SERVICE_URL=http://localhost:8005
-      - USER_SERVICE_V2_URL=http://localhost:8006
-      - REVIEW_SERVICE_URL=http://localhost:8007
+      # For Docker networking, use host.docker.internal or service names
+      - AUTH_SERVICE_URL=http://host.docker.internal:8001
+      - GIG_SERVICE_URL=http://host.docker.internal:8002
+      - BOOKING_SERVICE_URL=http://host.docker.internal:8003
+      - PAYMENT_SERVICE_URL=http://host.docker.internal:8004
+      - MESSAGE_SERVICE_URL=http://host.docker.internal:8005
+      - USER_SERVICE_V2_URL=http://host.docker.internal:8006
+      - REVIEW_SERVICE_URL=http://host.docker.internal:8007
       - FRONTEND_URL=http://localhost:3000
       - REQUEST_TIMEOUT=30
       - AUTH_TIMEOUT=5
@@ -22,8 +23,14 @@ services:
     volumes:
       - ./logs:/app/logs
     restart: unless-stopped
+    networks:
+      - hire-expert-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+
+networks:
+  hire-expert-network:
+    driver: bridge

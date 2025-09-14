@@ -1,5 +1,19 @@
 const Message = require("../models/messageModel");
 const Conversation = require("../models/conversationModel");
+const axios = require("axios");
+
+// Function to get user details from user-service
+async function getUserByFirebaseUID(firebaseUID) {
+  try {
+    const response = await axios.get(
+      `http://127.0.0.1:8006/users/firebase/${firebaseUID}`
+    );
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching user ${firebaseUID}:`, error.message);
+    return null;
+  }
+}
 
 exports.sendMessage = async (req, res) => {
   const { senderId, receiverId, text, conversationId } = req.body;
@@ -55,8 +69,25 @@ exports.getMessages = async (req, res) => {
     const messages = await Message.find({ conversationId: req.params.id })
       .sort({ timestamp: 1 }); // 1 = ascending order (oldest first)
     
-    console.log(`Loaded ${messages.length} messages for conversation ${req.params.id}`);
-    res.json(messages);
+    // Enhance messages with sender details
+    const enhancedMessages = await Promise.all(
+      messages.map(async (message) => {
+        const sender = await getUserByFirebaseUID(message.senderId);
+        
+        return {
+          ...message.toObject(),
+          sender: sender ? {
+            firebase_uid: sender.firebase_uid,
+            name: sender.name,
+            email: sender.email,
+            profile_image_url: sender.profile_image_url
+          } : null
+        };
+      })
+    );
+    
+    console.log(`Loaded ${enhancedMessages.length} messages for conversation ${req.params.id}`);
+    res.json(enhancedMessages);
   } catch (err) {
     console.error("Error loading messages:", err);
     res.status(500).json({ error: err.message });
@@ -68,6 +99,43 @@ exports.markAsRead = async (req, res) => {
     await Message.findByIdAndUpdate(req.params.id, { status: "read" });
     res.json({ message: "Message marked as read" });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getMessagesBetweenUsers = async (req, res) => {
+  try {
+    const { userId1, userId2 } = req.params;
+    
+    // Find messages between these two users (both directions)
+    const messages = await Message.find({
+      $or: [
+        { senderId: userId1, receiverId: userId2 },
+        { senderId: userId2, receiverId: userId1 }
+      ]
+    }).sort({ timestamp: 1 }); // Oldest first
+    
+    // Enhance messages with sender details
+    const enhancedMessages = await Promise.all(
+      messages.map(async (message) => {
+        const sender = await getUserByFirebaseUID(message.senderId);
+        
+        return {
+          ...message.toObject(),
+          sender: sender ? {
+            firebase_uid: sender.firebase_uid,
+            name: sender.name,
+            email: sender.email,
+            profile_image_url: sender.profile_image_url
+          } : null
+        };
+      })
+    );
+    
+    console.log(`Loaded ${enhancedMessages.length} messages between ${userId1} and ${userId2}`);
+    res.json(enhancedMessages);
+  } catch (err) {
+    console.error("Error loading messages between users:", err);
     res.status(500).json({ error: err.message });
   }
 };
