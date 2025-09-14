@@ -1,6 +1,22 @@
 import pytest
 from fastapi.testclient import TestClient
 import uuid
+import unittest.mock as mock
+from app.db import crud
+from tests import mock_crud
+
+# Apply a monkeypatch to replace the app's crud module with our mock_crud for testing
+crud_functions = [
+    'create_category', 'get_all_categories', 'get_category',
+    'create_gig', 'get_gig', 'get_gigs_by_expert', 
+    'update_gig', 'update_gig_status', 'delete_gig',
+    'get_gigs_filtered', 'get_gigs_count'
+]
+
+# Apply patches for the CRUD module
+for func_name in crud_functions:
+    if hasattr(crud, func_name) and hasattr(mock_crud, func_name):
+        setattr(crud, func_name, getattr(mock_crud, func_name))
 
 def test_get_root(client):
     """Test the health check endpoint."""

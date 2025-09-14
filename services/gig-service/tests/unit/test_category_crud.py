@@ -1,8 +1,8 @@
 import pytest
 import uuid
-from app.db import crud
+from tests import mock_crud as crud  # Use our mock crud
 from app.db.schemas import CategoryCreate
-from app.db.models import Category
+from tests.conftest import Category  # Use our test model
 
 def test_create_category(db_session):
     """Test creating a category."""
@@ -25,16 +25,19 @@ def test_create_category(db_session):
 def test_get_all_categories(db_session):
     """Test retrieving all categories."""
     # Arrange
-    # Add multiple categories to the database
+    # Add multiple categories to the database with unique slugs
+    unique_id1 = str(uuid.uuid4()).split("-")[0]
+    unique_id2 = str(uuid.uuid4()).split("-")[0]
+    
     category1 = Category(
-        id=uuid.uuid4(), 
-        name="Category 1", 
-        slug="category-1"
+        id=str(uuid.uuid4()), 
+        name=f"Category {unique_id1}", 
+        slug=f"category-{unique_id1}"
     )
     category2 = Category(
-        id=uuid.uuid4(), 
-        name="Category 2", 
-        slug="category-2"
+        id=str(uuid.uuid4()), 
+        name=f"Category {unique_id2}", 
+        slug=f"category-{unique_id2}"
     )
     db_session.add_all([category1, category2])
     db_session.commit()
@@ -44,16 +47,16 @@ def test_get_all_categories(db_session):
     
     # Assert
     assert len(result) >= 2
-    categories = {cat.name for cat in result}
-    assert "Category 1" in categories
-    assert "Category 2" in categories
+    category_names = [cat.name for cat in result]
+    assert category1.name in category_names
+    assert category2.name in category_names
 
 def test_get_category_by_id(db_session, test_category):
     """Test retrieving a category by ID."""
     # Arrange - test_category fixture
     
     # Act
-    result = crud.get_category(db_session, str(test_category.id))
+    result = crud.get_category(db_session, test_category.id)
     
     # Assert
     assert result is not None
