@@ -8,6 +8,8 @@ from config import settings
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 import uuid
+from uuid import UUID as UUID4
+from auth import get_current_user_id
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -21,7 +23,8 @@ from schemas import (
     PreferenceCreate, PreferenceUpdate, PreferenceResponse, 
     PreferenceBulkCreate, PreferenceBulkResponse, UserWithPreferences,
     VerificationDocumentCreate, VerificationDocumentResponse,
-    ExpertVerificationUpdate, ExpertVerificationResponse
+    ExpertVerificationUpdate, ExpertVerificationResponse,
+    AvailabilityRule, AvailabilityRuleCreate
 ) 
 from crud import (
     create_user, get_user_by_email, get_user_by_id, get_user_by_firebase_uid, get_users, update_user, delete_user,
@@ -29,7 +32,8 @@ from crud import (
     create_preference, get_user_preferences, get_preference_by_key, update_preference, 
     upsert_preference, delete_preference, bulk_upsert_preferences,
     create_verification_document, get_verification_documents, get_documents_by_user, get_verification_document_by_id, delete_verification_document,
-    update_expert_verification_status, get_all_expert_profiles
+    update_expert_verification_status, get_all_expert_profiles,
+    set_availability_rules, get_availability_rules_for_user
 )
 from auth import get_current_user, get_current_admin, get_user_by_id_or_current, get_optional_user
 # Removing problematic relative import
@@ -497,3 +501,27 @@ async def upload_verification_document(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Could not upload file: {e}"
         )
+    
+#to create available time slots for experts
+@router.post(
+    "/users/me/availability-rules",
+    response_model=List[AvailabilityRule],
+    summary="Set the weekly availability rules for the current expert"
+)
+def set_my_availability_rules(
+    rules: List[AvailabilityRuleCreate],
+    db: Session = Depends(get_db),
+    current_user_id: UUID4 = Depends(get_current_user_id) 
+):
+      return set_availability_rules(db=db, user_id=current_user_id, rules=rules)
+
+@router.get(
+    "/users/{user_id}/availability-rules",
+    response_model=List[AvailabilityRule],
+    include_in_schema=False # Hide from public docs
+)
+def get_user_availability_rules(
+    user_id: UUID4,
+    db: Session = Depends(get_db)
+):
+    return get_availability_rules_for_user(db=db, user_id=user_id)

@@ -2,6 +2,7 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List, Dict
 from datetime import datetime
 import uuid
+from uuid import UUID as UUID4
 from models import UserRole,DocumentType
 from pydantic import ConfigDict
 

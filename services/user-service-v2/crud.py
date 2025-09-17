@@ -4,14 +4,16 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.orm import Session 
 from typing import List, Optional, Dict, Any
 import uuid
-from models import User, UserRole, ExpertProfile, Preference, VerificationDocument, DocumentType
+from uuid import UUID as UUID4
+from models import User, UserRole, ExpertProfile, Preference, VerificationDocument, DocumentType, AvailabilityRule
 from schemas import (
-    UserCreate, UserUpdate, PreferenceCreate, PreferenceUpdate, 
+    AvailabilityRuleCreate, UserCreate, UserUpdate, PreferenceCreate, PreferenceUpdate, 
     ProvisionIn, ExpertProfileIn, UserOut, ExpertProfileOut, 
     UserResponse, PaginationParams, PaginatedResponse, 
     ErrorResponse, ValidationErrorResponse, SuccessResponse,
     VerificationDocumentCreate, VerificationDocumentResponse,
-    ExpertVerificationUpdate, ExpertVerificationResponse
+    ExpertVerificationUpdate, ExpertVerificationResponse,
+    AvailabilityRuleCreate
 )
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -323,11 +325,11 @@ async def get_all_expert_profiles(db: AsyncSession, verified_only: bool = False)
     result = await db.execute(query)
     return result.scalars().all()
 
-async def set_availability_rules(db: Session, user_id: UUID4, rules: List[schemas.AvailabilityRuleCreate]) -> List[models.AvailabilityRule]:
+async def set_availability_rules(db: Session, user_id: UUID4, rules: List[AvailabilityRuleCreate]) -> List[AvailabilityRule]:
     """Deletes old rules and creates a new set of availability rules for a user."""
     
     # Delete all existing rules for this user first
-    db.query(models.AvailabilityRule).filter(models.AvailabilityRule.user_id == user_id).delete()
+    db.query(AvailabilityRule).filter(AvailabilityRule.user_id == user_id).delete()
     
     db_rules = []
     for rule in rules:
@@ -341,6 +343,6 @@ async def set_availability_rules(db: Session, user_id: UUID4, rules: List[schema
     db.commit()
     return db_rules
 
-async def get_availability_rules_for_user(db: Session, user_id: UUID4) -> List[models.AvailabilityRule]:
+async def get_availability_rules_for_user(db: Session, user_id: UUID4) -> List[AvailabilityRule]:
     """Gets all availability rules for a specific user."""
-    return db.query(models.AvailabilityRule).filter(models.AvailabilityRule.user_id == user_id).all()
+    return db.query(AvailabilityRule).filter(AvailabilityRule.user_id == user_id).all()
