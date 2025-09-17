@@ -176,3 +176,18 @@ class ExpertVerificationResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+# For Time Managemnt
+class AvailabilityRuleBase(BaseModel):
+    day_of_week: int
+    start_time_utc: str
+    end_time_utc: str
+
+class AvailabilityRuleCreate(AvailabilityRuleBase):
+    pass
+
+class AvailabilityRule(AvailabilityRuleBase):
+    id: UUID4
+    
+    class Config:
+        from_attributes = True
