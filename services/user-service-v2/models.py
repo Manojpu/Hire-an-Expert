@@ -94,3 +94,31 @@ class VerificationDocument(Base):
 
     def __repr__(self):
         return f"<VerificationDocument(id={self.id}, user_id={self.user_id}, document_type={self.document_type})>"
+    
+class AvailabilityRule(Base):
+    """Stores the recurring weekly availability for an expert."""
+    __tablename__ = "availability_rules"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    
+    # Day of the week: 0=Monday, 1=Tuesday, ..., 6=Sunday
+    day_of_week = Column(Integer, nullable=False) 
+    
+    # Times are stored as strings in "HH:MM" format in UTC
+    start_time_utc = Column(String(5), nullable=False) # e.g., "09:00"
+    end_time_utc = Column(String(5), nullable=False)   # e.g., "17:00"
+    
+    user = relationship("User")
+
+class DateOverride(Base):
+    """Stores exceptions to the rules, like holidays or vacations."""
+    __tablename__ = "date_overrides"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    
+    # The specific date the user is unavailable
+    unavailable_date = Column(DateTime(timezone=True), nullable=False)
+    
+    user = relationship("User")
