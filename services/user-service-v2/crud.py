@@ -322,3 +322,25 @@ async def get_all_expert_profiles(db: AsyncSession, verified_only: bool = False)
     
     result = await db.execute(query)
     return result.scalars().all()
+
+async def set_availability_rules(db: Session, user_id: UUID4, rules: List[schemas.AvailabilityRuleCreate]) -> List[models.AvailabilityRule]:
+    """Deletes old rules and creates a new set of availability rules for a user."""
+    
+    # Delete all existing rules for this user first
+    db.query(models.AvailabilityRule).filter(models.AvailabilityRule.user_id == user_id).delete()
+    
+    db_rules = []
+    for rule in rules:
+        db_rule = models.AvailabilityRule(
+            user_id=user_id,
+            **rule.dict()
+        )
+        db_rules.append(db_rule)
+    
+    db.add_all(db_rules)
+    db.commit()
+    return db_rules
+
+async def get_availability_rules_for_user(db: Session, user_id: UUID4) -> List[models.AvailabilityRule]:
+    """Gets all availability rules for a specific user."""
+    return db.query(models.AvailabilityRule).filter(models.AvailabilityRule.user_id == user_id).all()
