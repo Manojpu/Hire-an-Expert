@@ -78,7 +78,7 @@ const Profile = () => {
   useEffect(() => {
     const loadUserPreferences = async () => {
       try {
-        const response = await fetch(`http://127.0.0.1:8001/users/${user.id}/preferences`, {
+  const response = await fetch(`${import.meta.env.VITE_USER_SERVICE_URL}/users/${user.id}/preferences`, {
           headers: {
             'Authorization': `Bearer ${await user.getIdToken?.()}`,
             'Content-Type': 'application/json'
@@ -126,7 +126,7 @@ const Profile = () => {
         value: value.toString()
       }));
 
-      const response = await fetch(`http://127.0.0.1:8001/users/${user.id}/preferences`, {
+  const response = await fetch(`${import.meta.env.VITE_USER_SERVICE_URL}/users/${user.id}/preferences`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${await user.getIdToken?.()}`,
@@ -207,11 +207,11 @@ const Profile = () => {
         console.log('No authentication token available');
       }
 
-      console.log('Making API request to:', `http://127.0.0.1:8001/users/${user.id}`);
+  console.log('Making API request to:', `${import.meta.env.VITE_USER_SERVICE_URL}/users/${user.id}`);
       console.log('Request headers:', headers);
       console.log('Request body:', editedProfile);
 
-      const response = await fetch(`http://127.0.0.1:8001/users/${user.id}`, {
+  const response = await fetch(`${import.meta.env.VITE_USER_SERVICE_URL}/users/${user.id}`, {
         method: 'PUT',
         headers,
         body: JSON.stringify(editedProfile)
@@ -224,7 +224,7 @@ const Profile = () => {
       // If authentication fails, try the test endpoint
       // if (response.status === 401 && authToken) {
       //   console.log('Authentication failed, trying test endpoint...');
-      //   response = await fetch(`http://127.0.0.1:8001/test/users/${user.id}`, {
+  //   response = await fetch(`${import.meta.env.VITE_USER_SERVICE_URL}/test/users/${user.id}`, {
       //     method: 'PUT',
       //     headers: {
       //       'Content-Type': 'application/json'

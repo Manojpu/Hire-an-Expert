@@ -21,7 +21,7 @@ class ExpertProfileOut(BaseModel):
     specialization: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class UserOut(BaseModel):
     id: uuid.UUID
