@@ -502,6 +502,24 @@ async def upload_verification_document(
             detail=f"Could not upload file: {e}"
         )
     
+# Endpoint to get user by Firebase UID
+@router.get(
+    "/users/by-firebase-uid/{firebase_uid}",
+    response_model=UserResponse,
+    summary="Get user by Firebase UID"
+)
+def get_user_by_firebase_uid_endpoint(
+    firebase_uid: str,
+    db: Session = Depends(get_db)
+):
+    user = get_user_by_firebase_uid(db=db, firebase_uid=firebase_uid)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found with this Firebase UID"
+        )
+    return UserResponse.model_validate(user, from_attributes=True)
+
 #to create available time slots for experts
 @router.post(
     "/users/me/availability-rules",

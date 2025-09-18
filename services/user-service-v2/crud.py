@@ -55,6 +55,11 @@ def upsert_user(db: Session, uid: str, email: str, name: str, is_expert=True, ex
     db.commit()
     db.refresh(user)
     return user
+    
+# Synchronous version of get_user_by_firebase_uid
+def get_user_by_firebase_uid(db: Session, firebase_uid: str) -> Optional[User]:
+    """Get user by Firebase UID (synchronous version)"""
+    return db.query(User).filter(User.firebase_uid == firebase_uid).first()
 
 async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
     """Create a new user"""
