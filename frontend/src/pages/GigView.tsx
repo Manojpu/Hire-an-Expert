@@ -348,7 +348,11 @@ const GigView = () => {
 
               {/* Action Buttons */}
               <div className="space-y-4">
-                <Button className="w-full bg-gradient-primary" size="lg">
+                <Button
+                  className="w-full bg-gradient-primary"
+                  size="lg"
+                  onClick={() => navigate(`/gig/${id}/book`)}
+                >
                   Book Consultation
                 </Button>
                 <Button variant="outline" className="w-full" size="lg">
