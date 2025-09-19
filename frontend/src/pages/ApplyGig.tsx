@@ -6,12 +6,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import ProfileSettings from "@/components/dashboard/ProfileSettings";
 import { ExpertApplicationForm } from "@/types/expert";
+import { AvailabilityRule } from "@/types/availability";
+import AvailabilityCalendar from "@/components/expert/AvailabilityCalendar";
 import {
   validateExpertApplication,
   convertApplicationToExpert,
   syncExpertData,
 } from "@/utils/expertUtils";
 import { convertFormToGigData, gigServiceAPI } from "@/services/gigService";
+import { submitAvailabilityRules } from "@/services/availabilityService";
 
 // TODO: Replace with your actual user service URL
 const USER_SERVICE_URL =
@@ -56,7 +59,9 @@ import { steps } from "@/components/expert/ProgressStepper";
 const ApplyGig: React.FC = () => {
   const { user } = useAuth();
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState<Partial<ExpertApplicationForm>>({});
+  const [form, setForm] = useState<Partial<ExpertApplicationForm>>({
+    availabilityRules: [],
+  });
   const [categories, setCategories] = useState<{ id: number; name: string }[]>(
     []
   );
@@ -90,7 +95,7 @@ const ApplyGig: React.FC = () => {
 
   const handleChange = (
     key: keyof ExpertApplicationForm,
-    value: string | number | boolean | File | FileList | null
+    value: string | number | boolean | File | FileList | null | Array<any>
   ) => setForm((f) => ({ ...f, [key]: value }));
 
   const handleSubmit = async () => {
@@ -175,7 +180,7 @@ const ApplyGig: React.FC = () => {
       // 3. Submit to Gig Service
       const createdGig = await gigServiceAPI.create(gigData);
 
-      // 4. Sync data across frontend components
+      // 5. Sync data across frontend components
       const expertData = convertApplicationToExpert(
         filteredForm,
         "current_user_id"
@@ -260,12 +265,23 @@ const ApplyGig: React.FC = () => {
                       onChange={(e) => handleChange("rate", e.target.value)}
                     />
                   </div>
-                  <div>
-                    <label className="text-sm">Availability Preferences</label>
+                  <div className="col-span-2 mt-4">
+                    <label className="text-sm mb-2 block">
+                      General Availability Notes
+                    </label>
                     <Input
+                      placeholder="E.g., Prefer evenings and weekends"
                       value={form.availabilityNotes || ""}
                       onChange={(e) =>
                         handleChange("availabilityNotes", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div className="col-span-2 mt-4">
+                    <AvailabilityCalendar
+                      value={form.availabilityRules || []}
+                      onChange={(rules) =>
+                        handleChange("availabilityRules", rules)
                       }
                     />
                   </div>
@@ -429,7 +445,7 @@ const ApplyGig: React.FC = () => {
               <div className="mb-2">
                 Estimated review time: 2-3 business days
               </div>
-              <div className="mb-2">Progress: {step}/5</div>
+              <div className="mb-2">Progress: {step + 1}/4</div>
               <div className="mb-2">Admin feedback: None</div>
             </div>
           </div>

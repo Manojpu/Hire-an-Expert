@@ -63,7 +63,12 @@ export interface ExpertApplicationForm {
   category_id: UUID; // Selected category
   serviceDesc: string; // Service Description
   rate: number; // Hourly Rate (Rs.)
-  availabilityNotes: string; // Availability Preferences
+  availabilityNotes: string; // General availability notes
+  availabilityRules?: {
+    day_of_week: number;
+    start_time_utc: string;
+    end_time_utc: string;
+  }[]; // Weekly recurring availability
 
   // Step 2: Qualifications
   expertise_areas: string[];
