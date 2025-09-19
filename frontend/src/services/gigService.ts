@@ -141,6 +141,11 @@ export interface ExpertGigCreateData {
   hourly_rate?: number;
   currency?: string;
   availability_preferences?: string;
+  availability_rules?: {
+    day_of_week: number;
+    start_time_utc: string;
+    end_time_utc: string;
+  }[];
 
   // Qualifications (Step 2)
   education?: string;
@@ -198,6 +203,7 @@ export function convertFormToGigData(
     hourly_rate: Number(form.rate) || 0,
     currency: "LKR",
     availability_preferences: form.availabilityNotes || "",
+    availability_rules: form.availabilityRules || [],
     experience: form.experience || "",
     certifications: certificationUrls.map((url) => ({ url })),
     references: form.references || "",
