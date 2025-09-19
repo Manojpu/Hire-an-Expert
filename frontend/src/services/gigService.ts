@@ -184,7 +184,10 @@ interface GigCategory {
 
 // Convert ApplyExpert form to Gig Service format
 export function convertFormToGigData(
-  form: Partial<ExpertApplicationForm>,
+  form: Partial<ExpertApplicationForm> & {
+    government_id_url?: string;
+    professional_license_url?: string;
+  },
   profileImageUrl?: string,
   bannerImageUrl?: string,
   certificationUrls: string[] = []
@@ -199,6 +202,8 @@ export function convertFormToGigData(
     certifications: certificationUrls.map((url) => ({ url })),
     references: form.references || "",
     background_check_consent: form.bgConsent || false,
+    government_id_url: form.government_id_url || "",
+    professional_license_url: form.professional_license_url || "",
   };
 }
 

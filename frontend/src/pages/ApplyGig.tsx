@@ -14,27 +14,35 @@ import {
 import { convertFormToGigData, gigServiceAPI } from "@/services/gigService";
 
 // TODO: Replace with your actual user service URL
-const USER_SERVICE_URL = import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:8001";
-
-
+const USER_SERVICE_URL =
+  import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:8001";
 
 // Upload a verification document to the user service
-async function uploadVerificationDocument(file: File, documentType: string, token: string, userId: string) {
+async function uploadVerificationDocument(
+  file: File,
+  documentType: string,
+  token: string,
+  userId: string
+) {
   const formData = new FormData();
   formData.append("file", file);
   // Map to backend enum
   let backendDocType = "OTHER";
   if (documentType === "government_id") backendDocType = "ID_PROOF";
-  if (documentType === "professional_license") backendDocType = "PROFESSIONAL_LICENSE";
+  if (documentType === "professional_license")
+    backendDocType = "PROFESSIONAL_LICENSE";
   formData.append("document_type", backendDocType);
 
-  const response = await fetch(`${USER_SERVICE_URL}/users/documents?user_id=${userId}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: formData,
-  });
+  const response = await fetch(
+    `${USER_SERVICE_URL}/users/documents?user_id=${userId}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    }
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -45,11 +53,13 @@ async function uploadVerificationDocument(file: File, documentType: string, toke
 }
 import { steps } from "@/components/expert/ProgressStepper";
 
-const ApplyExpert: React.FC = () => {
+const ApplyGig: React.FC = () => {
   const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<Partial<ExpertApplicationForm>>({});
-  const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
+  const [categories, setCategories] = useState<{ id: number; name: string }[]>(
+    []
+  );
 
   // Fetch categories from backend on mount
   const [catLoading, setCatLoading] = useState(true);
@@ -86,7 +96,7 @@ const ApplyExpert: React.FC = () => {
   const handleSubmit = async () => {
     // Only validate and send the required fields for gig application
     const requiredFields = [
-  "category_id",
+      "category_id",
       "serviceDesc",
       "rate",
       "availabilityNotes",
@@ -98,7 +108,7 @@ const ApplyExpert: React.FC = () => {
       "license",
       "references",
       "bgConsent",
-      "tos"
+      "tos",
     ];
     const filteredForm: Partial<ExpertApplicationForm> = {};
     requiredFields.forEach((key) => {
@@ -108,10 +118,14 @@ const ApplyExpert: React.FC = () => {
 
     // Custom minimal validation for only required fields
     const errors: string[] = [];
-  if (!filteredForm.category_id) errors.push('Category selection is required');
-    if (!filteredForm.rate || Number(filteredForm.rate) <= 0) errors.push('Valid hourly rate is required');
-    if (!filteredForm.bgConsent) errors.push('Background check consent is required');
-    if (!filteredForm.tos) errors.push('Terms of service acceptance is required');
+    if (!filteredForm.category_id)
+      errors.push("Category selection is required");
+    if (!filteredForm.rate || Number(filteredForm.rate) <= 0)
+      errors.push("Valid hourly rate is required");
+    if (!filteredForm.bgConsent)
+      errors.push("Background check consent is required");
+    if (!filteredForm.tos)
+      errors.push("Terms of service acceptance is required");
     if (errors.length > 0) {
       alert("Please fix the following errors:\n" + errors.join("\n"));
       return;
@@ -133,11 +147,21 @@ const ApplyExpert: React.FC = () => {
       const token = await user.getIdToken();
 
       if (filteredForm.govId) {
-        const govRes = await uploadVerificationDocument(filteredForm.govId as File, "government_id", token, user.id);
+        const govRes = await uploadVerificationDocument(
+          filteredForm.govId as File,
+          "government_id",
+          token,
+          user.id
+        );
         governmentIdUrl = govRes.url || govRes.file_url || "";
       }
       if (filteredForm.license) {
-        const licRes = await uploadVerificationDocument(filteredForm.license as File, "professional_license", token, user.id);
+        const licRes = await uploadVerificationDocument(
+          filteredForm.license as File,
+          "professional_license",
+          token,
+          user.id
+        );
         licenseUrl = licRes.url || licRes.file_url || "";
       }
 
@@ -152,10 +176,15 @@ const ApplyExpert: React.FC = () => {
       const createdGig = await gigServiceAPI.create(gigData);
 
       // 4. Sync data across frontend components
-      const expertData = convertApplicationToExpert(filteredForm, "current_user_id");
+      const expertData = convertApplicationToExpert(
+        filteredForm,
+        "current_user_id"
+      );
       syncExpertData(expertData);
 
-      alert(`Application submitted successfully! \n\nYour expert profile has been created and is pending approval.\nGig ID: ${createdGig.id}\nStatus: ${createdGig.status}`);
+      alert(
+        `Application submitted successfully! \n\nYour expert profile has been created and is pending approval.\nGig ID: ${createdGig.id}\nStatus: ${createdGig.status}`
+      );
     } catch (error) {
       console.error("Error submitting application:", error);
       let errorMessage = "Failed to submit application. Please try again.";
@@ -186,7 +215,9 @@ const ApplyExpert: React.FC = () => {
                   <div>
                     <label className="text-sm">Category</label>
                     {catLoading ? (
-                      <div className="text-sm text-muted-foreground">Loading categories...</div>
+                      <div className="text-sm text-muted-foreground">
+                        Loading categories...
+                      </div>
                     ) : catError ? (
                       <div className="text-sm text-red-500">{catError}</div>
                     ) : (
@@ -199,7 +230,9 @@ const ApplyExpert: React.FC = () => {
                       >
                         <option value="">Select a category</option>
                         {categories.length === 0 ? (
-                          <option value="" disabled>No categories found</option>
+                          <option value="" disabled>
+                            No categories found
+                          </option>
                         ) : (
                           categories.map((cat) => (
                             <option key={cat.id} value={cat.id}>
@@ -406,4 +439,4 @@ const ApplyExpert: React.FC = () => {
   );
 };
 
-export default ApplyExpert;
+export default ApplyGig;
