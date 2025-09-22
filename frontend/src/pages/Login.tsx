@@ -136,7 +136,7 @@ const Login: React.FC = () => {
 
   // Redirect if user is already logged in
   if (loggedIn) {
-    return <Navigate to="/dashboard" replace={true} />;
+    return <Navigate to="/" replace={true} />;
   }
 
   return (
