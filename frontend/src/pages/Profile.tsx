@@ -25,6 +25,7 @@ import { useAuth } from "@/context/auth/AuthContext";
 import { mockBookings, experts } from "@/data/mockData";
 import { format } from "date-fns";
 import { doPasswordUpdate } from "@/firebase/auth.js";
+import ExpertAvailabilityDisplay from "@/components/expert/ExpertAvailabilityDisplay";
 
 // Utility function to safely format dates
 const safeFormatDate = (
@@ -633,6 +634,24 @@ const Profile = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Expert Availability Section - Only shown for experts */}
+              {user && user.is_expert && (
+                <Card className="mt-6">
+                  <CardHeader>
+                    <CardTitle>Availability Schedule</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Your current availability for client bookings
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <ExpertAvailabilityDisplay
+                      userId={user.id || user.uid || ""}
+                      token={user.getIdToken ? user.getIdToken : undefined}
+                    />
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="bookings" className="space-y-6 mt-6">
