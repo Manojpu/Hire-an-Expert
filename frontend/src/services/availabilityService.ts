@@ -1,11 +1,16 @@
-import { AvailabilityRule } from "@/types/availability";
+import { AvailabilityRule, DateOverride } from "@/types/availability";
 
 // User service API endpoint for availability rules
 const USER_SERVICE_URL =
   import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:8001";
 
+export interface AvailabilityData {
+  availabilityRules: AvailabilityRule[];
+  dateOverrides?: DateOverride[];
+}
+
 export async function submitAvailabilityRules(
-  rules: AvailabilityRule[],
+  data: AvailabilityData,
   token: string
 ) {
   try {
@@ -17,7 +22,7 @@ export async function submitAvailabilityRules(
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(rules),
+        body: JSON.stringify(data),
       }
     );
 
@@ -33,7 +38,10 @@ export async function submitAvailabilityRules(
   }
 }
 
-export async function getAvailabilityRules(userId: string, token: string) {
+export async function getAvailabilityRules(
+  userId: string,
+  token: string
+): Promise<AvailabilityData> {
   try {
     const endpoint =
       userId === "me"
