@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 import uuid
 from uuid import UUID as UUID4
-from models import User, UserRole, ExpertProfile, Preference, VerificationDocument, DocumentType, AvailabilityRule
+from models import User, UserRole, ExpertProfile, Preference, VerificationDocument, DocumentType, AvailabilityRule, DateOverride
 from schemas import (
-    AvailabilityRuleCreate, UserCreate, UserUpdate, PreferenceCreate, PreferenceUpdate, 
+    AvailabilityRuleCreate, DateOverrideCreate, UserCreate, UserUpdate, PreferenceCreate, PreferenceUpdate, 
     ProvisionIn, ExpertProfileIn, UserOut, ExpertProfileOut, 
     UserResponse, PaginationParams, PaginatedResponse, 
     ErrorResponse, ValidationErrorResponse, SuccessResponse,
@@ -330,24 +330,63 @@ async def get_all_expert_profiles(db: AsyncSession, verified_only: bool = False)
     result = await db.execute(query)
     return result.scalars().all()
 
-async def set_availability_rules(db: Session, user_id: UUID4, rules: List[AvailabilityRuleCreate]) -> List[AvailabilityRule]:
-    """Deletes old rules and creates a new set of availability rules for a user."""
+async def set_availability_rules(db: AsyncSession, user_id: UUID4, rules: List[AvailabilityRuleCreate], dateOverrides: List[DateOverrideCreate] = None) -> List[AvailabilityRule]:
+    """
+    Deletes old rules and date overrides, and creates a new set of availability rules for a user.
+    Also handles date overrides for unavailable dates.
+    """
     
     # Delete all existing rules for this user first
-    db.query(AvailabilityRule).filter(AvailabilityRule.user_id == user_id).delete()
+    await db.execute(delete(AvailabilityRule).where(AvailabilityRule.user_id == user_id))
     
+    # Delete existing date overrides for this user
+    await db.execute(delete(DateOverride).where(DateOverride.user_id == user_id))
+    
+    # Process availability rules
     db_rules = []
     for rule in rules:
-        db_rule = models.AvailabilityRule(
+        # Check if we need to use dict() or model_dump() based on Pydantic version
+        try:
+            rule_data = rule.model_dump()  # Pydantic v2
+        except AttributeError:
+            rule_data = rule.dict()  # Pydantic v1
+        
+        db_rule = AvailabilityRule(
             user_id=user_id,
-            **rule.dict()
+            **rule_data
         )
         db_rules.append(db_rule)
     
     db.add_all(db_rules)
-    db.commit()
+    
+    # Process date overrides if provided
+    if dateOverrides:
+        db_date_overrides = []
+        for override in dateOverrides:
+            try:
+                override_data = override.model_dump()  # Pydantic v2
+            except AttributeError:
+                override_data = override.dict()  # Pydantic v1
+            
+            # Parse the date string to a datetime object
+            from datetime import datetime
+            date_str = override_data.get('unavailable_date')
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+            
+            db_date_override = DateOverride(
+                user_id=user_id,
+                unavailable_date=date_obj
+            )
+            db_date_overrides.append(db_date_override)
+        
+        db.add_all(db_date_overrides)
+    
+    await db.commit()
     return db_rules
 
-async def get_availability_rules_for_user(db: Session, user_id: UUID4) -> List[AvailabilityRule]:
+async def get_availability_rules_for_user(db: AsyncSession, user_id: UUID4) -> List[AvailabilityRule]:
     """Gets all availability rules for a specific user."""
-    return db.query(AvailabilityRule).filter(AvailabilityRule.user_id == user_id).all()
+    result = await db.execute(
+        select(AvailabilityRule).where(AvailabilityRule.user_id == user_id)
+    )
+    return result.scalars().all()

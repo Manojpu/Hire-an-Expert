@@ -24,7 +24,7 @@ from schemas import (
     PreferenceBulkCreate, PreferenceBulkResponse, UserWithPreferences,
     VerificationDocumentCreate, VerificationDocumentResponse,
     ExpertVerificationUpdate, ExpertVerificationResponse,
-    AvailabilityRule, AvailabilityRuleCreate
+    AvailabilityRule, AvailabilityRuleCreate,  DateOverrideCreate, CreateAvailabilitySchedules
 ) 
 from crud import (
     create_user, get_user_by_email, get_user_by_id, get_user_by_firebase_uid, get_users, update_user, delete_user,
@@ -46,6 +46,7 @@ router = APIRouter()
 # WEBHOOK_SECRET = settings.user_service_webhook_secret
 WEBHOOK_SECRET = "7f6b8e2e6b9147f0b34a84d5b673d3e85d3a21b6b3c847c0a9e32f8f8a172ab4"
 
+# For backward compatibility, using sync session
 def get_db():
     db = SyncSessionLocal()
     try:
@@ -508,11 +509,11 @@ async def upload_verification_document(
     response_model=UserResponse,
     summary="Get user by Firebase UID"
 )
-def get_user_by_firebase_uid_endpoint(
+async def get_user_by_firebase_uid_endpoint(
     firebase_uid: str,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
-    user = get_user_by_firebase_uid(db=db, firebase_uid=firebase_uid)
+    user = await get_user_by_firebase_uid(db=db, firebase_uid=firebase_uid)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -526,20 +527,25 @@ def get_user_by_firebase_uid_endpoint(
     response_model=List[AvailabilityRule],
     summary="Set the weekly availability rules for the current expert"
 )
-def set_my_availability_rules(
-    rules: List[AvailabilityRuleCreate],
-    db: Session = Depends(get_db),
+async def set_my_availability_rules(
+    rules: CreateAvailabilitySchedules,
+    db: AsyncSession = Depends(get_async_db),
     current_user_id: UUID4 = Depends(get_current_user_id) 
 ):
-      return set_availability_rules(db=db, user_id=current_user_id, rules=rules)
+    # Log the received data
+    logger.debug(f"Received availability rules: {rules.availabilityRules}")
+    logger.debug(f"Received date overrides: {rules.dateOverrides}")
+    
+    # Process and save the availability rules
+    return await set_availability_rules(db=db, user_id=current_user_id, rules=rules.availabilityRules, dateOverrides=rules.dateOverrides)
 
 @router.get(
     "/users/{user_id}/availability-rules",
     response_model=List[AvailabilityRule],
     include_in_schema=False # Hide from public docs
 )
-def get_user_availability_rules(
+async def get_user_availability_rules(
     user_id: UUID4,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
-    return get_availability_rules_for_user(db=db, user_id=user_id)
+    return await get_availability_rules_for_user(db=db, user_id=user_id)

@@ -10,6 +10,7 @@ import logging
 from config import settings
 from database import get_async_db
 from models import User, UserRole
+from crud import get_user_by_firebase_uid
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -164,7 +165,7 @@ async def get_optional_user(
     except HTTPException:
         return None 
     
-def get_current_user_id(
+async def get_current_user_id(
     db: AsyncSession = Depends(get_async_db), 
     token: str = Depends(bearer_scheme)
 ) -> UUID:
@@ -191,7 +192,7 @@ def get_current_user_id(
             )
         
         # Now, find the user in your own database
-        db_user = crud.get_user_by_firebase_uid(db, firebase_uid=firebase_uid)
+        db_user = await get_user_by_firebase_uid(db, firebase_uid=firebase_uid)
         
         if db_user is None:
             # This case happens if a user exists in Firebase but not in your DB.
@@ -212,6 +213,7 @@ def get_current_user_id(
         )
     except Exception as e:
         # Catch any other unexpected errors
+        logger.error(f"Unexpected error in get_current_user_id: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred during authentication: {e}"
