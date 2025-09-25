@@ -184,8 +184,18 @@ class AvailabilityRuleBase(BaseModel):
     start_time_utc: str
     end_time_utc: str
 
+class DateOverride(BaseModel):
+    unavailable_date: str  # "YYYY-MM-DD"
+
+class DateOverrideCreate(DateOverride):
+    pass
+
 class AvailabilityRuleCreate(AvailabilityRuleBase):
     pass
+
+class CreateAvailabilitySchedules(BaseModel):
+    availabilityRules: List[AvailabilityRuleCreate]
+    dateOverrides: List[DateOverrideCreate] = []
 
 class AvailabilityRule(AvailabilityRuleBase):
     id: UUID4
