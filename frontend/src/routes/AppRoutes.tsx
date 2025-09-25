@@ -20,8 +20,18 @@ const MyBookings = lazy(() => import("@/pages/MyBookings"));
 const Experts = lazy(() => import("@/pages/Experts"));
 const ClientDashboard = lazy(() => import("@/pages/ClientDashboard"));
 const ExpertProfile = lazy(() => import("@/pages/ExpertProfile"));
+const GigView = lazy(() => import("@/pages/GigView"));
+const BookConsultation = lazy(() => import("@/pages/BookConsultation"));
 
-const ProtectedRoute = ({ children, role, isExpert }: { children: JSX.Element; role?: string; isExpert?: boolean }) => {
+const ProtectedRoute = ({
+  children,
+  role,
+  isExpert,
+}: {
+  children: JSX.Element;
+  role?: string;
+  isExpert?: boolean;
+}) => {
   const { user, loggedIn } = useAuth();
   if (!loggedIn || !user) return <Navigate to="/" replace />;
   if (role && user.role !== role) return <Navigate to="/" replace />;
@@ -57,11 +67,10 @@ const AppRoutes = () => (
         <Route index element={<Home />} />
         <Route path="categories" element={<Category />} />
         <Route path="category/:slug" element={<Category />} />
+        <Route path="gig/:id" element={<GigView />} />
+        <Route path="gig/:id/book" element={<BookConsultation />} />
         <Route path="expert/:slug" element={<Expert />} />
-        <Route
-          path="book/:expertId"
-          element={<Book />}
-        />
+        <Route path="book/:expertId" element={<Book />} />
         <Route
           path="chat/:conversationId"
           element={
@@ -112,7 +121,7 @@ const AppRoutes = () => (
             </ProtectedRoute>
           }
         />
-  <Route path="experts" element={<Experts />} />
+        <Route path="experts" element={<Experts />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

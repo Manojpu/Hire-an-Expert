@@ -16,23 +16,26 @@ router = APIRouter()
 def create_new_gig(
         gig: schemas.GigCreate,
         db: Session = Depends(session.get_db),
-        current_user_id: str = Depends(session.get_current_user_id)  # Changed to str
+        current_user_id = Depends(session.get_current_user_id)
 ):
     """
-    Create a new gig.
+    Create a new gig. Requires Firebase authentication.
     """
     try:
         logger.info(f"Creating new gig for expert: {current_user_id}")
         logger.debug(f"Gig data received: {gig.dict()}")
 
+        # Convert UUID to string if needed
+        expert_id = str(current_user_id)
+        
         # Check if category exists before creating gig
         category = crud.get_category(db, str(gig.category_id))
         if not category:
-            logger.warning(f"Category with ID {gig.category_id} not found when creating gig for user {current_user_id}")
+            logger.warning(f"Category with ID {gig.category_id} not found when creating gig for user {expert_id}")
             raise HTTPException(status_code=404, detail=f"Category with ID {gig.category_id} not found")
 
-        db_gig = crud.create_gig(db=db, gig=gig, expert_id=current_user_id)
-        logger.info(f"Gig creation completed: {db_gig.id}")  # Changed from print to logger
+        db_gig = crud.create_gig(db=db, gig=gig, expert_id=expert_id)
+        logger.info(f"Gig creation completed: {db_gig.id}")
 
         # We need to fetch the complete gig with relationship data for the response
         # Because the crud.create_gig doesn't populate the relationship
@@ -163,18 +166,21 @@ def get_gig_by_expert(
 @router.get("/my/gig", response_model=schemas.GigPrivateResponse)
 def get_my_gig(
         db: Session = Depends(session.get_db),
-        current_user_id: str = Depends(session.get_current_user_id)
+        current_user_id = Depends(session.get_current_user_id)
 ):
     """
     Get expert's own gig for dashboard management.
     This feeds the ExpertDashboard components.
     """
-    logger.info(f"Fetching gig for current user ID: {current_user_id}")
-    db_gig = crud.get_gig_by_expert(db=db, expert_id=current_user_id)
+    # Convert UUID to string if needed
+    expert_id = str(current_user_id)
+    
+    logger.info(f"Fetching gig for current user ID: {expert_id}")
+    db_gig = crud.get_gig_by_expert(db=db, expert_id=expert_id)
     if not db_gig:
-        logger.warning(f"No gig found for current user ID: {current_user_id}")
+        logger.warning(f"No gig found for current user ID: {expert_id}")
         raise HTTPException(status_code=404, detail="No gig found for this expert")
-    logger.info(f"Gig returned for current user ID: {current_user_id}")
+    logger.info(f"Gig returned for current user ID: {expert_id}")
     return db_gig
 
 
@@ -182,46 +188,52 @@ def get_my_gig(
 def update_my_gig(
         gig_update: schemas.GigUpdate,
         db: Session = Depends(session.get_db),
-        current_user_id: str = Depends(session.get_current_user_id)  # Changed to str
+        current_user_id = Depends(session.get_current_user_id)
 ):
     """
     Update expert's own gig.
     """
+    # Convert UUID to string if needed
+    expert_id = str(current_user_id)
+    
     # First get the gig to ensure it belongs to the current user
-    logger.info(f"Updating gig for current user ID: {current_user_id}")
-    db_gig = crud.get_gig_by_expert(db=db, expert_id=current_user_id)
+    logger.info(f"Updating gig for current user ID: {expert_id}")
+    db_gig = crud.get_gig_by_expert(db=db, expert_id=expert_id)
     if not db_gig:
-        logger.warning(f"No gig found for current user ID: {current_user_id}")
+        logger.warning(f"No gig found for current user ID: {expert_id}")
         raise HTTPException(status_code=404, detail="No gig found for this expert")
 
     updated_gig = crud.update_gig(db=db, gig_id=db_gig.id, gig_update=gig_update)
     if not updated_gig:
-        logger.error(f"Failed to update gig for current user ID: {current_user_id}")
+        logger.error(f"Failed to update gig for current user ID: {expert_id}")
         raise HTTPException(status_code=404, detail="Failed to update gig")
 
-    logger.info(f"Gig updated for current user ID: {current_user_id}")
+    logger.info(f"Gig updated for current user ID: {expert_id}")
     return updated_gig
 
 
 @router.delete("/my/gig", status_code=status.HTTP_204_NO_CONTENT)
 def delete_my_gig(
         db: Session = Depends(session.get_db),
-        current_user_id: str = Depends(session.get_current_user_id)  # Changed to str
+        current_user_id = Depends(session.get_current_user_id)
 ):
     """
     Delete expert's own gig.
     """
+    # Convert UUID to string if needed
+    expert_id = str(current_user_id)
+    
     # First get the gig to ensure it belongs to the current user
-    logger.info(f"Deleting gig for current user ID: {current_user_id}")
-    db_gig = crud.get_gig_by_expert(db=db, expert_id=current_user_id)
+    logger.info(f"Deleting gig for current user ID: {expert_id}")
+    db_gig = crud.get_gig_by_expert(db=db, expert_id=expert_id)
     if not db_gig:
-        logger.warning(f"No gig found for current user ID: {current_user_id}")
+        logger.warning(f"No gig found for current user ID: {expert_id}")
         raise HTTPException(status_code=404, detail="No gig found for this expert")
 
     success = crud.delete_gig(db=db, gig_id=db_gig.id)
     if not success:
-        logger.error(f"Failed to delete gig for current user ID: {current_user_id}")
+        logger.error(f"Failed to delete gig for current user ID: {expert_id}")
         raise HTTPException(status_code=500, detail="Failed to delete gig")
 
-    logger.info(f"Gig deleted for current user ID: {current_user_id}")
+    logger.info(f"Gig deleted for current user ID: {expert_id}")
     return None  # 204 No Content response

@@ -1,28 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { ExpertGig, gigServiceAPI } from '@/services/gigService';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Star, Users, DollarSign, Calendar, Edit, FileText, IdCard, Upload } from 'lucide-react';
-import StatsCard from '@/components/dashboard/StatsCard';
-import EarningsChart from '@/components/dashboard/EarningsChart';
+import React, { useState, useEffect } from "react";
+import { ExpertGig, gigServiceAPI } from "@/services/gigService";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Star,
+  Users,
+  DollarSign,
+  Calendar,
+  Edit,
+  FileText,
+  IdCard,
+  Upload,
+  Clock,
+} from "lucide-react";
+import StatsCard from "@/components/dashboard/StatsCard";
+import EarningsChart from "@/components/dashboard/EarningsChart";
+import { useNavigate } from "react-router-dom";
 
 interface OverallExpertProfileProps {
   onBack: () => void;
 }
 
-const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({ onBack }) => {
+const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({
+  onBack,
+}) => {
+  const navigate = useNavigate();
   const [gigs, setGigs] = useState<ExpertGig[]>([]);
   const [loading, setLoading] = useState(true);
   const [expertData, setExpertData] = useState({
-    id: 'EXP-2024-001',
-    name: 'Dr. Rajesh Perera',
-    email: 'rajesh.perera@example.com',
-    phone: '+94 77 123 4567',
-    nic: '199012345678',
-    joinedDate: '2024-01-15',
+    id: "EXP-2024-001",
+    name: "Dr. Rajesh Perera",
+    email: "rajesh.perera@example.com",
+    phone: "+94 77 123 4567",
+    nic: "199012345678",
+    joinedDate: "2024-01-15",
     verified: true,
-    profileImage: '/placeholder-avatar.jpg'
+    profileImage: "/placeholder-avatar.jpg",
   });
 
   useEffect(() => {
@@ -35,7 +49,7 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({ onBack }) =
       const myGigs = await gigServiceAPI.getMyGigs();
       setGigs(myGigs);
     } catch (error) {
-      console.error('Error loading gigs:', error);
+      console.error("Error loading gigs:", error);
     } finally {
       setLoading(false);
     }
@@ -44,44 +58,55 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({ onBack }) =
   // Calculate aggregate statistics
   const aggregateStats = {
     totalGigs: gigs.length,
-    activeGigs: gigs.filter(g => g.status === 'active').length,
+    activeGigs: gigs.filter((g) => g.status === "active").length,
     totalConsultations: gigs.reduce((sum, g) => sum + g.total_consultations, 0),
     totalReviews: gigs.reduce((sum, g) => sum + g.total_reviews, 0),
-    averageRating: gigs.length > 0 
-      ? gigs.reduce((sum, g) => sum + g.rating, 0) / gigs.length 
-      : 0,
-    totalRevenue: gigs.reduce((sum, g) => sum + (g.hourly_rate * g.total_consultations * 0.8), 0), // Estimated
+    averageRating:
+      gigs.length > 0
+        ? gigs.reduce((sum, g) => sum + g.rating, 0) / gigs.length
+        : 0,
+    totalRevenue: gigs.reduce(
+      (sum, g) => sum + g.hourly_rate * g.total_consultations * 0.8,
+      0
+    ), // Estimated
     monthlyRevenue: 125000, // Mock data
     weeklyRevenue: 35000, // Mock data
   };
 
   const chartData = [
-    { date: '2024-01-01', revenue: 15000 },
-    { date: '2024-01-02', revenue: 18000 },
-    { date: '2024-01-03', revenue: 22000 },
-    { date: '2024-01-04', revenue: 19000 },
-    { date: '2024-01-05', revenue: 25000 },
-    { date: '2024-01-06', revenue: 28000 },
-    { date: '2024-01-07', revenue: 32000 },
-    { date: '2024-01-08', revenue: 29000 },
-    { date: '2024-01-09', revenue: 35000 },
-    { date: '2024-01-10', revenue: 38000 },
-    { date: '2024-01-11', revenue: 42000 },
-    { date: '2024-01-12', revenue: 45000 },
-    { date: '2024-01-13', revenue: 48000 },
-    { date: '2024-01-14', revenue: 52000 },
-    { date: '2024-01-15', revenue: 55000 }
+    { date: "2024-01-01", revenue: 15000 },
+    { date: "2024-01-02", revenue: 18000 },
+    { date: "2024-01-03", revenue: 22000 },
+    { date: "2024-01-04", revenue: 19000 },
+    { date: "2024-01-05", revenue: 25000 },
+    { date: "2024-01-06", revenue: 28000 },
+    { date: "2024-01-07", revenue: 32000 },
+    { date: "2024-01-08", revenue: 29000 },
+    { date: "2024-01-09", revenue: 35000 },
+    { date: "2024-01-10", revenue: 38000 },
+    { date: "2024-01-11", revenue: 42000 },
+    { date: "2024-01-12", revenue: 45000 },
+    { date: "2024-01-13", revenue: 48000 },
+    { date: "2024-01-14", revenue: 52000 },
+    { date: "2024-01-15", revenue: 55000 },
   ];
 
-  const getStatusColor = (status: ExpertGig['status']) => {
+  const getStatusColor = (status: ExpertGig["status"]) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'approved': return 'bg-blue-100 text-blue-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
-      case 'inactive': return 'bg-gray-100 text-gray-800';
-      case 'draft': return 'bg-gray-100 text-gray-600';
-      default: return 'bg-gray-100 text-gray-800';
+      case "active":
+        return "bg-green-100 text-green-800";
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
+      case "approved":
+        return "bg-blue-100 text-blue-800";
+      case "rejected":
+        return "bg-red-100 text-red-800";
+      case "inactive":
+        return "bg-gray-100 text-gray-800";
+      case "draft":
+        return "bg-gray-100 text-gray-600";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -101,7 +126,9 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({ onBack }) =
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold">Expert Profile</h1>
-              <p className="text-muted-foreground">Overall account and performance overview</p>
+              <p className="text-muted-foreground">
+                Overall account and performance overview
+              </p>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={onBack}>
@@ -127,38 +154,58 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({ onBack }) =
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Expert ID</label>
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Expert ID
+                  </label>
                   <div className="font-mono text-sm mt-1">{expertData.id}</div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Full Name</label>
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Full Name
+                  </label>
                   <div className="mt-1">{expertData.name}</div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Email</label>
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Email
+                  </label>
                   <div className="mt-1">{expertData.email}</div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Phone</label>
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Phone
+                  </label>
                   <div className="mt-1">{expertData.phone}</div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">NIC Number</label>
+                  <label className="text-sm font-medium text-muted-foreground">
+                    NIC Number
+                  </label>
                   <div className="mt-1 font-mono">{expertData.nic}</div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Joined Date</label>
-                  <div className="mt-1">{new Date(expertData.joinedDate).toLocaleDateString()}</div>
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Joined Date
+                  </label>
+                  <div className="mt-1">
+                    {new Date(expertData.joinedDate).toLocaleDateString()}
+                  </div>
                 </div>
               </div>
-              
+
               <div className="mt-6 pt-4 border-t">
                 <div className="flex items-center justify-between">
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Verification Status</label>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Verification Status
+                    </label>
                     <div className="flex items-center gap-2 mt-1">
-                      <Badge variant={expertData.verified ? "default" : "secondary"}>
-                        {expertData.verified ? "Verified Expert" : "Pending Verification"}
+                      <Badge
+                        variant={expertData.verified ? "default" : "secondary"}
+                      >
+                        {expertData.verified
+                          ? "Verified Expert"
+                          : "Pending Verification"}
                       </Badge>
                     </div>
                   </div>
@@ -183,25 +230,37 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({ onBack }) =
                 <div className="flex items-center justify-between p-3 border rounded">
                   <div>
                     <div className="font-medium text-sm">NIC Copy</div>
-                    <div className="text-xs text-muted-foreground">Uploaded</div>
+                    <div className="text-xs text-muted-foreground">
+                      Uploaded
+                    </div>
                   </div>
-                  <Badge variant="outline" className="text-green-600">Verified</Badge>
+                  <Badge variant="outline" className="text-green-600">
+                    Verified
+                  </Badge>
                 </div>
-                
+
                 <div className="flex items-center justify-between p-3 border rounded">
                   <div>
-                    <div className="font-medium text-sm">Educational Certificates</div>
+                    <div className="font-medium text-sm">
+                      Educational Certificates
+                    </div>
                     <div className="text-xs text-muted-foreground">3 files</div>
                   </div>
-                  <Badge variant="outline" className="text-green-600">Verified</Badge>
+                  <Badge variant="outline" className="text-green-600">
+                    Verified
+                  </Badge>
                 </div>
-                
+
                 <div className="flex items-center justify-between p-3 border rounded">
                   <div>
-                    <div className="font-medium text-sm">Professional License</div>
+                    <div className="font-medium text-sm">
+                      Professional License
+                    </div>
                     <div className="text-xs text-muted-foreground">1 file</div>
                   </div>
-                  <Badge variant="outline" className="text-yellow-600">Pending</Badge>
+                  <Badge variant="outline" className="text-yellow-600">
+                    Pending
+                  </Badge>
                 </div>
               </div>
             </CardContent>
@@ -210,24 +269,24 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({ onBack }) =
 
         {/* Aggregate Performance Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatsCard 
-            title="Total Gigs" 
-            value={aggregateStats.totalGigs.toString()} 
+          <StatsCard
+            title="Total Gigs"
+            value={aggregateStats.totalGigs.toString()}
             icon={<Users className="h-4 w-4" />}
           />
-          <StatsCard 
-            title="Active Gigs" 
-            value={aggregateStats.activeGigs.toString()} 
+          <StatsCard
+            title="Active Gigs"
+            value={aggregateStats.activeGigs.toString()}
             icon={<Calendar className="h-4 w-4" />}
           />
-          <StatsCard 
-            title="Total Consultations" 
-            value={aggregateStats.totalConsultations.toString()} 
+          <StatsCard
+            title="Total Consultations"
+            value={aggregateStats.totalConsultations.toString()}
             icon={<Users className="h-4 w-4" />}
           />
-          <StatsCard 
-            title="Average Rating" 
-            value={aggregateStats.averageRating.toFixed(1)} 
+          <StatsCard
+            title="Average Rating"
+            value={aggregateStats.averageRating.toFixed(1)}
             icon={<Star className="h-4 w-4" />}
           />
         </div>
@@ -242,7 +301,7 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({ onBack }) =
               <EarningsChart data={chartData} />
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle>Revenue Summary</CardTitle>
@@ -250,18 +309,30 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({ onBack }) =
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">This Week</span>
-                <span className="text-lg font-semibold">Rs. {aggregateStats.weeklyRevenue.toLocaleString()}</span>
+                <span className="text-lg font-semibold">
+                  Rs. {aggregateStats.weeklyRevenue.toLocaleString()}
+                </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">This Month</span>
-                <span className="text-lg font-semibold">Rs. {aggregateStats.monthlyRevenue.toLocaleString()}</span>
+                <span className="text-sm text-muted-foreground">
+                  This Month
+                </span>
+                <span className="text-lg font-semibold">
+                  Rs. {aggregateStats.monthlyRevenue.toLocaleString()}
+                </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Total Earned</span>
-                <span className="text-lg font-semibold">Rs. {aggregateStats.totalRevenue.toLocaleString()}</span>
+                <span className="text-sm text-muted-foreground">
+                  Total Earned
+                </span>
+                <span className="text-lg font-semibold">
+                  Rs. {aggregateStats.totalRevenue.toLocaleString()}
+                </span>
               </div>
               <div className="flex items-center justify-between border-t pt-4">
-                <span className="text-sm text-muted-foreground">Total Reviews</span>
+                <span className="text-sm text-muted-foreground">
+                  Total Reviews
+                </span>
                 <span className="flex items-center gap-1">
                   <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                   {aggregateStats.totalReviews}
@@ -270,6 +341,67 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({ onBack }) =
             </CardContent>
           </Card>
         </div>
+
+        {/* Availability Management */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Availability Management</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Manage when you're available for bookings
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => navigate("/expert/availability")}
+            >
+              Manage Availability
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 border rounded-md bg-muted/10">
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="font-medium">Weekly Schedule</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Set recurring weekly availability times for client bookings
+                </p>
+              </div>
+
+              <div className="p-4 border rounded-md bg-muted/10">
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="font-medium">Date Exceptions</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Mark specific dates as unavailable (holidays, time off)
+                </p>
+              </div>
+
+              <div className="p-4 border rounded-md bg-muted/10">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="font-medium">Booking Preferences</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Set minimum advance notice and session duration options
+                </p>
+              </div>
+
+              <div className="p-4 border rounded-md bg-muted/10">
+                <div className="flex items-center gap-2 mb-2">
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="font-medium">Booking Rates</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Set different rates for different time slots if needed
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* My Gigs List */}
         <Card>
@@ -283,8 +415,11 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({ onBack }) =
               </div>
             ) : (
               <div className="space-y-4">
-                {gigs.map(gig => (
-                  <div key={gig.id} className="flex items-center justify-between p-4 border rounded-lg">
+                {gigs.map((gig) => (
+                  <div
+                    key={gig.id}
+                    className="flex items-center justify-between p-4 border rounded-lg"
+                  >
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
                         <h3 className="font-medium">{gig.title}</h3>
@@ -293,25 +428,34 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({ onBack }) =
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1 capitalize">
-                        {gig.category.replace('-', ' ')} • Rs. {gig.hourly_rate.toLocaleString()}/hr
+                        {gig.category_id
+                          ? `Category #${gig.category_id}`
+                          : "General"}{" "}
+                        • Rs. {gig.hourly_rate?.toLocaleString() || "0"}/hr
                       </p>
                     </div>
-                    
+
                     <div className="flex items-center gap-6 text-sm text-muted-foreground">
                       <div className="text-center">
-                        <div className="font-medium text-foreground">{gig.rating.toFixed(1)}</div>
+                        <div className="font-medium text-foreground">
+                          {gig.rating.toFixed(1)}
+                        </div>
                         <div>Rating</div>
                       </div>
                       <div className="text-center">
-                        <div className="font-medium text-foreground">{gig.total_reviews}</div>
+                        <div className="font-medium text-foreground">
+                          {gig.total_reviews}
+                        </div>
                         <div>Reviews</div>
                       </div>
                       <div className="text-center">
-                        <div className="font-medium text-foreground">{gig.total_consultations}</div>
+                        <div className="font-medium text-foreground">
+                          {gig.total_consultations}
+                        </div>
                         <div>Sessions</div>
                       </div>
                     </div>
-                    
+
                     <Button variant="outline" size="sm">
                       View Details
                     </Button>
