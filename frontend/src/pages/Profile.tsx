@@ -9,6 +9,7 @@ import {
   Settings,
   Star,
   Clock,
+  CalendarRange,
 } from "lucide-react";
 import Header from "@/components/navigation/Header";
 import Footer from "@/components/ui/footer";
@@ -26,6 +27,7 @@ import { mockBookings, experts } from "@/data/mockData";
 import { format } from "date-fns";
 import { doPasswordUpdate } from "@/firebase/auth.js";
 import ExpertAvailabilityDisplay from "@/components/expert/ExpertAvailabilityDisplay";
+import AvailabilitySettings from "@/components/dashboard/AvailabilitySettings";
 
 // Utility function to safely format dates
 const safeFormatDate = (
@@ -435,6 +437,7 @@ const Profile = () => {
   const getExpertById = (expertId: string) =>
     experts.find((e) => e.id === expertId);
 
+  console.log(user.isExpert);
   return (
     <div className="min-h-screen bg-transparent ">
       <main className="container px-4 py-8">
@@ -553,13 +556,23 @@ const Profile = () => {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList
+              className={`grid w-full ${
+                user?.is_expert ? "grid-cols-5" : "grid-cols-4"
+              }`}
+            >
               <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="bookings">
                 Bookings ({userBookings.length})
               </TabsTrigger>
               <TabsTrigger value="preferences">Preferences</TabsTrigger>
               <TabsTrigger value="security">Security</TabsTrigger>
+              {user?.isExpert && (
+                <TabsTrigger value="availability">
+                  <CalendarRange className="h-4 w-4 mr-2" />
+                  Availability
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="profile" className="space-y-6 mt-6">
@@ -879,6 +892,26 @@ const Profile = () => {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            {/* Expert Availability Tab - Only visible for experts */}
+            {user?.isExpert && (
+              <TabsContent value="availability" className="space-y-6 mt-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Manage Your Availability</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Set your weekly schedule and mark dates when you're
+                      unavailable
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <AvailabilitySettings
+                      userId={user.id || user.uid || "me"}
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
 
             <TabsContent value="security" className="space-y-6 mt-6">
               <Card>
