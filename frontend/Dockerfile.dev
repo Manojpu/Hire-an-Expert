@@ -3,18 +3,9 @@ FROM node:20-alpine
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package.json ./
-COPY package-lock.json* bun.lockb* ./
+# Expose development port 
+EXPOSE 3000
 
-# Install dependencies
-RUN npm ci
-
-# Copy all files
-COPY . .
-
-# Expose development port (matches vite config)
-EXPOSE 8080
-
-# Start development server
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+# Start development server - only when container starts
+# Note: This is just a placeholder - actual package.json and source code will be mounted
+CMD ["sh", "-c", "if [ -f package.json ]; then npm i && npm run dev -- --host 0.0.0.0; else echo 'No package.json found. Volume mount issue?' && exit 1; fi"]

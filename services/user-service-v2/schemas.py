@@ -2,6 +2,7 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List, Dict
 from datetime import datetime
 import uuid
+from uuid import UUID as UUID4
 from models import UserRole,DocumentType
 from pydantic import ConfigDict
 
@@ -173,6 +174,31 @@ class ExpertVerificationResponse(BaseModel):
     expert_profile_id: uuid.UUID
     specialization: str
     is_verified: bool
+    
+    class Config:
+        from_attributes = True
+
+# For Time Managemnt
+class AvailabilityRuleBase(BaseModel):
+    day_of_week: int
+    start_time_utc: str
+    end_time_utc: str
+
+class DateOverride(BaseModel):
+    unavailable_date: str  # "YYYY-MM-DD"
+
+class DateOverrideCreate(DateOverride):
+    pass
+
+class AvailabilityRuleCreate(AvailabilityRuleBase):
+    pass
+
+class CreateAvailabilitySchedules(BaseModel):
+    availabilityRules: List[AvailabilityRuleCreate]
+    dateOverrides: List[DateOverrideCreate] = []
+
+class AvailabilityRule(AvailabilityRuleBase):
+    id: UUID4
     
     class Config:
         from_attributes = True
