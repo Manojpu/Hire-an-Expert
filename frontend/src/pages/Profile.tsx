@@ -555,21 +555,26 @@ const Profile = () => {
           )}
 
           {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList
-              className={`grid w-full ${
-                user?.is_expert ? "grid-cols-5" : "grid-cols-4"
-              }`}
-            >
-              <TabsTrigger value="profile">Profile</TabsTrigger>
-              <TabsTrigger value="bookings">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-full"
+          >
+            <TabsList className="w-full grid grid-cols-4 lg:grid-cols-5">
+              <TabsTrigger value="profile" className="flex-1">
+                Profile
+              </TabsTrigger>
+              <TabsTrigger value="bookings" className="flex-1">
                 Bookings ({userBookings.length})
               </TabsTrigger>
-              <TabsTrigger value="preferences">Preferences</TabsTrigger>
-              <TabsTrigger value="security">Security</TabsTrigger>
+              <TabsTrigger value="preferences" className="flex-1">
+                Preferences
+              </TabsTrigger>
+              <TabsTrigger value="security" className="flex-1">
+                Security
+              </TabsTrigger>
               {user?.isExpert && (
-                <TabsTrigger value="availability">
-                  <CalendarRange className="h-4 w-4 mr-2" />
+                <TabsTrigger value="availability" className="flex-1">
                   Availability
                 </TabsTrigger>
               )}
