@@ -536,8 +536,19 @@ async def set_my_availability_rules(
     logger.debug(f"Received availability rules: {rules.availabilityRules}")
     logger.debug(f"Received date overrides: {rules.dateOverrides}")
     
-    # Process and save the availability rules
-    return await set_availability_rules(db=db, user_id=current_user_id, rules=rules.availabilityRules, dateOverrides=rules.dateOverrides)
+    try:
+        # Process and save the availability rules
+        return await set_availability_rules(db=db, user_id=current_user_id, rules=rules.availabilityRules, dateOverrides=rules.dateOverrides)
+    except HTTPException as e:
+        # Re-raise FastAPI HTTPException to maintain the status code and error message
+        raise e
+    except Exception as e:
+        # Log the error and return a 500 error
+        logger.error(f"Error setting availability rules: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to set availability rules: {str(e)}"
+        )
 
 @router.get(
     "/users/{user_id}/availability-rules",

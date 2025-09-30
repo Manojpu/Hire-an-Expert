@@ -330,11 +330,56 @@ async def get_all_expert_profiles(db: AsyncSession, verified_only: bool = False)
     result = await db.execute(query)
     return result.scalars().all()
 
+def _check_for_duplicate_time_slots(rules: List[AvailabilityRuleCreate]) -> Optional[str]:
+    """
+    Check for duplicate or overlapping time slots within the list of rules.
+    Returns an error message if duplicates/overlaps found, None otherwise.
+    """
+    # Group rules by day of the week for easier comparison
+    day_rules = {}
+    for i, rule in enumerate(rules):
+        day = rule.day_of_week
+        if day not in day_rules:
+            day_rules[day] = []
+        day_rules[day].append((i, rule))
+    
+    # Check for duplicates/overlaps within each day
+    for day, day_rule_list in day_rules.items():
+        for i, (idx1, rule1) in enumerate(day_rule_list):
+            # Convert times to minutes for easier comparison
+            start1_h, start1_m = map(int, rule1.start_time_utc.split(':'))
+            end1_h, end1_m = map(int, rule1.end_time_utc.split(':'))
+            start1_mins = start1_h * 60 + start1_m
+            end1_mins = end1_h * 60 + end1_m
+            
+            for j, (idx2, rule2) in enumerate(day_rule_list[i+1:], i+1):
+                # Convert times to minutes
+                start2_h, start2_m = map(int, rule2.start_time_utc.split(':'))
+                end2_h, end2_m = map(int, rule2.end_time_utc.split(':'))
+                start2_mins = start2_h * 60 + start2_m
+                end2_mins = end2_h * 60 + end2_m
+                
+                # Check for exact duplicates
+                if start1_mins == start2_mins and end1_mins == end2_mins:
+                    return f"Duplicate time slot found: {rule1.start_time_utc}-{rule1.end_time_utc} on day {day}"
+                
+                # Check for overlaps
+                if (start1_mins < end2_mins and end1_mins > start2_mins):
+                    return f"Overlapping time slots found: {rule1.start_time_utc}-{rule1.end_time_utc} and {rule2.start_time_utc}-{rule2.end_time_utc} on day {day}"
+    
+    return None
+
 async def set_availability_rules(db: AsyncSession, user_id: UUID4, rules: List[AvailabilityRuleCreate], dateOverrides: List[DateOverrideCreate] = None) -> List[AvailabilityRule]:
     """
     Deletes old rules and date overrides, and creates a new set of availability rules for a user.
     Also handles date overrides for unavailable dates.
+    Checks for duplicates and overlapping time slots before saving.
     """
+    # Check for duplicate or overlapping time slots
+    error_message = _check_for_duplicate_time_slots(rules)
+    if error_message:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=error_message)
     
     # Delete all existing rules for this user first
     await db.execute(delete(AvailabilityRule).where(AvailabilityRule.user_id == user_id))
