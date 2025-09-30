@@ -1,3 +1,4 @@
+
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from app.db import schemas
 from sqlalchemy.orm import Session
@@ -23,3 +24,13 @@ def create_category(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to create category: {str(e)}")
+    
+
+# get all categories
+@router.get("/categories", response_model=List[schemas.Category])
+def get_all_categories(db: Session = Depends(session.get_db)):
+    """
+    Get all categories.
+    """
+    categories = crud.get_all_categories(db=db)
+    return categories   

@@ -2,7 +2,9 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List, Dict
 from datetime import datetime
 import uuid
-from models import UserRole, DocumentType
+from uuid import UUID as UUID4
+from models import UserRole,DocumentType
+from pydantic import ConfigDict
 
 
 # Base schemas
@@ -20,7 +22,7 @@ class ExpertProfileOut(BaseModel):
     specialization: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class UserOut(BaseModel):
     id: uuid.UUID
@@ -49,19 +51,17 @@ class UserResponse(BaseModel):
     name: Optional[str]
     email: str
     phone: Optional[str]
-    role: UserRole
+    role: str  # or your UserRole enum
     bio: Optional[str]
     profile_image_url: Optional[str]
     location: Optional[str]
     is_expert: bool
     created_at: datetime
     updated_at: datetime
-    expert_profiles: List[ExpertProfileOut] = []
+    # expert_profiles: List[ExpertProfileOut] = []
 
-    class Config:
-        from_attributes = True
-        orm_mode = True
-        
+    model_config = ConfigDict(from_attributes=True)
+
 class UserBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     email: EmailStr
@@ -174,6 +174,31 @@ class ExpertVerificationResponse(BaseModel):
     expert_profile_id: uuid.UUID
     specialization: str
     is_verified: bool
+    
+    class Config:
+        from_attributes = True
+
+# For Time Managemnt
+class AvailabilityRuleBase(BaseModel):
+    day_of_week: int
+    start_time_utc: str
+    end_time_utc: str
+
+class DateOverride(BaseModel):
+    unavailable_date: str  # "YYYY-MM-DD"
+
+class DateOverrideCreate(DateOverride):
+    pass
+
+class AvailabilityRuleCreate(AvailabilityRuleBase):
+    pass
+
+class CreateAvailabilitySchedules(BaseModel):
+    availabilityRules: List[AvailabilityRuleCreate]
+    dateOverrides: List[DateOverrideCreate] = []
+
+class AvailabilityRule(AvailabilityRuleBase):
+    id: UUID4
     
     class Config:
         from_attributes = True

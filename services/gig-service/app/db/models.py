@@ -1,9 +1,9 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
-from sqlalchemy import Column, Integer, String, Float, DateTime, func, Text, Boolean, Enum, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, func, Text, Enum, ForeignKey
 import uuid
+import enum
 
 Base = declarative_base()
 
@@ -20,8 +20,6 @@ class Category(Base):
     Stores the main service categories for organizing gigs.
     [cite_start]This aligns with the four main categories specified in your SRS[cite: 94].
     """
-    print("Category model loaded")
-
     __tablename__ = "categories"
 
     id = Column(
@@ -43,8 +41,6 @@ class Certification(Base):
     """
     Stores certifications uploaded by experts.
     """
-    print("Certification model loaded")
-
     __tablename__ = "certifications"
 
     id = Column(
@@ -59,7 +55,6 @@ class Certification(Base):
         return f"<Certification(id={self.id}, gig_id='{self.gig_id}', url='{self.url}', thumbnail_url='{self.thumbnail_url}')>"
 
 class Gig(Base):
-    print("Gig model loaded")
     __tablename__ = 'gigs'
     
     id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
@@ -70,6 +65,7 @@ class Gig(Base):
     currency = Column(String, default='LKR')
     availability_preferences = Column(Text)
     response_time = Column(String, default='< 24 hours')
+    thumbnail_url = Column(String, nullable=True)
     
     # Qualifications (from ApplyExpert step 2)
     expertise_areas = Column(ARRAY(String))  # List of expertise areas
@@ -77,15 +73,15 @@ class Gig(Base):
     work_experience = Column(Text)  # New field for work experience details
     
     # System fields
-    status = Column(Enum(GigStatus), default=GigStatus.DRAFT)
+    status = Column(Enum(GigStatus, name="gigstatus"), default=GigStatus.DRAFT)
 
     # Relationships
     category = relationship("Category", back_populates="gigs")
     
     # Timestamps
     created_at = Column(DateTime, server_default=func.now())
-    expert_id = Column(Integer, index=True) 
     updated_at = Column(DateTime, onupdate=func.now())
+    approved_at = Column(DateTime, nullable=True)
     
     def __repr__(self):
-        return f"<Gig(id={self.id}, expert_id={self.expert_id}, title='{self.title}', price={self.price})>"
+        return f"<Gig(id={self.id}, expert_id={self.expert_id}, service_description='{self.service_description}', hourly_rate={self.hourly_rate})>"

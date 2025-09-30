@@ -1,31 +1,47 @@
-
-import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { Camera, Mail, Phone, MapPin, Calendar, Settings, Star, Clock } from 'lucide-react';
-import Header from '@/components/navigation/Header';
-import Footer from '@/components/ui/footer';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Switch } from '@/components/ui/switch';
-import { useAuth } from '@/context/auth/AuthContext';
-import { mockBookings, experts } from '@/data/mockData';
-import { format } from 'date-fns';
+import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
+import {
+  Camera,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  Settings,
+  Star,
+  Clock,
+  CalendarRange,
+} from "lucide-react";
+import Header from "@/components/navigation/Header";
+import Footer from "@/components/ui/footer";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Switch } from "@/components/ui/switch";
+import { useAuth } from "@/context/auth/AuthContext";
+import { mockBookings, experts } from "@/data/mockData";
+import { format } from "date-fns";
+import { doPasswordUpdate } from "@/firebase/auth.js";
+import ExpertAvailabilityDisplay from "@/components/expert/ExpertAvailabilityDisplay";
+import AvailabilitySettings from "@/components/dashboard/AvailabilitySettings";
 
 // Utility function to safely format dates
-const safeFormatDate = (dateValue: string | number | Date | undefined | null, formatString: string, fallback: string = 'Not available'): string => {
+const safeFormatDate = (
+  dateValue: string | number | Date | undefined | null,
+  formatString: string,
+  fallback: string = "Not available"
+): string => {
   if (!dateValue) return fallback;
   try {
     const date = new Date(dateValue);
     if (isNaN(date.getTime())) return fallback;
     return format(date, formatString);
   } catch (error) {
-    console.error('Date formatting error:', error);
+    console.error("Date formatting error:", error);
     return fallback;
   }
 };
@@ -33,59 +49,76 @@ const safeFormatDate = (dateValue: string | number | Date | undefined | null, fo
 const Profile = () => {
   const { userId } = useParams();
   const { user: currentUser, loggedIn } = useAuth();
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState("profile");
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState('');
-  
+  const [saveMessage, setSaveMessage] = useState("");
+
   // Profile editing states
   const [editedProfile, setEditedProfile] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    bio: '',
-    location: ''
+    name: "",
+    email: "",
+    phone: "",
+    bio: "",
+    location: "",
   });
-  
+
   // Preference states
   const [preferences, setPreferences] = useState({
     email_notifications: true,
     sms_notifications: false,
     marketing_emails: true,
     profile_visibility: true,
-    contact_visibility: true
+    contact_visibility: true,
   });
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [savingPreferences, setSavingPreferences] = useState(false);
 
+  // Password update states
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [updatingPassword, setUpdatingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState("");
+
   // If no userId in URL, show current user's profile
   // If userId in URL, show that specific user's profile
-  const isOwnProfile = !userId || userId === (currentUser?.uid || currentUser?.id);
+  const isOwnProfile =
+    !userId || userId === (currentUser?.uid || currentUser?.id);
   const user = isOwnProfile ? currentUser : null; // You might want to fetch user data by userId here
-  
-  const userBookings = mockBookings.filter(booking => booking.clientId === user?.id);
+
+  const userBookings = mockBookings.filter(
+    (booking) => booking.clientId === user?.id
+  );
   // Load user preferences on component mount
   useEffect(() => {
     const loadUserPreferences = async () => {
       try {
-        const response = await fetch(`http://127.0.0.1:8006/users/${user.id}/preferences`, {
-          headers: {
-            'Authorization': `Bearer ${await user.getIdToken?.()}`,
-            'Content-Type': 'application/json'
+        const response = await fetch(
+          `${import.meta.env.VITE_USER_SERVICE_URL}/users/${
+            user.id
+          }/preferences`,
+          {
+            headers: {
+              Authorization: `Bearer ${await user.getIdToken?.()}`,
+              "Content-Type": "application/json",
+            },
           }
-        });
+        );
 
         if (response.ok) {
           const userPrefs = await response.json();
           const prefsObj = {};
-          userPrefs.forEach(pref => {
-            prefsObj[pref.key] = pref.value === 'true';
+          userPrefs.forEach((pref) => {
+            prefsObj[pref.key] = pref.value === "true";
           });
-          setPreferences(prev => ({ ...prev, ...prefsObj }));
+          setPreferences((prev) => ({ ...prev, ...prefsObj }));
         }
         setPreferencesLoaded(true);
       } catch (error) {
-        console.error('Error loading preferences:', error);
+        console.error("Error loading preferences:", error);
         setPreferencesLoaded(true);
       }
     };
@@ -99,11 +132,11 @@ const Profile = () => {
   useEffect(() => {
     if (user) {
       setEditedProfile({
-        name: user.name || '',
-        email: user.email || '',
-        phone: user.phone || '',
-        bio: user.bio || '',
-        location: user.location || ''
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        bio: user.bio || "",
+        location: user.location || "",
       });
     }
   }, [user]);
@@ -111,35 +144,46 @@ const Profile = () => {
   const savePreferences = async (updatedPreferences) => {
     setSavingPreferences(true);
     try {
-      const prefArray = Object.entries(updatedPreferences).map(([key, value]) => ({
-        key,
-        value: value.toString()
-      }));
+      const prefArray = Object.entries(updatedPreferences).map(
+        ([key, value]) => ({
+          key,
+          value: value.toString(),
+        })
+      );
 
-      const response = await fetch(`http://127.0.0.1:8006/users/${user.id}/preferences`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${await user.getIdToken?.()}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ preferences: prefArray })
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_USER_SERVICE_URL}/users/${user.id}/preferences`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${await user.getIdToken?.()}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ preferences: prefArray }),
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        const errorMessage = errorData?.detail || `Failed to save preferences (${response.status})`;
-        console.error('Error saving preferences:', errorMessage);
-        setSaveMessage(`Error saving preferences: ${errorMessage}. Please try again.`);
-        setTimeout(() => setSaveMessage(''), 6000);
+        const errorMessage =
+          errorData?.detail ||
+          `Failed to save preferences (${response.status})`;
+        console.error("Error saving preferences:", errorMessage);
+        setSaveMessage(
+          `Error saving preferences: ${errorMessage}. Please try again.`
+        );
+        setTimeout(() => setSaveMessage(""), 6000);
       } else {
         // Show brief success message for preferences
-        setSaveMessage('Preferences saved successfully!');
-        setTimeout(() => setSaveMessage(''), 2000);
+        setSaveMessage("Preferences saved successfully!");
+        setTimeout(() => setSaveMessage(""), 2000);
       }
     } catch (error) {
-      console.error('Error saving preferences:', error);
-      setSaveMessage('Error saving preferences: Unable to connect to server. Please try again.');
-      setTimeout(() => setSaveMessage(''), 6000);
+      console.error("Error saving preferences:", error);
+      setSaveMessage(
+        "Error saving preferences: Unable to connect to server. Please try again."
+      );
+      setTimeout(() => setSaveMessage(""), 6000);
     } finally {
       setSavingPreferences(false);
     }
@@ -152,69 +196,80 @@ const Profile = () => {
   };
 
   const handleProfileInputChange = (field, value) => {
-    setEditedProfile(prev => ({
+    setEditedProfile((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
   const saveProfileChanges = async () => {
     if (!user?.id) return;
-    
+
     setIsSaving(true);
-    setSaveMessage('');
-    
-    console.log('Saving profile changes:', editedProfile);
-    console.log('User ID:', user.id);
-    console.log('Current user object:', user);
-    
+    setSaveMessage("");
+
+    console.log("Saving profile changes:", editedProfile);
+    console.log("User ID:", user.id);
+    console.log("Current user object:", user);
+
     try {
       // Get the Firebase ID token with detailed logging
       let authToken = null;
       try {
-        console.log('Attempting to get Firebase token...');
+        console.log("Attempting to get Firebase token...");
         authToken = await user.getIdToken?.();
-        console.log('Firebase token obtained:', authToken ? 'Yes' : 'No');
+        console.log("Firebase token obtained:", authToken ? "Yes" : "No");
         if (authToken) {
-          console.log('Token preview:', authToken.substring(0, 50) + '...');
+          console.log("Token preview:", authToken.substring(0, 50) + "...");
         }
       } catch (tokenError) {
-        console.error('Error getting Firebase token:', tokenError);
-        setSaveMessage('Error getting authentication token. Please sign out and sign back in.');
-        setTimeout(() => setSaveMessage(''), 8000);
+        console.error("Error getting Firebase token:", tokenError);
+        setSaveMessage(
+          "Error getting authentication token. Please sign out and sign back in."
+        );
+        setTimeout(() => setSaveMessage(""), 8000);
         return;
       }
 
       const headers = {
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json",
       };
-      
+
       // Only add Authorization header if we have a token
       if (authToken) {
-        headers['Authorization'] = `Bearer ${authToken}`;
-        console.log('Authorization header added');
+        headers["Authorization"] = `Bearer ${authToken}`;
+        console.log("Authorization header added");
       } else {
-        console.log('No authentication token available');
+        console.log("No authentication token available");
       }
 
-      console.log('Making API request to:', `http://127.0.0.1:8006/users/${user.id}`);
-      console.log('Request headers:', headers);
-      console.log('Request body:', editedProfile);
+      console.log(
+        "Making API request to:",
+        `${import.meta.env.VITE_USER_SERVICE_URL}/users/${user.id}`
+      );
+      console.log("Request headers:", headers);
+      console.log("Request body:", editedProfile);
 
-      const response = await fetch(`http://127.0.0.1:8006/users/${user.id}`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify(editedProfile)
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_USER_SERVICE_URL}/users/${user.id}`,
+        {
+          method: "PUT",
+          headers,
+          body: JSON.stringify(editedProfile),
+        }
+      );
 
-      console.log('API Response received');
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      console.log("API Response received");
+      console.log("Response status:", response.status);
+      console.log(
+        "Response headers:",
+        Object.fromEntries(response.headers.entries())
+      );
 
       // If authentication fails, try the test endpoint
       // if (response.status === 401 && authToken) {
       //   console.log('Authentication failed, trying test endpoint...');
-      //   response = await fetch(`http://127.0.0.1:8001/test/users/${user.id}`, {
+      //   response = await fetch(`${import.meta.env.VITE_USER_SERVICE_URL}/test/users/${user.id}`, {
       //     method: 'PUT',
       //     headers: {
       //       'Content-Type': 'application/json'
@@ -224,43 +279,52 @@ const Profile = () => {
       //   console.log('Test endpoint response status:', response.status);
       // }
 
-      console.log('Final response status:', response.status);
-      console.log('Final response ok:', response.ok);
+      console.log("Final response status:", response.status);
+      console.log("Final response ok:", response.ok);
 
       if (response.ok) {
         setIsEditing(false);
-        setSaveMessage('Profile updated successfully!');
+        setSaveMessage("Profile updated successfully!");
         // Clear message after 3 seconds
-        setTimeout(() => setSaveMessage(''), 3000);
+        setTimeout(() => setSaveMessage(""), 3000);
       } else {
         // Get specific error message from response
         const errorData = await response.json().catch(() => null);
-        console.log('Error response data:', errorData);
-        
+        console.log("Error response data:", errorData);
+
         let errorMessage;
         if (response.status === 401) {
-          errorMessage = 'Invalid authentication token. Please sign out and sign back in.';
+          errorMessage =
+            "Invalid authentication token. Please sign out and sign back in.";
         } else if (response.status === 403) {
-          errorMessage = 'You do not have permission to update this profile.';
+          errorMessage = "You do not have permission to update this profile.";
         } else if (response.status === 404) {
-          errorMessage = 'User profile not found.';
+          errorMessage = "User profile not found.";
         } else if (response.status === 422) {
-          errorMessage = errorData?.detail || 'Invalid profile data. Please check your inputs.';
+          errorMessage =
+            errorData?.detail ||
+            "Invalid profile data. Please check your inputs.";
         } else {
-          errorMessage = errorData?.detail || `Failed to update profile (${response.status})`;
+          errorMessage =
+            errorData?.detail ||
+            `Failed to update profile (${response.status})`;
         }
-        
+
         setSaveMessage(`Error updating profile: ${errorMessage}`);
-        setTimeout(() => setSaveMessage(''), 8000);
+        setTimeout(() => setSaveMessage(""), 8000);
       }
     } catch (error) {
-      console.error('Error updating profile:', error);
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        setSaveMessage('Error updating profile: Unable to connect to server. Please check your connection and try again.');
+      console.error("Error updating profile:", error);
+      if (error.name === "TypeError" && error.message.includes("fetch")) {
+        setSaveMessage(
+          "Error updating profile: Unable to connect to server. Please check your connection and try again."
+        );
       } else {
-        setSaveMessage('Error updating profile: An unexpected error occurred. Please try again.');
+        setSaveMessage(
+          "Error updating profile: An unexpected error occurred. Please try again."
+        );
       }
-      setTimeout(() => setSaveMessage(''), 8000);
+      setTimeout(() => setSaveMessage(""), 8000);
     } finally {
       setIsSaving(false);
     }
@@ -269,26 +333,28 @@ const Profile = () => {
   const cancelEditing = () => {
     // Reset to original values
     setEditedProfile({
-      name: user.name || '',
-      email: user.email || '',
-      phone: user.phone || '',
-      bio: user.bio || '',
-      location: user.location || ''
+      name: user.name || "",
+      email: user.email || "",
+      phone: user.phone || "",
+      bio: user.bio || "",
+      location: user.location || "",
     });
     setIsEditing(false);
-    setSaveMessage('');
+    setSaveMessage("");
   };
 
   const handleEditToggle = () => {
     if (isEditing) {
-      const hasChanges = JSON.stringify(editedProfile) !== JSON.stringify({
-        name: user.name || '',
-        email: user.email || '',
-        phone: user.phone || '',
-        bio: user.bio || '',
-        location: user.location || ''
-      });
-      
+      const hasChanges =
+        JSON.stringify(editedProfile) !==
+        JSON.stringify({
+          name: user.name || "",
+          email: user.email || "",
+          phone: user.phone || "",
+          bio: user.bio || "",
+          location: user.location || "",
+        });
+
       if (hasChanges) {
         saveProfileChanges();
       } else {
@@ -298,16 +364,82 @@ const Profile = () => {
       setIsEditing(true);
     }
   };
-  
+
+  const handlePasswordChange = (field, value) => {
+    setPasswordData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const updatePassword = async () => {
+    // Clear previous messages
+    setPasswordMessage("");
+
+    // Validation
+    if (!passwordData.newPassword || !passwordData.confirmPassword) {
+      setPasswordMessage("Please fill in all password fields.");
+      setTimeout(() => setPasswordMessage(""), 5000);
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordMessage("New passwords do not match.");
+      setTimeout(() => setPasswordMessage(""), 5000);
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      setPasswordMessage("Password must be at least 6 characters long.");
+      setTimeout(() => setPasswordMessage(""), 5000);
+      return;
+    }
+
+    setUpdatingPassword(true);
+
+    try {
+      await doPasswordUpdate(passwordData.newPassword);
+      setPasswordMessage("Password updated successfully!");
+
+      // Clear password fields
+      setPasswordData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+
+      setTimeout(() => setPasswordMessage(""), 5000);
+    } catch (error) {
+      console.error("Error updating password:", error);
+
+      let errorMessage = "Failed to update password.";
+      if (error.code === "auth/weak-password") {
+        errorMessage =
+          "Password is too weak. Please choose a stronger password.";
+      } else if (error.code === "auth/requires-recent-login") {
+        errorMessage =
+          "For security, please sign out and sign back in before changing your password.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      setPasswordMessage(errorMessage);
+      setTimeout(() => setPasswordMessage(""), 8000);
+    } finally {
+      setUpdatingPassword(false);
+    }
+  };
+
   if (!loggedIn || !user) {
     return null;
   }
 
-  const getExpertById = (expertId: string) => experts.find(e => e.id === expertId);
+  const getExpertById = (expertId: string) =>
+    experts.find((e) => e.id === expertId);
 
+  console.log(user.isExpert);
   return (
     <div className="min-h-screen bg-transparent ">
-      
       <main className="container px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Profile Header */}
@@ -318,7 +450,9 @@ const Profile = () => {
                 <div className="relative">
                   <Avatar className="h-24 w-24">
                     <AvatarImage src={user.profileImage} alt={user.name} />
-                    <AvatarFallback className="text-2xl">{user.name.charAt(0)}</AvatarFallback>
+                    <AvatarFallback className="text-2xl">
+                      {user?.name?.charAt(0) ?? "?"}
+                    </AvatarFallback>
                   </Avatar>
                   <button className="absolute -bottom-2 -right-2 bg-primary hover:bg-primary/90 rounded-full p-2 text-primary-foreground">
                     <Camera className="h-4 w-4" />
@@ -327,7 +461,9 @@ const Profile = () => {
 
                 {/* User Info */}
                 <div className="flex-1 text-center md:text-left">
-                  <h1 className="text-2xl font-bold text-foreground">{user.name}</h1>
+                  <h1 className="text-2xl font-bold text-foreground">
+                    {user.name}
+                  </h1>
                   <p className="text-muted-foreground mb-2">{user.email}</p>
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm text-muted-foreground">
                     {user.location && (
@@ -339,7 +475,11 @@ const Profile = () => {
                     {(user.created_at || user.joinDate) && (
                       <div className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
-                        Joined {safeFormatDate(user.created_at || user.joinDate, 'MMM yyyy')}
+                        Joined{" "}
+                        {safeFormatDate(
+                          user.created_at || user.joinDate,
+                          "MMM yyyy"
+                        )}
                       </div>
                     )}
                     {user.emailVerified && (
@@ -358,7 +498,11 @@ const Profile = () => {
                     disabled={isSaving}
                   >
                     <Settings className="h-4 w-4 mr-2" />
-                    {isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Edit Profile'}
+                    {isSaving
+                      ? "Saving..."
+                      : isEditing
+                      ? "Save Changes"
+                      : "Edit Profile"}
                   </Button>
                   {isEditing && (
                     <Button
@@ -376,21 +520,33 @@ const Profile = () => {
 
           {/* Save Message */}
           {saveMessage && (
-            <Card className={`mb-4 ${saveMessage.includes('Error') ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
+            <Card
+              className={`mb-4 ${
+                saveMessage.includes("Error")
+                  ? "border-red-200 bg-red-50"
+                  : "border-green-200 bg-green-50"
+              }`}
+            >
               <CardContent className="pt-4">
                 <div className="flex items-center justify-between">
-                  <p className={`text-sm ${saveMessage.includes('Error') ? 'text-red-800' : 'text-green-800'}`}>
+                  <p
+                    className={`text-sm ${
+                      saveMessage.includes("Error")
+                        ? "text-red-800"
+                        : "text-green-800"
+                    }`}
+                  >
                     {saveMessage}
                   </p>
-                  {saveMessage.includes('Error') && isEditing && (
-                    <Button 
-                      size="sm" 
+                  {saveMessage.includes("Error") && isEditing && (
+                    <Button
+                      size="sm"
                       onClick={saveProfileChanges}
                       disabled={isSaving}
                       variant="outline"
                       className="ml-4 border-red-300 text-red-700 hover:bg-red-100"
                     >
-                      {isSaving ? 'Retrying...' : 'Retry'}
+                      {isSaving ? "Retrying..." : "Retry"}
                     </Button>
                   )}
                 </div>
@@ -399,12 +555,29 @@ const Profile = () => {
           )}
 
           {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="profile">Profile</TabsTrigger>
-              <TabsTrigger value="bookings">Bookings ({userBookings.length})</TabsTrigger>
-              <TabsTrigger value="preferences">Preferences</TabsTrigger>
-              <TabsTrigger value="security">Security</TabsTrigger>
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-full"
+          >
+            <TabsList className="w-full grid grid-cols-4 lg:grid-cols-5">
+              <TabsTrigger value="profile" className="flex-1">
+                Profile
+              </TabsTrigger>
+              <TabsTrigger value="bookings" className="flex-1">
+                Bookings ({userBookings.length})
+              </TabsTrigger>
+              <TabsTrigger value="preferences" className="flex-1">
+                Preferences
+              </TabsTrigger>
+              <TabsTrigger value="security" className="flex-1">
+                Security
+              </TabsTrigger>
+              {user?.isExpert && (
+                <TabsTrigger value="availability" className="flex-1">
+                  Availability
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="profile" className="space-y-6 mt-6">
@@ -419,7 +592,9 @@ const Profile = () => {
                       <Input
                         id="name"
                         value={editedProfile.name}
-                        onChange={(e) => handleProfileInputChange('name', e.target.value)}
+                        onChange={(e) =>
+                          handleProfileInputChange("name", e.target.value)
+                        }
                         disabled={!isEditing}
                       />
                     </div>
@@ -429,7 +604,9 @@ const Profile = () => {
                         id="email"
                         type="email"
                         value={editedProfile.email}
-                        onChange={(e) => handleProfileInputChange('email', e.target.value)}
+                        onChange={(e) =>
+                          handleProfileInputChange("email", e.target.value)
+                        }
                         disabled={!isEditing}
                       />
                     </div>
@@ -439,7 +616,9 @@ const Profile = () => {
                         id="phone"
                         type="tel"
                         value={editedProfile.phone}
-                        onChange={(e) => handleProfileInputChange('phone', e.target.value)}
+                        onChange={(e) =>
+                          handleProfileInputChange("phone", e.target.value)
+                        }
                         placeholder="Enter your phone number"
                         disabled={!isEditing}
                       />
@@ -449,19 +628,23 @@ const Profile = () => {
                       <Input
                         id="location"
                         value={editedProfile.location}
-                        onChange={(e) => handleProfileInputChange('location', e.target.value)}
+                        onChange={(e) =>
+                          handleProfileInputChange("location", e.target.value)
+                        }
                         placeholder="e.g., New York, USA"
                         disabled={!isEditing}
                       />
                     </div>
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="bio">Bio</Label>
                     <Textarea
                       id="bio"
                       value={editedProfile.bio}
-                      onChange={(e) => handleProfileInputChange('bio', e.target.value)}
+                      onChange={(e) =>
+                        handleProfileInputChange("bio", e.target.value)
+                      }
                       placeholder="Tell us about yourself..."
                       disabled={!isEditing}
                       rows={3}
@@ -469,6 +652,24 @@ const Profile = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Expert Availability Section - Only shown for experts */}
+              {user && user.is_expert && (
+                <Card className="mt-6">
+                  <CardHeader>
+                    <CardTitle>Availability Schedule</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Your current availability for client bookings
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <ExpertAvailabilityDisplay
+                      userId={user.id || user.uid || ""}
+                      token={user.getIdToken ? user.getIdToken : undefined}
+                    />
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="bookings" className="space-y-6 mt-6">
@@ -479,7 +680,8 @@ const Profile = () => {
                       <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                       <h3 className="font-semibold mb-2">No bookings yet</h3>
                       <p className="text-muted-foreground mb-4">
-                        Start your journey by booking a consultation with one of our experts.
+                        Start your journey by booking a consultation with one of
+                        our experts.
                       </p>
                       <Button>Browse Experts</Button>
                     </CardContent>
@@ -495,40 +697,61 @@ const Profile = () => {
                           <div className="flex flex-col md:flex-row gap-4">
                             <div className="flex items-center gap-4">
                               <Avatar className="h-12 w-12">
-                                <AvatarImage src={expert.profileImage} alt={expert.name} />
-                                <AvatarFallback>{expert.name.charAt(0)}</AvatarFallback>
+                                <AvatarImage
+                                  src={expert.profileImage}
+                                  alt={expert.name}
+                                />
+                                <AvatarFallback>
+                                  {expert.name.charAt(0)}
+                                </AvatarFallback>
                               </Avatar>
                               <div>
                                 <h4 className="font-semibold">{expert.name}</h4>
-                                <p className="text-sm text-muted-foreground">{expert.title}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {expert.title}
+                                </p>
                               </div>
                             </div>
 
                             <div className="flex-1 grid md:grid-cols-3 gap-4 text-sm">
                               <div>
-                                <span className="text-muted-foreground">Service:</span>
+                                <span className="text-muted-foreground">
+                                  Service:
+                                </span>
                                 <p className="font-medium">{booking.service}</p>
                               </div>
                               <div>
-                                <span className="text-muted-foreground">Date & Time:</span>
+                                <span className="text-muted-foreground">
+                                  Date & Time:
+                                </span>
                                 <p className="font-medium">
-                                  {safeFormatDate(booking.dateTime, 'MMM dd, yyyy')}
+                                  {safeFormatDate(
+                                    booking.dateTime,
+                                    "MMM dd, yyyy"
+                                  )}
                                   <br />
-                                  {safeFormatDate(booking.dateTime, 'h:mm a')}
+                                  {safeFormatDate(booking.dateTime, "h:mm a")}
                                 </p>
                               </div>
                               <div>
-                                <span className="text-muted-foreground">Status:</span>
+                                <span className="text-muted-foreground">
+                                  Status:
+                                </span>
                                 <br />
-                                <Badge 
+                                <Badge
                                   variant={
-                                    booking.status === 'confirmed' ? 'default' :
-                                    booking.status === 'pending' ? 'secondary' :
-                                    booking.status === 'completed' ? 'outline' : 'destructive'
+                                    booking.status === "confirmed"
+                                      ? "default"
+                                      : booking.status === "pending"
+                                      ? "secondary"
+                                      : booking.status === "completed"
+                                      ? "outline"
+                                      : "destructive"
                                   }
                                   className="text-xs"
                                 >
-                                  {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                                  {booking.status.charAt(0).toUpperCase() +
+                                    booking.status.slice(1)}
                                 </Badge>
                               </div>
                             </div>
@@ -538,12 +761,12 @@ const Profile = () => {
                                 LKR {booking.amount}
                               </div>
                               <div className="flex gap-2">
-                                {booking.status === 'confirmed' && (
+                                {booking.status === "confirmed" && (
                                   <Button size="sm" variant="outline">
                                     Join Meeting
                                   </Button>
                                 )}
-                                {booking.status === 'completed' && (
+                                {booking.status === "completed" && (
                                   <Button size="sm" variant="outline">
                                     Leave Review
                                   </Button>
@@ -565,39 +788,49 @@ const Profile = () => {
                   <CardTitle className="flex items-center justify-between">
                     Notification Preferences
                     {savingPreferences && (
-                      <span className="text-sm text-muted-foreground">Saving...</span>
+                      <span className="text-sm text-muted-foreground">
+                        Saving...
+                      </span>
                     )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label htmlFor="email-notifications">Email Notifications</Label>
+                      <Label htmlFor="email-notifications">
+                        Email Notifications
+                      </Label>
                       <p className="text-sm text-muted-foreground">
                         Receive email updates about your bookings
                       </p>
                     </div>
-                    <Switch 
-                      id="email-notifications" 
+                    <Switch
+                      id="email-notifications"
                       checked={preferences.email_notifications}
-                      onCheckedChange={(checked) => handlePreferenceChange('email_notifications', checked)}
+                      onCheckedChange={(checked) =>
+                        handlePreferenceChange("email_notifications", checked)
+                      }
                     />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label htmlFor="sms-notifications">SMS Notifications</Label>
+                      <Label htmlFor="sms-notifications">
+                        SMS Notifications
+                      </Label>
                       <p className="text-sm text-muted-foreground">
                         Receive SMS reminders before consultations
                       </p>
                     </div>
-                    <Switch 
-                      id="sms-notifications" 
+                    <Switch
+                      id="sms-notifications"
                       checked={preferences.sms_notifications}
-                      onCheckedChange={(checked) => handlePreferenceChange('sms_notifications', checked)}
+                      onCheckedChange={(checked) =>
+                        handlePreferenceChange("sms_notifications", checked)
+                      }
                     />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
                       <Label htmlFor="marketing-emails">Marketing Emails</Label>
@@ -605,10 +838,12 @@ const Profile = () => {
                         Receive updates about new experts and features
                       </p>
                     </div>
-                    <Switch 
-                      id="marketing-emails" 
+                    <Switch
+                      id="marketing-emails"
                       checked={preferences.marketing_emails}
-                      onCheckedChange={(checked) => handlePreferenceChange('marketing_emails', checked)}
+                      onCheckedChange={(checked) =>
+                        handlePreferenceChange("marketing_emails", checked)
+                      }
                     />
                   </div>
                 </CardContent>
@@ -619,7 +854,9 @@ const Profile = () => {
                   <CardTitle className="flex items-center justify-between">
                     Privacy Settings
                     {savingPreferences && (
-                      <span className="text-sm text-muted-foreground">Saving...</span>
+                      <span className="text-sm text-muted-foreground">
+                        Saving...
+                      </span>
                     )}
                   </CardTitle>
                 </CardHeader>
@@ -631,29 +868,55 @@ const Profile = () => {
                         Allow others to see your profile and reviews
                       </p>
                     </div>
-                    <Switch 
-                      id="profile-visibility" 
+                    <Switch
+                      id="profile-visibility"
                       checked={preferences.profile_visibility}
-                      onCheckedChange={(checked) => handlePreferenceChange('profile_visibility', checked)}
+                      onCheckedChange={(checked) =>
+                        handlePreferenceChange("profile_visibility", checked)
+                      }
                     />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label htmlFor="contact-visibility">Contact Information</Label>
+                      <Label htmlFor="contact-visibility">
+                        Contact Information
+                      </Label>
                       <p className="text-sm text-muted-foreground">
                         Show your contact details to booked experts
                       </p>
                     </div>
-                    <Switch 
-                      id="contact-visibility" 
+                    <Switch
+                      id="contact-visibility"
                       checked={preferences.contact_visibility}
-                      onCheckedChange={(checked) => handlePreferenceChange('contact_visibility', checked)}
+                      onCheckedChange={(checked) =>
+                        handlePreferenceChange("contact_visibility", checked)
+                      }
                     />
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
+
+            {/* Expert Availability Tab - Only visible for experts */}
+            {user?.isExpert && (
+              <TabsContent value="availability" className="space-y-6 mt-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Manage Your Availability</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Set your weekly schedule and mark dates when you're
+                      unavailable
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <AvailabilitySettings
+                      userId={user.id || user.uid || "me"}
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
 
             <TabsContent value="security" className="space-y-6 mt-6">
               <Card>
@@ -661,22 +924,62 @@ const Profile = () => {
                   <CardTitle>Account Security</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="current-password">Current Password</Label>
-                    <Input id="current-password" type="password" />
-                  </div>
-                  
+                  {/* Password Message */}
+                  {passwordMessage && (
+                    <div
+                      className={`p-3 rounded-md ${
+                        passwordMessage.includes("successfully") ||
+                        passwordMessage.includes("Success")
+                          ? "bg-green-50 border border-green-200 text-green-800"
+                          : "bg-red-50 border border-red-200 text-red-800"
+                      }`}
+                    >
+                      <p className="text-sm">{passwordMessage}</p>
+                    </div>
+                  )}
+
                   <div>
                     <Label htmlFor="new-password">New Password</Label>
-                    <Input id="new-password" type="password" />
+                    <Input
+                      id="new-password"
+                      type="password"
+                      value={passwordData.newPassword}
+                      onChange={(e) =>
+                        handlePasswordChange("newPassword", e.target.value)
+                      }
+                      disabled={updatingPassword}
+                      placeholder="Enter new password (min 6 characters)"
+                    />
                   </div>
-                  
+
                   <div>
-                    <Label htmlFor="confirm-password">Confirm New Password</Label>
-                    <Input id="confirm-password" type="password" />
+                    <Label htmlFor="confirm-password">
+                      Confirm New Password
+                    </Label>
+                    <Input
+                      id="confirm-password"
+                      type="password"
+                      value={passwordData.confirmPassword}
+                      onChange={(e) =>
+                        handlePasswordChange("confirmPassword", e.target.value)
+                      }
+                      disabled={updatingPassword}
+                      placeholder="Confirm new password"
+                    />
                   </div>
-                  
-                  <Button>Update Password</Button>
+
+                  <Button
+                    onClick={updatePassword}
+                    disabled={
+                      updatingPassword ||
+                      !passwordData.newPassword ||
+                      !passwordData.confirmPassword
+                    }
+                  >
+                    {updatingPassword
+                      ? "Updating Password..."
+                      : "Update Password"}
+                  </Button>
                 </CardContent>
               </Card>
 
@@ -721,12 +1024,8 @@ const Profile = () => {
           </Tabs>
         </div>
       </main>
-
-      <Footer />
-
     </div>
   );
 };
-
 
 export default Profile;
