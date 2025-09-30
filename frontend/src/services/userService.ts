@@ -41,13 +41,24 @@ export const userServiceAPI = {
     );
 
     if (!response.ok) {
-      const errorText = await response.text();
+      let errorText = await response.text();
       console.error(
         "Failed to set availability rules:",
         response.status,
         errorText
       );
-      throw new Error(`Failed to set availability rules: ${errorText}`);
+
+      // Try to parse the error as JSON
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.detail) {
+          errorText = errorJson.detail;
+        }
+      } catch (e) {
+        // If it's not valid JSON, use the text as is
+      }
+
+      throw new Error(errorText);
     }
 
     return response.json();

@@ -62,13 +62,75 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
     }
   };
 
+  // Helper function to check for duplicates/overlaps before submitting
+  const checkForDuplicates = (
+    rules: AvailabilityRule[],
+    newRule: AvailabilityRule
+  ): string | null => {
+    // Convert times to minutes for easier comparison
+    const newStartHour = parseInt(newRule.start_time_utc.split(":")[0]);
+    const newStartMin = parseInt(newRule.start_time_utc.split(":")[1]);
+    const newEndHour = parseInt(newRule.end_time_utc.split(":")[0]);
+    const newEndMin = parseInt(newRule.end_time_utc.split(":")[1]);
+
+    const newStartMins = newStartHour * 60 + newStartMin;
+    const newEndMins = newEndHour * 60 + newEndMin;
+
+    // Check against existing rules for the same day
+    const sameDayRules = rules.filter(
+      (rule) => rule.day_of_week === newRule.day_of_week
+    );
+
+    for (const rule of sameDayRules) {
+      const startHour = parseInt(rule.start_time_utc.split(":")[0]);
+      const startMin = parseInt(rule.start_time_utc.split(":")[1]);
+      const endHour = parseInt(rule.end_time_utc.split(":")[0]);
+      const endMin = parseInt(rule.end_time_utc.split(":")[1]);
+
+      const startMins = startHour * 60 + startMin;
+      const endMins = endHour * 60 + endMin;
+
+      // Check for exact duplicates
+      if (startMins === newStartMins && endMins === newEndMins) {
+        return `Duplicate time slot: ${rule.start_time_utc}-${
+          rule.end_time_utc
+        } on ${dayOfWeekNames[rule.day_of_week]}`;
+      }
+
+      // Check for overlaps
+      if (newStartMins < endMins && newEndMins > startMins) {
+        return `Overlapping time slots: ${newRule.start_time_utc}-${
+          newRule.end_time_utc
+        } overlaps with existing slot ${rule.start_time_utc}-${
+          rule.end_time_utc
+        } on ${dayOfWeekNames[rule.day_of_week]}`;
+      }
+    }
+
+    return null;
+  };
+
   const addTimeSlot = async () => {
+    // Validate end time is after start time
+    if (startTime >= endTime) {
+      setError("End time must be after start time");
+      return;
+    }
+
     const newRule: AvailabilityRule = {
       day_of_week: selectedDay,
       start_time_utc: startTime,
       end_time_utc: endTime,
     };
 
+    // Check for duplicates on client side before submitting
+    const duplicateError = checkForDuplicates(value, newRule);
+    if (duplicateError) {
+      setError(duplicateError);
+      return;
+    }
+
+    setError(null);
     const updatedRules = [...value, newRule];
     onChange(updatedRules);
 
