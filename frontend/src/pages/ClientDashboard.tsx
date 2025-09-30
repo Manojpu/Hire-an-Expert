@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Header from '@/components/navigation/Header';
 import Footer from '@/components/ui/footer';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/auth/AuthContext';
 import { getBookings, capturePayment, Booking } from '@/lib/bookings';
 import { MOCK_EXPERTS } from '@/data/mockExperts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,8 +9,8 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 
 const ClientDashboard = () => {
-  const { state } = useAuth();
-  const userId = state.user?.id;
+  const { user } = useAuth();
+  const userId = user?.id;
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [favorites, setFavorites] = useState<Array<{
@@ -71,7 +71,7 @@ const ClientDashboard = () => {
     window.dispatchEvent(new Event('storage'));
   };
 
-  if (!state.user) {
+  if (!user) {
     return (
       <div className="min-h-screen bg-background">
         {/* <Header /> */}
@@ -88,7 +88,7 @@ const ClientDashboard = () => {
       <main className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold">Welcome back, {state.user.name.split(' ')[0]}</h1>
+            <h1 className="text-2xl font-bold">Welcome back, {user.name?.split(' ')[0] || user.displayName}</h1>
             <p className="text-sm text-muted-foreground">Here's your personalized dashboard</p>
           </div>
         </div>

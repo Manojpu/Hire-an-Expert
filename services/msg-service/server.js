@@ -7,7 +7,7 @@ const Conversation = require("./models/conversationModel");
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://localhost:8000", "null"], // Include API Gateway
+    origin: ["http://localhost:3000", "http://localhost:8000", "http://localhost:8080", "http://localhost:5173", "null"], // Updated frontend port
     methods: ["GET", "POST"],
   },
 });

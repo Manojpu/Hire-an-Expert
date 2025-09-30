@@ -1,4 +1,4 @@
-import { User } from "@/context/AuthContext";
+import { User } from "@/context/auth/AuthContext";
 
 export const MOCK_USERS: User[] = [
   {
