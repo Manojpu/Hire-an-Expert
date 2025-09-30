@@ -4,17 +4,13 @@ import ProgressStepper from "@/components/expert/ProgressStepper";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import ProfileSettings from "@/components/dashboard/ProfileSettings";
 import { ExpertApplicationForm } from "@/types/expert";
-import { AvailabilityRule } from "@/types/availability";
 import AvailabilityCalendar from "@/components/expert/AvailabilityCalendar";
 import {
-  validateExpertApplication,
   convertApplicationToExpert,
   syncExpertData,
 } from "@/utils/expertUtils";
 import { convertFormToGigData, gigServiceAPI } from "@/services/gigService";
-import { submitAvailabilityRules } from "@/services/availabilityService";
 
 // TODO: Replace with your actual user service URL
 const USER_SERVICE_URL =
@@ -24,8 +20,7 @@ const USER_SERVICE_URL =
 async function uploadVerificationDocument(
   file: File,
   documentType: string,
-  token: string,
-  userId: string
+  token: string
 ) {
   const formData = new FormData();
   formData.append("file", file);
@@ -36,16 +31,13 @@ async function uploadVerificationDocument(
     backendDocType = "PROFESSIONAL_LICENSE";
   formData.append("document_type", backendDocType);
 
-  const response = await fetch(
-    `${USER_SERVICE_URL}/users/documents?user_id=${userId}`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData,
-    }
-  );
+  const response = await fetch(`${USER_SERVICE_URL}/users/documents`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -145,18 +137,13 @@ const ApplyGig: React.FC = () => {
         alert("You must be logged in to submit an application.");
         return;
       }
-      if (!user.id) {
-        alert("Could not determine your user ID. Please try again later.");
-        return;
-      }
       const token = await user.getIdToken();
 
       if (filteredForm.govId) {
         const govRes = await uploadVerificationDocument(
           filteredForm.govId as File,
           "government_id",
-          token,
-          user.id
+          token
         );
         governmentIdUrl = govRes.url || govRes.file_url || "";
       }
@@ -164,8 +151,7 @@ const ApplyGig: React.FC = () => {
         const licRes = await uploadVerificationDocument(
           filteredForm.license as File,
           "professional_license",
-          token,
-          user.id
+          token
         );
         licenseUrl = licRes.url || licRes.file_url || "";
       }
@@ -173,8 +159,6 @@ const ApplyGig: React.FC = () => {
       // 2. Prepare gig data for gig service
       const gigData = convertFormToGigData({
         ...filteredForm,
-        government_id_url: governmentIdUrl,
-        professional_license_url: licenseUrl,
       });
 
       // 3. Submit to Gig Service

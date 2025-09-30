@@ -153,8 +153,6 @@ export interface ExpertGigCreateData {
   certifications?: Certificate[];
 
   // Verification (Step 3)
-  government_id_url?: string;
-  professional_license_url?: string;
   references?: string;
   background_check_consent?: boolean;
 }
@@ -189,12 +187,7 @@ interface GigCategory {
 
 // Convert ApplyExpert form to Gig Service format
 export function convertFormToGigData(
-  form: Partial<ExpertApplicationForm> & {
-    government_id_url?: string;
-    professional_license_url?: string;
-  },
-  profileImageUrl?: string,
-  bannerImageUrl?: string,
+  form: Partial<ExpertApplicationForm>,
   certificationUrls: string[] = []
 ): ExpertGigCreateData {
   return {
@@ -208,8 +201,6 @@ export function convertFormToGigData(
     certifications: certificationUrls.map((url) => ({ url })),
     references: form.references || "",
     background_check_consent: form.bgConsent || false,
-    government_id_url: form.government_id_url || "",
-    professional_license_url: form.professional_license_url || "",
   };
 }
 
@@ -293,8 +284,6 @@ export const gigServiceAPI: GigServiceAPI = {
           { url: "https://certs.com/hybrid-vehicle-specialist.pdf" },
           { url: "https://certs.com/advanced-engine-diagnostics.pdf" },
         ],
-        government_id_url: "/docs/nic-rajesh.pdf",
-        professional_license_url: "/docs/engineering-license.pdf",
         references: "Dr. Kumara Silva (Former Supervisor) - 077-1234567",
         background_check_consent: true,
         status: "active",
@@ -329,8 +318,6 @@ export const gigServiceAPI: GigServiceAPI = {
           { url: "https://certs.com/smart-home-technology-specialist.pdf" },
           { url: "https://certs.com/consumer-electronics-expert.pdf" },
         ],
-        government_id_url: "/docs/nic-rajesh.pdf",
-        professional_license_url: "/docs/electronics-license.pdf",
         references: "Eng. Nimal Fernando - 077-9876543",
         background_check_consent: true,
         status: "pending",
@@ -366,8 +353,6 @@ export const gigServiceAPI: GigServiceAPI = {
           { url: "https://certs.com/career-development-facilitator.pdf" },
           { url: "https://certs.com/professional-life-coach.pdf" },
         ],
-        government_id_url: "/docs/nic-rajesh.pdf",
-        professional_license_url: "/docs/counselor-license.pdf",
         references: "Prof. Sandya Wijeratne - 077-5551234",
         background_check_consent: true,
         status: "inactive",
@@ -436,8 +421,7 @@ export const gigServiceAPI: GigServiceAPI = {
           { url: "https://certs.com/hybrid-vehicle-specialist.pdf" },
           { url: "https://certs.com/advanced-engine-diagnostics.pdf" },
         ],
-        government_id_url: "/docs/nic-rajesh.pdf",
-        professional_license_url: "/docs/engineering-license.pdf",
+
         references: "Dr. Kumara Silva (Former Supervisor) - 077-1234567",
         background_check_consent: true,
         status: "active",
@@ -472,8 +456,7 @@ export const gigServiceAPI: GigServiceAPI = {
           { url: "https://certs.com/smart-home-technology-specialist.pdf" },
           { url: "https://certs.com/consumer-electronics-expert.pdf" },
         ],
-        government_id_url: "/docs/nic-rajesh.pdf",
-        professional_license_url: "/docs/electronics-license.pdf",
+
         references: "Eng. Nimal Fernando - 077-9876543",
         background_check_consent: true,
         status: "pending",
@@ -511,8 +494,7 @@ export const gigServiceAPI: GigServiceAPI = {
           },
           { url: "https://certs.com/professional-life-coach.pdf" },
         ],
-        government_id_url: "/docs/nic-rajesh.pdf",
-        professional_license_url: "/docs/counselor-license.pdf",
+
         references: "Prof. Sandya Wijeratne - 077-5551234",
         background_check_consent: true,
         status: "inactive",
