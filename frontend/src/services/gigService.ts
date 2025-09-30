@@ -7,19 +7,13 @@ const MOCK_GIGS: ExpertGig[] = [
   {
     id: "gig-1",
     expert_id: "expert-123",
-    name: "Dr. Rajesh Perera",
-    title: "Senior Technology Consultant",
-    bio: "Experienced technology consultant specializing in digital transformation and strategic IT planning.",
-    profile_image_url: "https://via.placeholder.com/150",
-    banner_image_url: "https://via.placeholder.com/800x200",
-    languages: ["English", "Sinhala"],
+
     category_id: 1,
     service_description:
       "I provide comprehensive technology consulting services including system architecture, digital transformation strategies, and IT project management.",
     hourly_rate: 5000,
     currency: "LKR",
-    availability_preferences: "Available Monday to Friday, 9 AM to 6 PM",
-    education: "PhD in Computer Science, University of Colombo",
+
     experience: "15+ years in technology consulting and project management",
     certifications: [
       { url: "https://certs.com/aws-solutions-architect.pdf" },
@@ -40,19 +34,13 @@ const MOCK_GIGS: ExpertGig[] = [
   {
     id: "gig-2",
     expert_id: "expert-123",
-    name: "Dr. Rajesh Perera",
-    title: "Business Strategy Advisor",
-    bio: "Strategic business consultant helping companies optimize their operations and growth strategies.",
-    profile_image_url: "https://via.placeholder.com/150",
-    banner_image_url: "https://via.placeholder.com/800x200",
-    languages: ["English", "Sinhala"],
+
     category_id: 2,
     service_description:
       "I offer strategic business consulting services including market analysis, business planning, and operational optimization.",
     hourly_rate: 6000,
     currency: "LKR",
-    availability_preferences: "Available Tuesday to Saturday, 10 AM to 5 PM",
-    education: "MBA in Strategic Management, University of Sri Jayewardenepura",
+
     experience: "12+ years in business strategy and management consulting",
     certifications: [
       { url: "https://certs.com/six-sigma-black-belt.pdf" },
@@ -73,20 +61,13 @@ const MOCK_GIGS: ExpertGig[] = [
   {
     id: "gig-3",
     expert_id: "expert-123",
-    name: "Dr. Rajesh Perera",
-    title: "Digital Marketing Specialist",
-    bio: "Digital marketing expert helping businesses establish strong online presence and drive growth.",
-    profile_image_url: "https://via.placeholder.com/150",
-    banner_image_url: "https://via.placeholder.com/800x200",
-    languages: ["English", "Sinhala"],
+
     category_id: 3,
     service_description:
       "I provide comprehensive digital marketing services including SEO, social media marketing, and online advertising strategies.",
     hourly_rate: 4500,
     currency: "LKR",
-    availability_preferences:
-      "Flexible schedule, available for urgent consultations",
-    education: "Bachelor in Marketing, University of Kelaniya",
+
     experience: "8+ years in digital marketing and brand management",
     certifications: [
       { url: "https://certs.com/google-ads-certified.pdf" },
@@ -127,28 +108,18 @@ interface Certificate {
 }
 
 export interface ExpertGigCreateData {
-  // Basic Information (Step 0)
-  name?: string;
-  title?: string;
-  bio?: string;
-  profile_image_url?: string;
-  banner_image_url?: string;
-  languages?: string[];
-
   // Expertise & Services (Step 1)
   category_id: number | string;
   service_description?: string;
   hourly_rate?: number;
   currency?: string;
-  availability_preferences?: string;
-  availability_rules?: {
-    day_of_week: number;
-    start_time_utc: string;
-    end_time_utc: string;
-  }[];
+  experience_years?: number;
+  expertise_areas?: string[];
+
+  // availability_preferences?: string; --- IGNORE ---
 
   // Qualifications (Step 2)
-  education?: string;
+
   experience?: string;
   certifications?: Certificate[];
 
@@ -195,8 +166,6 @@ export function convertFormToGigData(
     service_description: form.serviceDesc || "",
     hourly_rate: Number(form.rate) || 0,
     currency: "LKR",
-    availability_preferences: form.availabilityNotes || "",
-    availability_rules: form.availabilityRules || [],
     experience: form.experience || "",
     certifications: certificationUrls.map((url) => ({ url })),
     references: form.references || "",
@@ -262,21 +231,12 @@ export const gigServiceAPI: GigServiceAPI = {
       {
         id: "gig-1",
         expert_id: "expert-123",
-        name: "Dr. Rajesh Perera",
-        title: "Automobile Expert & Mechanic Consultant",
-        bio: "Experienced automotive engineer with 15+ years in the industry. Specialized in engine diagnostics, hybrid vehicles, and maintenance planning.",
-        profile_image_url: "/placeholder-avatar.jpg",
-        banner_image_url: "/placeholder-banner.jpg",
-        languages: ["English", "Sinhala", "Tamil"],
         category_id: "automobile-advice",
         service_description:
           "Professional automobile consultation covering engine diagnostics, maintenance scheduling, buying advice, and troubleshooting. I help clients make informed decisions about their vehicles.",
         hourly_rate: 3500,
         currency: "LKR",
-        availability_preferences:
-          "Monday to Friday: 9:00 AM - 6:00 PM, Saturday: 9:00 AM - 2:00 PM",
-        education:
-          "BSc in Mechanical Engineering from University of Moratuwa, Advanced Automotive Technology Certificate",
+
         experience:
           "15 years as Senior Automotive Engineer at Toyota Lanka, 5 years as Independent Consultant",
         certifications: [
@@ -299,19 +259,13 @@ export const gigServiceAPI: GigServiceAPI = {
       {
         id: "gig-2",
         expert_id: "expert-123",
-        name: "Dr. Rajesh Perera",
-        title: "Electronics & Home Appliance Specialist",
-        bio: "Electronics engineer specializing in home appliances, smart devices, and troubleshooting. Helping customers optimize their home technology.",
-        profile_image_url: "/placeholder-avatar.jpg",
-        banner_image_url: "/placeholder-banner.jpg",
-        languages: ["English", "Sinhala"],
+
         category_id: "electronic-device-advice",
         service_description:
           "Expert guidance on home electronics, appliance selection, smart home setup, and technical troubleshooting. From refrigerators to smart TVs, I help you make the right choices.",
         hourly_rate: 2800,
         currency: "LKR",
-        availability_preferences: "Tuesday to Saturday: 10:00 AM - 5:00 PM",
-        education: "BSc in Electronic Engineering, MSc in Consumer Electronics",
+
         experience:
           "12 years in consumer electronics industry, 3 years as technical consultant",
         certifications: [
@@ -333,20 +287,13 @@ export const gigServiceAPI: GigServiceAPI = {
       {
         id: "gig-3",
         expert_id: "expert-123",
-        name: "Dr. Rajesh Perera",
-        title: "Career Guidance & Education Counselor",
-        bio: "Educational consultant and career counselor helping students and professionals navigate their academic and career paths.",
-        profile_image_url: "/placeholder-avatar.jpg",
-        banner_image_url: "/placeholder-banner.jpg",
-        languages: ["English", "Sinhala"],
+
         category_id: "education-career-guidance",
         service_description:
           "Personalized career counseling, university selection guidance, skill development planning, and professional growth strategies.",
         hourly_rate: 4200,
         currency: "LKR",
-        availability_preferences:
-          "Weekdays: 6:00 PM - 9:00 PM, Weekends: 10:00 AM - 4:00 PM",
-        education: "PhD in Educational Psychology, MBA in Human Resources",
+
         experience:
           "10 years as University Career Counselor, 5 years private consulting",
         certifications: [
@@ -399,21 +346,13 @@ export const gigServiceAPI: GigServiceAPI = {
       "gig-1": {
         id: "gig-1",
         expert_id: "expert-123",
-        name: "Dr. Rajesh Perera",
-        title: "Automobile Expert & Mechanic Consultant",
-        bio: "Experienced automotive engineer with 15+ years in the industry. Specialized in engine diagnostics, hybrid vehicles, and maintenance planning.",
-        profile_image_url: "/placeholder-avatar.jpg",
-        banner_image_url: "/placeholder-banner.jpg",
-        languages: ["English", "Sinhala", "Tamil"],
+
         category_id: "automobile-advice",
         service_description:
           "Professional automobile consultation covering engine diagnostics, maintenance scheduling, buying advice, and troubleshooting. I help clients make informed decisions about their vehicles.",
         hourly_rate: 3500,
         currency: "LKR",
-        availability_preferences:
-          "Monday to Friday: 9:00 AM - 6:00 PM, Saturday: 9:00 AM - 2:00 PM",
-        education:
-          "BSc in Mechanical Engineering from University of Moratuwa, Advanced Automotive Technology Certificate",
+
         experience:
           "15 years as Senior Automotive Engineer at Toyota Lanka, 5 years as Independent Consultant",
         certifications: [
@@ -437,19 +376,13 @@ export const gigServiceAPI: GigServiceAPI = {
       "gig-2": {
         id: "gig-2",
         expert_id: "expert-123",
-        name: "Dr. Rajesh Perera",
-        title: "Electronics & Home Appliance Specialist",
-        bio: "Electronics engineer specializing in home appliances, smart devices, and troubleshooting. Helping customers optimize their home technology.",
-        profile_image_url: "/placeholder-avatar.jpg",
-        banner_image_url: "/placeholder-banner.jpg",
-        languages: ["English", "Sinhala"],
+
         category_id: "electronic-device-advice",
         service_description:
           "Expert guidance on home electronics, appliance selection, smart home setup, and technical troubleshooting. From refrigerators to smart TVs, I help you make the right choices.",
         hourly_rate: 2800,
         currency: "LKR",
-        availability_preferences: "Tuesday to Saturday: 10:00 AM - 5:00 PM",
-        education: "BSc in Electronic Engineering, MSc in Consumer Electronics",
+
         experience:
           "12 years in consumer electronics industry, 3 years as technical consultant",
         certifications: [
@@ -472,20 +405,12 @@ export const gigServiceAPI: GigServiceAPI = {
       "gig-3": {
         id: "gig-3",
         expert_id: "expert-123",
-        name: "Dr. Rajesh Perera",
-        title: "Career Guidance & Education Counselor",
-        bio: "Educational consultant and career counselor helping students and professionals navigate their academic and career paths.",
-        profile_image_url: "/placeholder-avatar.jpg",
-        banner_image_url: "/placeholder-banner.jpg",
-        languages: ["English", "Sinhala"],
         category_id: "education-career-guidance",
         service_description:
           "Personalized career counseling, university selection guidance, skill development planning, and professional growth strategies.",
         hourly_rate: 4200,
         currency: "LKR",
-        availability_preferences:
-          "Weekdays: 6:00 PM - 9:00 PM, Weekends: 10:00 AM - 4:00 PM",
-        education: "PhD in Educational Psychology, MBA in Human Resources",
+
         experience:
           "10 years as University Career Counselor, 5 years private consulting",
         certifications: [
