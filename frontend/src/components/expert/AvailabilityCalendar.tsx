@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { Button } from "@/components/ui/button";
@@ -18,34 +18,73 @@ import {
   formatTimeSlot,
 } from "@/types/availability";
 import { X } from "lucide-react";
+import { userServiceAPI } from "@/services/userService";
+import { useAuth } from "@/context/auth/AuthContext";
 
 interface AvailabilityCalendarProps {
   value: AvailabilityRule[];
   onChange: (rules: AvailabilityRule[]) => void;
+  submitImmediately?: boolean; // Flag to control immediate submission to the API
 }
 
 const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
   value,
   onChange,
+  submitImmediately = false, // Default to false for backward compatibility
 }) => {
+  const { user } = useAuth();
   const [selectedDay, setSelectedDay] = useState<number>(0);
   const [startTime, setStartTime] = useState<string>("09:00");
   const [endTime, setEndTime] = useState<string>("17:00");
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const addTimeSlot = () => {
+  // Function to submit availability rules to the API
+  const submitRulesToAPI = async (rules: AvailabilityRule[]) => {
+    if (!user || !submitImmediately) return;
+
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const token = await user.getIdToken();
+      await userServiceAPI.setAvailabilityRules(rules, [], token);
+      console.log("Availability rules saved successfully");
+    } catch (error) {
+      console.error("Failed to save availability rules:", error);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to save availability rules"
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const addTimeSlot = async () => {
     const newRule: AvailabilityRule = {
       day_of_week: selectedDay,
       start_time_utc: startTime,
       end_time_utc: endTime,
     };
 
-    onChange([...value, newRule]);
+    const updatedRules = [...value, newRule];
+    onChange(updatedRules);
+
+    if (submitImmediately) {
+      await submitRulesToAPI(updatedRules);
+    }
   };
 
-  const removeTimeSlot = (index: number) => {
+  const removeTimeSlot = async (index: number) => {
     const updatedRules = [...value];
     updatedRules.splice(index, 1);
     onChange(updatedRules);
+
+    if (submitImmediately) {
+      await submitRulesToAPI(updatedRules);
+    }
   };
 
   return (
@@ -97,10 +136,18 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
               </div>
             </div>
 
-            <Button onClick={addTimeSlot} type="button" className="mt-2">
-              Add Time Slot
+            <Button
+              onClick={addTimeSlot}
+              type="button"
+              className="mt-2"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Saving..." : "Add Time Slot"}
             </Button>
           </div>
+
+          {/* Show error message if API submission fails */}
+          {error && <div className="mt-2 text-red-500 text-sm">{error}</div>}
 
           {/* Display selected time slots */}
           <div className="mt-4">
