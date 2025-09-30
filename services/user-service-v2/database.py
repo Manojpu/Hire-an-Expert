@@ -57,4 +57,4 @@ def get_sync_db():
         try:
             yield session
         finally:
-            session.close() 
+            session.close()

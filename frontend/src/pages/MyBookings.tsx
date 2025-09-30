@@ -1,14 +1,14 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { getBookings, updateBookingStatus, cancelBooking, confirmBookingWithPayment, capturePayment, Booking } from "@/lib/bookings";
 import { MOCK_EXPERTS } from "@/data/mockExperts";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/auth/AuthContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { getICalHref, getGoogleCalendarUrl } from "@/lib/calendar";
 
 const MyBookings = () => {
-  const { state } = useAuth();
-  const userId = state.user?.id;
+  const { user } = useAuth();
+  const userId = user?.id;
   const [tick, setTick] = useState(0);
 
   const bookings = useMemo(() => {
@@ -53,7 +53,7 @@ const MyBookings = () => {
 
               <div className="flex flex-col items-end gap-2">
                 { /* Expert actions */ }
-                {state.user?.role === 'expert' && state.user?.id === expert?.userId && b.status === 'pending' && (
+                {user?.role === 'expert' && user?.id === expert?.userId && b.status === 'pending' && (
                   <div className="flex gap-2">
                     <Button onClick={onExpertApprove} size="sm">Approve</Button>
                     <Button variant="ghost" onClick={onExpertReject} size="sm">Reject</Button>
@@ -61,7 +61,7 @@ const MyBookings = () => {
                 )}
 
                 { /* Client actions */ }
-                {state.user?.role === 'client' && state.user?.id === b.clientId && (
+                {user?.role === 'client' && user?.id === b.clientId && (
                   <div className="flex flex-col items-end gap-2">
                     {b.status === 'approved' && (
                       <Button onClick={onClientPay} size="sm">Pay & Confirm</Button>

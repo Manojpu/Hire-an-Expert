@@ -5,12 +5,14 @@ import DashboardLayout from "@/layouts/DashboardLayout";
 import { useAuth } from "@/context/auth/AuthContext.jsx";
 import Login from "@/pages/Login.tsx";
 import SignUp from "@/pages/Signup.tsx";
+import DashboardRedirect from "@/components/auth/DashboardRedirect";
 
 const Home = lazy(() => import("@/pages/Home"));
 const Category = lazy(() => import("@/pages/GigCategory"));
 const Expert = lazy(() => import("@/pages/Expert"));
 const Book = lazy(() => import("@/pages/Book"));
 const Chat = lazy(() => import("@/pages/Chat"));
+const Messages = lazy(() => import("@/pages/MessagesPage"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const ExpertDashboard = lazy(() => import("@/pages/expert/ExpertDashboard"));
 const Admin = lazy(() => import("@/pages/Admin"));
@@ -61,6 +63,26 @@ const AppRoutes = () => (
       {/* Standalone pages (no header/footer) */}
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<SignUp />} />
+      
+      {/* Smart dashboard redirect route */}
+      <Route 
+        path="/dashboard" 
+        element={
+          <ProtectedRoute>
+            <DashboardRedirect />
+          </ProtectedRoute>
+        } 
+      />
+
+      {/* Messages page standalone (no header/footer) */}
+      <Route
+        path="/messages"
+        element={
+          <ProtectedRoute>
+            <Messages />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Main layout with footer */}
       <Route path="/" element={<MainLayout />}>

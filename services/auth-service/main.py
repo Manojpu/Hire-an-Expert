@@ -18,10 +18,8 @@ origins = [
 
 load_dotenv()
 
-# USER_SERVICE_URL = os.getenv("USER_SERVICE_URL")
-# WEBHOOK_SECRET = os.getenv("USER_SERVICE_WEBHOOK_SECRET")
-USER_SERVICE_URL = "http://127.0.0.1:8001/internal/users/provision"
-WEBHOOK_SECRET = "7f6b8e2e6b9147f0b34a84d5b673d3e85d3a21b6b3c847c0a9e32f8f8a172ab4"
+USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://127.0.0.1:8006/internal/users/provision")
+WEBHOOK_SECRET = os.getenv("USER_SERVICE_WEBHOOK_SECRET", "7f6b8e2e6b9147f0b34a84d5b673d3e85d3a21b6b3c847c0a9e32f8f8a172ab4")
 
 app = FastAPI(
     description="Auth Service",
@@ -74,7 +72,7 @@ async def create_an_account(user_data:SignUpSchema):
         payload = {
             "firebase_uid": user_data.firebase_uid,
             "email": user_data.email,
-            "full_name": user_data.email,
+            "name": user_data.email,  # Changed from full_name to name
             "is_expert": False,           # default False if not expert
             "expert_profiles": []
         }
@@ -83,10 +81,44 @@ async def create_an_account(user_data:SignUpSchema):
             "Content-Type": "application/json"
         }
 
-        resp = requests.post(USER_SERVICE_URL, json=payload, headers=headers)
-        if resp.status_code != 200:
-            return {"warning": "User created in Firebase but failed in User Service", "details": resp.text}
+        print(f"🔥 AUTH SERVICE: Calling User Service at {USER_SERVICE_URL}")
+        print(f"🔥 AUTH SERVICE: Payload: {payload}")
+        print(f"🔥 AUTH SERVICE: Headers: {headers}")
 
+        # Retry logic for user service call
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                resp = requests.post(USER_SERVICE_URL, json=payload, headers=headers, timeout=10)
+                
+                print(f"🔥 AUTH SERVICE: User Service Response Status: {resp.status_code}")
+                print(f"🔥 AUTH SERVICE: User Service Response Text: {resp.text}")
+                
+                if resp.status_code == 200:
+                    user_data_response = resp.json()
+                    print(f"✅ AUTH SERVICE: User created successfully in User Service")
+                    print(f"✅ AUTH SERVICE: User ID: {user_data_response.get('id', 'Unknown')}")
+                    
+                    return JSONResponse(content={
+                        "message": f"User created successfully for {user_data.firebase_uid}",
+                        "user_id": user_data_response.get('id'),
+                        "firebase_uid": user_data.firebase_uid
+                    })
+                else:
+                    print(f"❌ AUTH SERVICE: User Service call failed! Attempt {attempt + 1}/{max_retries}")
+                    if attempt == max_retries - 1:  # Last attempt
+                        raise HTTPException(
+                            status_code=500,
+                            detail=f"Failed to create user in User Service after {max_retries} attempts. Status: {resp.status_code}, Error: {resp.text}"
+                        )
+                    
+            except requests.exceptions.RequestException as e:
+                print(f"❌ AUTH SERVICE: Network error on attempt {attempt + 1}/{max_retries}: {e}")
+                if attempt == max_retries - 1:  # Last attempt
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Failed to connect to User Service after {max_retries} attempts: {str(e)}"
+                    )
         return {"message": f"User created successfully for {user_data.firebase_uid}"}
 
     except auth.EmailAlreadyExistsError:
