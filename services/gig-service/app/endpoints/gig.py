@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends, status, HTTPException, Query
+from fastapi import APIRouter, Depends, status, HTTPException, Query, File, UploadFile, Form, Body
 from app.db import schemas
 from sqlalchemy.orm import Session
+from fastapi.encoders import jsonable_encoder
+import json
 
 from typing import List, Optional
 from app.db import crud, session
 from app.utils.logger import get_logger
+from app.utils.file_handler import save_certificate_files
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -13,18 +16,22 @@ router = APIRouter()
 
 
 @router.post("/", response_model=schemas.Gig, status_code=status.HTTP_201_CREATED)
-def create_new_gig(
-        gig: schemas.GigCreate,
-        db: Session = Depends(session.get_db),
-        current_user_id = Depends(session.get_current_user_id)
+async def create_new_gig(
+    gig: schemas.GigCreate = Depends(schemas.gig_create_form),
+    certificate_files: List[UploadFile] = File(None),
+    db: Session = Depends(session.get_db),
+    current_user_id=Depends(session.get_current_user_id)
 ):
     """
-    Create a new gig. Requires Firebase authentication.
+    Create a new gig with certificate files. Requires Firebase authentication.
+    
+    - gig: The gig data as a GigCreate model
+    - certificate_files: List of certificate files to upload
     """
     try:
         logger.info(f"Creating new gig for expert: {current_user_id}")
-        logger.debug(f"Gig data received: {gig.dict()}")
-
+        logger.debug(f"Gig data received: {jsonable_encoder(gig)}")
+        
         # Convert UUID to string if needed
         expert_id = str(current_user_id)
         
@@ -33,15 +40,42 @@ def create_new_gig(
         if not category:
             logger.warning(f"Category with ID {gig.category_id} not found when creating gig for user {expert_id}")
             raise HTTPException(status_code=404, detail=f"Category with ID {gig.category_id} not found")
-
+        
+        # Create gig first to get ID (we'll need it for the certificate files)
         db_gig = crud.create_gig(db=db, gig=gig, expert_id=expert_id)
-        logger.info(f"Gig creation completed: {db_gig.id}")
-
+        logger.info(f"Gig created initially with ID: {db_gig.id}")
+        
+        # Handle certificate files if any were uploaded
+        certificate_paths = []
+        if certificate_files:
+            try:
+                # Save the certificate files and get their paths
+                certificate_paths = await save_certificate_files(certificate_files, db_gig.id)
+                logger.info(f"Saved {len(certificate_paths)} certificate files for gig {db_gig.id}")
+                
+                # Update the gig with the certificate paths if any were saved
+                if certificate_paths:
+                    # Update the gig's certification field with the file paths
+                    db_gig.certification = certificate_paths
+                    db.commit()
+                    logger.info(f"Updated gig {db_gig.id} with certificate paths")
+            except Exception as e:
+                logger.error(f"Error saving certificate files: {str(e)}")
+                # Continue with gig creation even if file upload fails
+                # We can handle file uploads separately later if needed
+        
         # We need to fetch the complete gig with relationship data for the response
         # Because the crud.create_gig doesn't populate the relationship
         complete_gig = crud.get_gig(db=db, gig_id=db_gig.id)
+        logger.info(f"Gig creation completed: {db_gig.id}")
         return complete_gig
 
+    except HTTPException:
+        # Re-raise HTTP exceptions without modification
+        raise
+    except ValueError as e:
+        logger.error(f"Validation error in create_new_gig for user {current_user_id}: {e}")
+        raise HTTPException(status_code=400, detail=f"Validation error: {str(e)}")
     except Exception as e:
         logger.error(f"Error in create_new_gig for user {current_user_id}: {e}")
         import traceback
@@ -185,8 +219,9 @@ def get_my_gig(
 
 
 @router.put("/my/gig", response_model=schemas.GigPrivateResponse)
-def update_my_gig(
-        gig_update: schemas.GigUpdate,
+async def update_my_gig(
+        gig_update: schemas.GigUpdate = Depends(),
+        certificate_files: List[UploadFile] = File(None),
         db: Session = Depends(session.get_db),
         current_user_id = Depends(session.get_current_user_id)
 ):
@@ -198,6 +233,8 @@ def update_my_gig(
     
     # First get the gig to ensure it belongs to the current user
     logger.info(f"Updating gig for current user ID: {expert_id}")
+    logger.debug(f"Gig update data: {jsonable_encoder(gig_update)}")
+    
     db_gig = crud.get_gig_by_expert(db=db, expert_id=expert_id)
     if not db_gig:
         logger.warning(f"No gig found for current user ID: {expert_id}")
@@ -207,6 +244,27 @@ def update_my_gig(
     if not updated_gig:
         logger.error(f"Failed to update gig for current user ID: {expert_id}")
         raise HTTPException(status_code=404, detail="Failed to update gig")
+    
+    # Handle certificate files if any were uploaded
+    if certificate_files:
+        try:
+            # Save the certificate files and get their paths
+            certificate_paths = await save_certificate_files(certificate_files, updated_gig.id)
+            logger.info(f"Saved {len(certificate_paths)} certificate files for gig {updated_gig.id}")
+            
+            # Update the gig with the certificate paths if any were saved
+            if certificate_paths:
+                # Get existing certificates if any
+                existing_certs = updated_gig.certification or []
+                
+                # Add new certificate paths to existing ones
+                updated_gig.certification = existing_certs + certificate_paths
+                db.commit()
+                logger.info(f"Updated gig {updated_gig.id} with certificate paths")
+        except Exception as e:
+            logger.error(f"Error saving certificate files during update: {str(e)}")
+            # Continue with gig update even if file upload fails
+            # We can handle file uploads separately later if needed
 
     logger.info(f"Gig updated for current user ID: {expert_id}")
     return updated_gig
@@ -237,3 +295,97 @@ def delete_my_gig(
 
     logger.info(f"Gig deleted for current user ID: {expert_id}")
     return None  # 204 No Content response
+
+
+@router.post("/my/gig/certificates", response_model=schemas.GigPrivateResponse)
+async def upload_certificates(
+    certificate_files: List[UploadFile] = File(...),
+    db: Session = Depends(session.get_db),
+    current_user_id = Depends(session.get_current_user_id)
+):
+    """
+    Upload certificate files for the expert's gig.
+    This endpoint is specifically for adding certificates to an existing gig.
+    """
+    # Convert UUID to string if needed
+    expert_id = str(current_user_id)
+    
+    # First get the gig to ensure it exists and belongs to the current user
+    logger.info(f"Uploading certificates for expert ID: {expert_id}")
+    db_gig = crud.get_gig_by_expert(db=db, expert_id=expert_id)
+    if not db_gig:
+        logger.warning(f"No gig found for current user ID: {expert_id}")
+        raise HTTPException(status_code=404, detail="No gig found for this expert")
+    
+    if not certificate_files:
+        raise HTTPException(status_code=400, detail="No certificate files provided")
+    
+    try:
+        # Save the certificate files and get their paths
+        certificate_paths = await save_certificate_files(certificate_files, db_gig.id)
+        logger.info(f"Saved {len(certificate_paths)} certificate files for gig {db_gig.id}")
+        
+        # Update the gig with the certificate paths
+        existing_certs = db_gig.certification or []
+        db_gig.certification = existing_certs + certificate_paths
+        db.commit()
+        db.refresh(db_gig)
+        
+        logger.info(f"Updated gig {db_gig.id} with new certificate paths")
+        return db_gig
+        
+    except Exception as e:
+        logger.error(f"Error uploading certificates: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to upload certificates: {str(e)}")
+
+
+@router.delete("/my/gig/certificates/{certificate_index}", response_model=schemas.GigPrivateResponse)
+async def delete_certificate(
+    certificate_index: int,
+    db: Session = Depends(session.get_db),
+    current_user_id = Depends(session.get_current_user_id)
+):
+    """
+    Delete a specific certificate from the expert's gig by index.
+    """
+    # Convert UUID to string if needed
+    expert_id = str(current_user_id)
+    
+    # First get the gig to ensure it exists and belongs to the current user
+    logger.info(f"Deleting certificate for expert ID: {expert_id} at index {certificate_index}")
+    db_gig = crud.get_gig_by_expert(db=db, expert_id=expert_id)
+    if not db_gig:
+        logger.warning(f"No gig found for current user ID: {expert_id}")
+        raise HTTPException(status_code=404, detail="No gig found for this expert")
+    
+    # Check if certificate exists
+    if not db_gig.certification or certificate_index >= len(db_gig.certification):
+        raise HTTPException(status_code=404, detail="Certificate not found")
+    
+    try:
+        # Get the certificate path
+        certificate_path = db_gig.certification[certificate_index]
+        
+        # Remove the certificate from the list
+        db_gig.certification = [cert for i, cert in enumerate(db_gig.certification) if i != certificate_index]
+        db.commit()
+        db.refresh(db_gig)
+        
+        # Try to delete the file (non-blocking)
+        try:
+            import os
+            from app.utils.file_handler import UPLOAD_DIR
+            full_path = os.path.join(UPLOAD_DIR, certificate_path)
+            if os.path.exists(full_path):
+                os.remove(full_path)
+                logger.info(f"Deleted certificate file: {full_path}")
+        except Exception as file_e:
+            # Just log the error, don't fail the request
+            logger.warning(f"Could not delete certificate file: {str(file_e)}")
+        
+        logger.info(f"Removed certificate at index {certificate_index} from gig {db_gig.id}")
+        return db_gig
+        
+    except Exception as e:
+        logger.error(f"Error deleting certificate: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete certificate: {str(e)}")

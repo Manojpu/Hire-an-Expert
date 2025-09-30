@@ -65,8 +65,8 @@ def create_gig(db: Session, gig: GigCreate, expert_id: str) -> Gig:
     logger.info(f"Creating new gig for expert ID: {expert_id}")
     logger.debug(f"Gig data: {gig.dict()}")
     
-    # Convert Pydantic model to dict, excluding any None values
-    gig_data = {k: v for k, v in gig.dict().items() if v is not None and k != 'category_id'}
+    # Convert Pydantic model to dict, excluding any None values and specific fields we handle separately
+    gig_data = {k: v for k, v in gig.dict().items() if v is not None and k not in ['category_id', 'certificates']}
     
     # Get category by ID or slug
     category = get_category(db, str(gig.category_id))
@@ -74,7 +74,9 @@ def create_gig(db: Session, gig: GigCreate, expert_id: str) -> Gig:
         logger.error(f"Category with ID/slug {gig.category_id} not found")
         raise ValueError(f"Category with ID/slug {gig.category_id} not found")
     
+    # Generate gig ID
     gig_id = str(uuid.uuid4())
+
     db_gig = Gig(
         id=gig_id,
         expert_id=expert_id,
@@ -289,3 +291,44 @@ def get_all_gigs(db: Session, skip: int = 0, limit: int = 100) -> list[type[Gig]
     gigs = db.query(Gig).options(joinedload(Gig.category)).offset(skip).limit(limit).all()
     logger.info(f"Retrieved {len(gigs)} gigs")
     return gigs
+
+
+def create_certification(db: Session, gig_id: str, url: str, thumbnail_url: Optional[str] = None) -> Any:
+    """Creates a new certification record for a gig."""
+    logger.info(f"Creating certification for gig ID: {gig_id}")
+    
+    from .models import Certification
+    
+    db_cert = Certification(
+        gig_id=gig_id,
+        url=url,
+        thumbnail_url=thumbnail_url
+    )
+    db.add(db_cert)
+    db.commit()
+    db.refresh(db_cert)
+    logger.info(f"Certification created with ID: {db_cert.id}")
+    return db_cert
+
+
+def get_certifications_by_gig(db: Session, gig_id: str) -> list:
+    """Retrieves all certifications for a specific gig."""
+    logger.info(f"Retrieving certifications for gig ID: {gig_id}")
+    
+    from .models import Certification
+    
+    certifications = db.query(Certification).filter(Certification.gig_id == gig_id).all()
+    logger.info(f"Retrieved {len(certifications)} certifications for gig {gig_id}")
+    return certifications
+
+
+def delete_certifications_by_gig(db: Session, gig_id: str) -> bool:
+    """Deletes all certifications for a specific gig."""
+    logger.info(f"Deleting certifications for gig ID: {gig_id}")
+    
+    from .models import Certification
+    
+    result = db.query(Certification).filter(Certification.gig_id == gig_id).delete()
+    db.commit()
+    logger.info(f"Deleted {result} certifications for gig {gig_id}")
+    return result > 0
