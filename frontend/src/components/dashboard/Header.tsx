@@ -21,7 +21,7 @@ const navItems: NavItem[] = [
 ];
 
 const Header: React.FC<{ onMenuToggle?: () => void }> = ({ onMenuToggle }) => {
-  const { user } = useAuth();
+  const { state, user } = useAuth();
   const location = useLocation();
   const hasNotifications = true; // TODO: Replace with actual notifications state
 
@@ -107,7 +107,6 @@ const Header: React.FC<{ onMenuToggle?: () => void }> = ({ onMenuToggle }) => {
               </div>
             </div>
           </div>
-        </div>
         
         {/* Navigation Items - Mobile */}
         <div className="md:hidden overflow-x-auto">

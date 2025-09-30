@@ -14,34 +14,50 @@ const Book = lazy(() => import("@/pages/Book"));
 const Chat = lazy(() => import("@/pages/Chat"));
 const Messages = lazy(() => import("@/pages/MessagesPage"));
 const Profile = lazy(() => import("@/pages/Profile"));
-const ExpertDashboard = lazy(() => import("@/pages/ExpertDashboard"));
+const ExpertDashboard = lazy(() => import("@/pages/expert/ExpertDashboard"));
 const Admin = lazy(() => import("@/pages/Admin"));
 const BecomeExpert = lazy(() => import("@/pages/CreateGig"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const MyBookings = lazy(() => import("@/pages/MyBookings"));
 const Experts = lazy(() => import("@/pages/Experts"));
 const ClientDashboard = lazy(() => import("@/pages/ClientDashboard"));
+const ExpertProfile = lazy(() => import("@/pages/ExpertProfile"));
+const GigView = lazy(() => import("@/pages/GigView"));
+const BookConsultation = lazy(() => import("@/pages/BookConsultation"));
 
-const ProtectedRoute = ({ children, role }: { children: JSX.Element; role?: string }) => {
+const ProtectedRoute = ({
+  children,
+  role,
+  isExpert,
+}: {
+  children: JSX.Element;
+  role?: string;
+  isExpert?: boolean;
+}) => {
   const { user, loggedIn } = useAuth();
   if (!loggedIn || !user) return <Navigate to="/" replace />;
   if (role && user.role !== role) return <Navigate to="/" replace />;
+  if (isExpert && !user.isExpert) return <Navigate to="/" replace />;
   return children;
 };
 
 const AppRoutes = () => (
   <Suspense fallback={<div className="p-1">Loading...</div>}>
     <Routes>
-      {/* Expert Dashboard with its own layout (no footer) */}
+      {/* Expert Dashboard - New gig-based structure */}
       <Route
-        path="/expert-dashboard/*"
+        path="/expert/*"
         element={
-          <ProtectedRoute role="expert">
-            <DashboardLayout>
-              <ExpertDashboard />
-            </DashboardLayout>
+          <ProtectedRoute isExpert={true}>
+            <ExpertDashboard />
           </ProtectedRoute>
         }
+      />
+
+      {/* Legacy expert dashboard route - redirect to new structure */}
+      <Route
+        path="/expert-dashboard/*"
+        element={<Navigate to="/expert" replace />}
       />
 
       {/* Standalone pages (no header/footer) */}
@@ -73,11 +89,10 @@ const AppRoutes = () => (
         <Route index element={<Home />} />
         <Route path="categories" element={<Category />} />
         <Route path="category/:slug" element={<Category />} />
+        <Route path="gig/:id" element={<GigView />} />
+        <Route path="gig/:id/book" element={<BookConsultation />} />
         <Route path="expert/:slug" element={<Expert />} />
-        <Route
-          path="book/:expertId"
-          element={<Book />}
-        />
+        <Route path="book/:expertId" element={<Book />} />
         <Route
           path="chat/:conversationId"
           element={
@@ -111,6 +126,7 @@ const AppRoutes = () => (
           }
         />
         <Route path="create-gig" element={<BecomeExpert />} />
+        <Route path="expert-profile" element={<ExpertProfile />} />
         <Route
           path="my-bookings"
           element={
@@ -127,7 +143,7 @@ const AppRoutes = () => (
             </ProtectedRoute>
           }
         />
-  <Route path="experts" element={<Experts />} />
+        <Route path="experts" element={<Experts />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

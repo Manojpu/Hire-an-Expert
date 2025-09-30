@@ -1,89 +1,204 @@
 import React, { useState } from "react";
+import { useAuth } from "@/context/auth/AuthContext";
 import ProgressStepper from "@/components/expert/ProgressStepper";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import ProfileSettings from "@/components/dashboard/ProfileSettings";
-import { ExpertApplicationForm, EXPERT_CATEGORIES } from "@/types/expert";
+import { ExpertApplicationForm } from "@/types/expert";
+import { AvailabilityRule } from "@/types/availability";
+import AvailabilityCalendar from "@/components/expert/AvailabilityCalendar";
 import {
   validateExpertApplication,
   convertApplicationToExpert,
   syncExpertData,
 } from "@/utils/expertUtils";
 import { convertFormToGigData, gigServiceAPI } from "@/services/gigService";
+import { submitAvailabilityRules } from "@/services/availabilityService";
+
+// TODO: Replace with your actual user service URL
+const USER_SERVICE_URL =
+  import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:8001";
+
+// Upload a verification document to the user service
+async function uploadVerificationDocument(
+  file: File,
+  documentType: string,
+  token: string,
+  userId: string
+) {
+  const formData = new FormData();
+  formData.append("file", file);
+  // Map to backend enum
+  let backendDocType = "OTHER";
+  if (documentType === "government_id") backendDocType = "ID_PROOF";
+  if (documentType === "professional_license")
+    backendDocType = "PROFESSIONAL_LICENSE";
+  formData.append("document_type", backendDocType);
+
+  const response = await fetch(
+    `${USER_SERVICE_URL}/users/documents?user_id=${userId}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Document upload failed:", response.status, errorText);
+    throw new Error(`Failed to upload document: ${errorText}`);
+  }
+  return response.json();
+}
 import { steps } from "@/components/expert/ProgressStepper";
 
-const ApplyExpert: React.FC = () => {
+const ApplyGig: React.FC = () => {
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState<Partial<ExpertApplicationForm>>({});
+  const [form, setForm] = useState<Partial<ExpertApplicationForm>>({
+    availabilityRules: [],
+  });
+  const [categories, setCategories] = useState<{ id: number; name: string }[]>(
+    []
+  );
+
+  // Fetch categories from backend on mount
+  const [catLoading, setCatLoading] = useState(true);
+  const [catError, setCatError] = useState<string | null>(null);
+  React.useEffect(() => {
+    async function fetchCategories() {
+      setCatLoading(true);
+      setCatError(null);
+      try {
+        // Use correct backend port for gig-service (likely 8002 or as per your docker-compose)
+        const res = await fetch("http://localhost:8002/categories/categories/");
+        if (!res.ok) throw new Error("Failed to fetch categories");
+        const data = await res.json();
+        setCategories(data);
+      } catch (e) {
+        setCatError("Could not load categories");
+        setCategories([]);
+        console.error("Error fetching categories:", e);
+      } finally {
+        setCatLoading(false);
+      }
+    }
+    fetchCategories();
+  }, []);
 
   const next = () => setStep((s) => Math.min(steps.length - 1, s + 1));
   const prev = () => setStep((s) => Math.max(0, s - 1));
 
   const handleChange = (
     key: keyof ExpertApplicationForm,
-    value: string | number | boolean | File | FileList | null
+    value: string | number | boolean | File | FileList | null | Array<any>
   ) => setForm((f) => ({ ...f, [key]: value }));
 
   const handleSubmit = async () => {
-    // Validate form
-    const errors = validateExpertApplication(form);
+    // Only validate and send the required fields for gig application
+    const requiredFields = [
+      "category_id",
+      "serviceDesc",
+      "rate",
+      "availabilityNotes",
+      "expertise_areas",
+      "qualificationDocs",
+      "experience_years",
+      "experience",
+      "govId",
+      "license",
+      "references",
+      "bgConsent",
+      "tos",
+    ];
+    const filteredForm: Partial<ExpertApplicationForm> = {};
+    requiredFields.forEach((key) => {
+      // @ts-ignore
+      filteredForm[key] = form[key];
+    });
 
-    // Handle qualification documents
-    const qualificationDocsUrls = form.qualificationDocs
-      ? Array.from(form.qualificationDocs).map((file) =>
-          URL.createObjectURL(file)
-        )
-      : [];
-
+    // Custom minimal validation for only required fields
+    const errors: string[] = [];
+    if (!filteredForm.category_id)
+      errors.push("Category selection is required");
+    if (!filteredForm.rate || Number(filteredForm.rate) <= 0)
+      errors.push("Valid hourly rate is required");
+    if (!filteredForm.bgConsent)
+      errors.push("Background check consent is required");
+    if (!filteredForm.tos)
+      errors.push("Terms of service acceptance is required");
     if (errors.length > 0) {
       alert("Please fix the following errors:\n" + errors.join("\n"));
       return;
     }
 
     try {
-      // Simulate uploading qualification docs
-      const uploadedQualificationDocs =
-        qualificationDocsUrls.length > 0
-          ? await Promise.all(
-              qualificationDocsUrls.map((url) => {
-                console.log("Would upload file:", url);
-                return url; // Replace with actual upload logic later
-              })
-            )
-          : [];
+      // 1. Upload verification documents to user service
+      let governmentIdUrl = "";
+      let licenseUrl = "";
 
-      // Convert form to gig service format (pass only qualification docs now)
+      if (!user) {
+        alert("You must be logged in to submit an application.");
+        return;
+      }
+      if (!user.id) {
+        alert("Could not determine your user ID. Please try again later.");
+        return;
+      }
+      const token = await user.getIdToken();
+
+      if (filteredForm.govId) {
+        const govRes = await uploadVerificationDocument(
+          filteredForm.govId as File,
+          "government_id",
+          token,
+          user.id
+        );
+        governmentIdUrl = govRes.url || govRes.file_url || "";
+      }
+      if (filteredForm.license) {
+        const licRes = await uploadVerificationDocument(
+          filteredForm.license as File,
+          "professional_license",
+          token,
+          user.id
+        );
+        licenseUrl = licRes.url || licRes.file_url || "";
+      }
+
+      // 2. Prepare gig data for gig service
       const gigData = convertFormToGigData({
-        ...form,
-        qualificationDocs: uploadedQualificationDocs,
+        ...filteredForm,
+        government_id_url: governmentIdUrl,
+        professional_license_url: licenseUrl,
       });
 
-      // Submit to Gig Service
+      // 3. Submit to Gig Service
       const createdGig = await gigServiceAPI.create(gigData);
 
-      console.log("Expert gig created successfully:", createdGig);
-
-      // Sync data across frontend components
-      const expertData = convertApplicationToExpert(form, "current_user_id");
+      // 5. Sync data across frontend components
+      const expertData = convertApplicationToExpert(
+        filteredForm,
+        "current_user_id"
+      );
       syncExpertData(expertData);
 
-      alert(`Application submitted successfully! 
-      
-Your expert profile has been created and is pending approval.
-Gig ID: ${createdGig.id}
-Status: ${createdGig.status}`);
+      alert(
+        `Application submitted successfully! \n\nYour expert profile has been created and is pending approval.\nGig ID: ${createdGig.id}\nStatus: ${createdGig.status}`
+      );
     } catch (error) {
       console.error("Error submitting application:", error);
-
       let errorMessage = "Failed to submit application. Please try again.";
       if (error instanceof Error) {
         errorMessage = `Failed to submit application: ${error.message}`;
       }
-
       alert(errorMessage);
-      console.log("Form data:", form);
-      console.log("Converted gig data:", convertFormToGigData(form));
+      console.log("Form data:", filteredForm);
+      console.log("Converted gig data:", convertFormToGigData(filteredForm));
     }
   };
 
@@ -104,20 +219,34 @@ Status: ${createdGig.status}`);
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm">Category</label>
-                    <select
-                      value={form.categories || ""}
-                      onChange={(e) =>
-                        handleChange("categories", e.target.value)
-                      }
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <option value="">Select a category</option>
-                      {Object.keys(EXPERT_CATEGORIES).map((category) => (
-                        <option key={category} value={category}>
-                          {category}
-                        </option>
-                      ))}
-                    </select>
+                    {catLoading ? (
+                      <div className="text-sm text-muted-foreground">
+                        Loading categories...
+                      </div>
+                    ) : catError ? (
+                      <div className="text-sm text-red-500">{catError}</div>
+                    ) : (
+                      <select
+                        value={form.category_id || ""}
+                        onChange={(e) =>
+                          handleChange("category_id", e.target.value)
+                        }
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <option value="">Select a category</option>
+                        {categories.length === 0 ? (
+                          <option value="" disabled>
+                            No categories found
+                          </option>
+                        ) : (
+                          categories.map((cat) => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    )}
                   </div>
                   <div>
                     <label className="text-sm">Service Description</label>
@@ -136,12 +265,23 @@ Status: ${createdGig.status}`);
                       onChange={(e) => handleChange("rate", e.target.value)}
                     />
                   </div>
-                  <div>
-                    <label className="text-sm">Availability Preferences</label>
+                  <div className="col-span-2 mt-4">
+                    <label className="text-sm mb-2 block">
+                      General Availability Notes
+                    </label>
                     <Input
+                      placeholder="E.g., Prefer evenings and weekends"
                       value={form.availabilityNotes || ""}
                       onChange={(e) =>
                         handleChange("availabilityNotes", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div className="col-span-2 mt-4">
+                    <AvailabilityCalendar
+                      value={form.availabilityRules || []}
+                      onChange={(rules) =>
+                        handleChange("availabilityRules", rules)
                       }
                     />
                   </div>
@@ -305,7 +445,7 @@ Status: ${createdGig.status}`);
               <div className="mb-2">
                 Estimated review time: 2-3 business days
               </div>
-              <div className="mb-2">Progress: {step}/5</div>
+              <div className="mb-2">Progress: {step + 1}/4</div>
               <div className="mb-2">Admin feedback: None</div>
             </div>
           </div>
@@ -315,4 +455,4 @@ Status: ${createdGig.status}`);
   );
 };
 
-export default ApplyExpert;
+export default ApplyGig;

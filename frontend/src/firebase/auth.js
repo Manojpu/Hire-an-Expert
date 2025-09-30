@@ -1,5 +1,5 @@
 import {auth} from "./firebase";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, updatePassword, sendPasswordResetEmail } from "firebase/auth";
 
 export const doSignInWithEmailAndPassword = (email, password) =>{
   return signInWithEmailAndPassword(auth, email, password);
@@ -21,12 +21,12 @@ export const doSignOut = () =>{
 }
 
 export const doPasswordReset = (email) =>{
-  return auth.sendPasswordResetEmail(email);
+  return sendPasswordResetEmail(auth, email);
 }
 
 export const doPasswordUpdate = (password) =>{
   if(auth.currentUser){
-    return auth.currentUser.updatePassword(password);
+    return updatePassword(auth.currentUser, password);
   } else {
     return Promise.reject(new Error("No user is currently signed in."));
   }

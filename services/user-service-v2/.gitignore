@@ -51,6 +51,7 @@ logs/
 .env
 .env.local
 .env.production
+serviceAccountKey.json
 
 # Docker
 .dockerignore
@@ -103,3 +104,4 @@ celerybeat.pid
 .mypy_cache/
 .dmypy.json
 dmypy.json 
+

@@ -4,39 +4,38 @@ from firebase_admin import auth, credentials, initialize_app
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional
+from uuid import UUID
 import firebase_admin
 import logging
 from config import settings
 from database import get_async_db
 from models import User, UserRole
+from crud import get_user_by_firebase_uid
 
 # Set up logger
 logger = logging.getLogger(__name__)
+bearer_scheme = HTTPBearer()
 
 
 # Initialize Firebase Admin SDK
-try:
-    firebase_admin.get_app()
-    logger.info("Firebase app already initialized")
-except ValueError:
-    logger.info("Initializing Firebase Admin SDK...")
 
-    cred = credentials.Certificate({
-        "type": "service_account",
-        "project_id": settings.firebase_project_id,
-        "private_key_id": settings.firebase_private_key_id,
-        "private_key": settings.firebase_private_key.replace("\\n", "\n"),
-        "client_email": settings.firebase_client_email,
-        "client_id": settings.firebase_client_id,
-        "auth_uri": settings.firebase_auth_uri,
-        "token_uri": settings.firebase_token_uri,
-        "auth_provider_x509_cert_url": settings.firebase_auth_provider_x509_cert_url,
-        "client_x509_cert_url": settings.firebase_client_x509_cert_url,
-    })
 
-    initialize_app(cred)
-    logger.info("Firebase Admin SDK initialized successfully")
+#     cred = credentials.Certificate({
+#         "type": "service_account",
+#         "project_id": settings.firebase_project_id,
+#         "private_key_id": settings.firebase_private_key_id,
+#         "private_key": settings.firebase_private_key.replace("\\n", "\n"),
+#         "client_email": settings.firebase_client_email,
+#         "client_id": settings.firebase_client_id,
+#         "auth_uri": settings.firebase_auth_uri,
+#         "token_uri": settings.firebase_token_uri,
+#         "auth_provider_x509_cert_url": settings.firebase_auth_provider_x509_cert_url,
+#         "client_x509_cert_url": settings.firebase_client_x509_cert_url,
+#     })
 
+if not firebase_admin._apps:
+    cred = credentials.Certificate("serviceAccountKey.json")
+    firebase_admin.initialize_app(cred)
 # Security scheme
 security = HTTPBearer()
 
@@ -165,3 +164,57 @@ async def get_optional_user(
         return await get_current_user(credentials, db)
     except HTTPException:
         return None 
+    
+async def get_current_user_id(
+    db: AsyncSession = Depends(get_async_db), 
+    token: str = Depends(bearer_scheme)
+) -> UUID:
+    """
+    Dependency function to get the current user's ID from a Firebase ID token.
+    
+    1. Verifies the Firebase ID token.
+    2. Gets the firebase_uid from the token.
+    3. Fetches the corresponding user from your database.
+    4. Returns the user's internal UUID.
+    
+    Raises HTTPException with status 401 if authentication fails.
+    """
+    try:
+        # The token.credentials is the actual JWT string
+        decoded_token = auth.verify_id_token(token.credentials)
+        firebase_uid = decoded_token["uid"]
+        
+        if not firebase_uid:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # Now, find the user in your own database
+        db_user = await get_user_by_firebase_uid(db, firebase_uid=firebase_uid)
+        
+        if db_user is None:
+            # This case happens if a user exists in Firebase but not in your DB.
+            # You might want to automatically create them here, or just deny access.
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found in our database",
+            )
+            
+        return db_user.id
+
+    except auth.InvalidIdTokenError as e:
+        # Token is invalid, expired, etc.
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid token: {e}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except Exception as e:
+        # Catch any other unexpected errors
+        logger.error(f"Unexpected error in get_current_user_id: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred during authentication: {e}"
+        )
