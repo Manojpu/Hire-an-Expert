@@ -59,7 +59,7 @@ class GigBase(BaseModel):
 
     service_description: Optional[str] = Field(None, max_length=5000)
     hourly_rate: float = Field(..., gt=0, description="Price in LKR")
-    availability_preferences: Optional[str] = Field(None, max_length=1000)
+   
     expertise_areas: List[str] = Field(default=[])
     experience_years: Optional[int] = Field(None, ge=0)
     work_experience: Optional[str] = Field(None, max_length=2000)  # New field for work experience details
