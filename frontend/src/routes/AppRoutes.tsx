@@ -15,7 +15,7 @@ const Chat = lazy(() => import("@/pages/Chat"));
 const Messages = lazy(() => import("@/pages/MessagesPage"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const ExpertDashboard = lazy(() => import("@/pages/expert/ExpertDashboard"));
-const Admin = lazy(() => import("@/pages/Admin"));
+const Admin = lazy(() => import("@/pages/admin/Admin"));
 const BecomeExpert = lazy(() => import("@/pages/CreateGig"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const MyBookings = lazy(() => import("@/pages/MyBookings"));
@@ -118,7 +118,7 @@ const AppRoutes = () => (
           }
         />
         <Route
-          path="admin/*"
+          path="admin"
           element={
             <ProtectedRoute role="admin">
               <Admin />
