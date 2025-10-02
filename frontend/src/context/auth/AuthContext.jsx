@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }) => {
         if (response.ok) {
           const profile = await response.json();
           setUserProfile(profile);
-          console.log("User profile loaded:", profile);
+          console.log("✅ User profile loaded:", profile);
         } else {
           console.warn("Failed to load user profile from User Service");
           setUserProfile(null);

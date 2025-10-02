@@ -15,7 +15,9 @@ const DashboardRedirect: React.FC = () => {
     if (!loading && user) {
       // If user has a role, redirect immediately
       if (user.role) {
-        switch (user.role) {
+        const normalizedRole = user.role.toLowerCase();
+        
+        switch (normalizedRole) {
           case 'expert':
             navigate('/expert-dashboard', { replace: true });
             break;

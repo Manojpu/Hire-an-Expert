@@ -1,7 +1,7 @@
 import React, { useState, FormEvent } from "react";
 import { getIdToken } from "firebase/auth";
 import { useAuth } from "../context/auth/AuthContext.jsx";
-import { Navigate, Link } from "react-router-dom";
+import { Navigate, Link, useNavigate } from "react-router-dom";
 import { doSignInWithEmailAndPassword, doSignInWithGoogle } from "../firebase/auth.js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ interface LoginFormData {
 
 const Login: React.FC = () => {
   const { loggedIn } = useAuth();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState<LoginFormData>({
     email: "",
     password: ""
@@ -66,8 +67,8 @@ const Login: React.FC = () => {
 
       // Optional: validate with backend (don't block login if this fails)
       try {
-  const response = await fetch(`${import.meta.env.VITE_USER_SERVICE_URL}/ping`, {
-          method: "POST",
+  const response = await fetch(`${import.meta.env.VITE_USER_SERVICE_URL}/health`, {
+          method: "GET",
           headers: { 
             "Content-Type": "application/json",
             "Authorization": `Bearer ${idToken}`
@@ -85,6 +86,9 @@ const Login: React.FC = () => {
       }
 
       console.log("Login successful!");
+      
+      // Redirect to dashboard for role-based routing
+      navigate("/dashboard", { replace: true });
       
     } catch (error) {
       console.error("Login error:", error);
@@ -108,8 +112,8 @@ const Login: React.FC = () => {
 
       // Optional: validate with backend (don't block login if this fails)
       try {
-  const response = await fetch(`${import.meta.env.VITE_USER_SERVICE_URL}/ping`, {
-          method: "POST",
+  const response = await fetch(`${import.meta.env.VITE_USER_SERVICE_URL}/health`, {
+          method: "GET",
           headers: { 
             "Content-Type": "application/json",
             "Authorization": `Bearer ${idToken}`
@@ -125,6 +129,11 @@ const Login: React.FC = () => {
       } catch (backendError) {
         console.warn("Backend validation error (Google login still successful):", (backendError as Error).message);
       }
+
+      console.log("Google login successful!");
+      
+      // Redirect to dashboard for role-based routing
+      navigate("/dashboard", { replace: true });
 
     } catch (error) {
       console.error("Google login error:", error);
