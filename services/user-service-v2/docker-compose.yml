@@ -1,36 +1,14 @@
 services:
-  db:
-    image: postgres:15
-    environment:
-      - POSTGRES_USER=user_service
-      - POSTGRES_PASSWORD=user_service_pass
-      - POSTGRES_DB=user_service_db
-    ports:
-      - "5434:5432"
-    volumes:
-      - user_service_data:/var/lib/postgresql/data/
-    networks:
-      - user-service-network
-
   user-service:
     build: .
     ports:
       - "8006:8006"
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://user_service:user_service_pass@db:5432/user_service_db
-      - SYNC_DATABASE_URL=postgresql://user_service:user_service_pass@db:5432/user_service_db
-      - DB_HOST=db
-      - DB_PORT=5432
-      - POSTGRES_DB=user_service_db
-      - POSTGRES_USER=user_service
-      - POSTGRES_PASSWORD=user_service_pass
-    depends_on:
-      - db
-    networks:
-      - user-service-network
-
-networks:
-  user-service-network:
-
-volumes:
-  user_service_data:
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
