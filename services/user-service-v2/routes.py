@@ -24,7 +24,8 @@ from schemas import (
     PreferenceBulkCreate, PreferenceBulkResponse, UserWithPreferences,
     VerificationDocumentCreate, VerificationDocumentResponse,
     ExpertVerificationUpdate, ExpertVerificationResponse,
-    AvailabilityRule, AvailabilityRuleCreate,  DateOverrideCreate, CreateAvailabilitySchedules
+    AvailabilityRule, AvailabilityRuleCreate,  DateOverrideCreate, CreateAvailabilitySchedules,
+    UserAnalyticsRequest, UserAnalyticsResponse
 ) 
 from crud import (
     create_user, get_user_by_email, get_user_by_id, get_user_by_firebase_uid, get_users, update_user, delete_user,
@@ -33,7 +34,7 @@ from crud import (
     upsert_preference, delete_preference, bulk_upsert_preferences,
     create_verification_document, get_verification_documents, get_documents_by_user, get_verification_document_by_id, delete_verification_document,
     update_expert_verification_status, get_all_expert_profiles,
-    set_availability_rules, get_availability_rules_for_user
+    set_availability_rules, get_availability_rules_for_user, get_user_analytics, get_daily_registrations
 )
 from auth import get_current_user, get_current_admin, get_user_by_id_or_current, get_optional_user
 # Removing problematic relative import
@@ -549,3 +550,27 @@ async def get_user_availability_rules(
     db: AsyncSession = Depends(get_async_db)
 ):
     return await get_availability_rules_for_user(db=db, user_id=user_id)
+
+
+@router.get("/admin/analytics/users", response_model=UserAnalyticsResponse)
+async def get_user_analytics_endpoint(
+    start_date: Optional[str] = Query(None, description="Start date in YYYY-MM-DD format"),
+    end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
+    user_type: str = Query("all", description="User type filter: all, expert, client"),
+    current_user_id: str = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Get cumulative user analytics data for admin dashboard."""
+    return await get_user_analytics(db=db, start_date=start_date, end_date=end_date, user_type=user_type)
+
+
+@router.get("/admin/analytics/daily-registrations", response_model=UserAnalyticsResponse)
+async def get_daily_registrations_endpoint(
+    start_date: Optional[str] = Query(None, description="Start date in YYYY-MM-DD format"),
+    end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
+    user_type: str = Query("all", description="User type filter: all, expert, client"),
+    current_user_id: str = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Get daily registration analytics data for admin dashboard."""
+    return await get_daily_registrations(db=db, start_date=start_date, end_date=end_date, user_type=user_type)

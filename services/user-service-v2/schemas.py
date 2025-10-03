@@ -202,3 +202,19 @@ class AvailabilityRule(AvailabilityRuleBase):
     
     class Config:
         from_attributes = True
+
+
+# Analytics schemas
+class UserAnalyticsRequest(BaseModel):
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    user_type: Optional[str] = "all"  # "all", "expert", "client"
+
+class DailyUserCount(BaseModel):
+    date: str
+    count: int
+
+class UserAnalyticsResponse(BaseModel):
+    data: List[DailyUserCount]
+    total_count: int
+    user_type: str

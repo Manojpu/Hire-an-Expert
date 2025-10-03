@@ -174,7 +174,7 @@ async def proxy_auth(request):
 
 async def proxy_user_v2(request):
     path = request.path_params.get("path", "")
-    return await proxy_request(request, services["user_v2"], f"/api/{path}")
+    return await proxy_request(request, services["user_v2"], f"/{path}")
 
 async def proxy_gigs(request):
     path = request.path_params.get("path", "")
