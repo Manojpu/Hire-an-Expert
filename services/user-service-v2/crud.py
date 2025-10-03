@@ -390,3 +390,133 @@ async def get_availability_rules_for_user(db: AsyncSession, user_id: UUID4) -> L
         select(AvailabilityRule).where(AvailabilityRule.user_id == user_id)
     )
     return result.scalars().all()
+
+
+# Analytics CRUD operations
+async def get_user_analytics(db: AsyncSession, start_date: Optional[str] = None, end_date: Optional[str] = None, user_type: str = "all"):
+    """Get cumulative user count analytics by date."""
+    from sqlalchemy import func, text
+    from datetime import datetime, timedelta, date
+    
+    # Base query to get all users with their creation dates
+    base_query = select(
+        func.date(User.created_at).label('date'),
+        User.id
+    )
+    
+    # Add user type filter
+    if user_type == "expert":
+        base_query = base_query.where(User.role == UserRole.EXPERT)
+    elif user_type == "client":
+        base_query = base_query.where(User.role == UserRole.CLIENT)
+    
+    # Don't filter by date in the base query - we need all historical data for cumulative counts
+    base_query = base_query.order_by(func.date(User.created_at))
+    
+    result = await db.execute(base_query)
+    all_users = result.fetchall()
+    
+    # Group users by date and calculate cumulative counts
+    daily_counts = {}
+    cumulative_count = 0
+    
+    for user in all_users:
+        user_date = str(user.date)
+        if user_date not in daily_counts:
+            daily_counts[user_date] = 0
+        daily_counts[user_date] += 1
+    
+    # Generate cumulative data
+    cumulative_data = []
+    sorted_dates = sorted(daily_counts.keys())
+    
+    for date_str in sorted_dates:
+        cumulative_count += daily_counts[date_str]
+        cumulative_data.append({
+            "date": date_str,
+            "count": cumulative_count
+        })
+    
+    # Filter data based on start_date and end_date if provided
+    filtered_data = cumulative_data
+    if start_date or end_date:
+        filtered_data = []
+        for item in cumulative_data:
+            item_date = datetime.strptime(item["date"], "%Y-%m-%d").date()
+            
+            # Check if date is within range
+            include_date = True
+            if start_date:
+                start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
+                if item_date < start_date_obj:
+                    include_date = False
+            
+            if end_date:
+                end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+                if item_date > end_date_obj:
+                    include_date = False
+            
+            if include_date:
+                filtered_data.append(item)
+    
+    # Get total count up to end_date (or all time if no end_date)
+    total_count = 0
+    if filtered_data:
+        total_count = filtered_data[-1]["count"]
+    
+    return {
+        "data": filtered_data,
+        "total_count": total_count,
+        "user_type": user_type
+    }
+
+
+async def get_daily_registrations(db: AsyncSession, start_date: Optional[str] = None, end_date: Optional[str] = None, user_type: str = "all"):
+    """Get daily user registration counts (non-cumulative)."""
+    from sqlalchemy import func
+    from datetime import datetime
+    
+    # Base query
+    query = select(
+        func.date(User.created_at).label('date'),
+        func.count(User.id).label('count')
+    )
+    
+    # Add user type filter
+    if user_type == "expert":
+        query = query.where(User.role == UserRole.EXPERT)
+    elif user_type == "client":
+        query = query.where(User.role == UserRole.CLIENT)
+    
+    # Add date filters
+    if start_date:
+        query = query.where(User.created_at >= start_date)
+    if end_date:
+        query = query.where(User.created_at <= end_date)
+    
+    # Group by date and order
+    query = query.group_by(func.date(User.created_at)).order_by(func.date(User.created_at))
+    
+    result = await db.execute(query)
+    data = result.fetchall()
+    
+    # Get total count for the period
+    total_query = select(func.count(User.id))
+    if user_type == "expert":
+        total_query = total_query.where(User.role == UserRole.EXPERT)
+    elif user_type == "client":
+        total_query = total_query.where(User.role == UserRole.CLIENT)
+    
+    if start_date:
+        total_query = total_query.where(User.created_at >= start_date)
+    if end_date:
+        total_query = total_query.where(User.created_at <= end_date)
+    
+    total_result = await db.execute(total_query)
+    total_count = total_result.scalar() or 0
+    
+    return {
+        "data": [{"date": str(row.date), "count": row.count} for row in data],
+        "total_count": total_count,
+        "user_type": user_type
+    }
