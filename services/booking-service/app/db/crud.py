@@ -3,28 +3,14 @@ from app.db.schemas import BookingCreate, BookingUpdate
 from app.db.models import Booking
 import uuid
 
-def create_booking(db: Session, booking: BookingCreate, user_id: int) -> Booking:
+def create_booking(db: Session, booking: BookingCreate, user_id: str) -> Booking:
     """Create a new booking."""
     db_booking = Booking(
         gig_id=booking.gig_id,
-        user_id=user_id
+        user_id=user_id,
+        scheduled_time=booking.scheduled_time
     )
     db.add(db_booking)
-    db.flush()
-    try:
-        response = requests.put(
-            f"{settings.user_service_url}/availability-slots/{booking.slot_id}/book",
-            json={"booking_id": str(db_booking.id)},
-            headers={"X-Service-Key": settings.service_api_key}
-        )
-        if response.status_code != 200:
-            # Handle error - possibly rollback
-            db.rollback()
-            raise ValueError(f"Failed to book slot: {response.text}")
-    except Exception as e:
-        db.rollback()
-        raise ValueError(f"Failed to book slot: {str(e)}")
-    
     db.commit()
     db.refresh(db_booking)
     return db_booking
@@ -59,7 +45,7 @@ def delete_booking(db: Session, booking_id: str) -> bool:
     db.commit()
     return True
 
-def get_bookings_by_user(db: Session, user_id: int):
+def get_bookings_by_user(db: Session, user_id: str):
     """Retrieve all bookings made by a specific user."""
     return db.query(Booking).filter(Booking.user_id == user_id).all()
 
@@ -71,7 +57,7 @@ def get_bookings_by_gig(db: Session, gig_id: str):
     """Retrieve all bookings for a specific gig."""
     return db.query(Booking).filter(Booking.gig_id == gig_id).all()
 
-def get_booking_by_gig_and_user(db: Session, gig_id: str, user_id: int) -> Booking:
+def get_booking_by_gig_and_user(db: Session, gig_id: str, user_id: str) -> Booking:
     """Retrieve a booking by gig ID and user ID."""
     return db.query(Booking).filter(
         Booking.gig_id == gig_id,

@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from app.db.models import User, Gig
 from app.core.logging import logger
+import uuid
 
 def seed_database(db: Session):
     """Seed the database with some initial test data."""
@@ -11,9 +12,9 @@ def seed_database(db: Session):
     if user_count == 0:
         logger.info("No users found. Adding test users...")
         test_users = [
-            User(id=1),  # This matches the hardcoded user ID in session.py
-            User(id=2),
-            User(id=3)
+            User(id=uuid.uuid4()),  # This should match the hardcoded user ID in session.py (update it too)
+            User(id=uuid.uuid4()),
+            User(id=uuid.uuid4())
         ]
         db.add_all(test_users)
         db.commit()
@@ -24,11 +25,11 @@ def seed_database(db: Session):
     if gig_count == 0:
         logger.info("No gigs found. Adding test gigs...")
         test_gigs = [
-            Gig(id=1),
-            Gig(id=2),
-            Gig(id=3),
-            Gig(id=4),
-            Gig(id=5)
+            Gig(id=uuid.uuid4()),
+            Gig(id=uuid.uuid4()),
+            Gig(id=uuid.uuid4()),
+            Gig(id=uuid.uuid4()),
+            Gig(id=uuid.uuid4())
         ]
         db.add_all(test_gigs)
         db.commit()
