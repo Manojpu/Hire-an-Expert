@@ -22,7 +22,7 @@ def create_payment_record(
         amount=amount,
         currency=currency,
         status=status,
-        metadata=json.dumps(metadata) if metadata else None
+        payment_metadata=json.dumps(metadata) if metadata else None
     )
     
     db.add(payment)
