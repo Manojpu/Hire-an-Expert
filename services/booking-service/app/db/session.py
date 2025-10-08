@@ -30,4 +30,4 @@ def get_db():
 def get_current_user_id():
     # TODO: Implement proper authentication with JWT tokens
     # For now, return a hardcoded user ID for testing purposes only
-    return 1  # Mock user ID for development
+    return "550e8400-e29b-41d4-a716-446655440000"  # Mock UUID user ID for development
