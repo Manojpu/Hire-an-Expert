@@ -24,7 +24,7 @@ def upgrade():
         sa.Column('amount', sa.Float(), nullable=False),
         sa.Column('currency', sa.String(length=3), nullable=False, server_default='LKR'),
         sa.Column('status', sa.Enum(PaymentStatus), nullable=False, server_default=PaymentStatus.PENDING.name),
-        sa.Column('metadata', sa.Text(), nullable=True),
+        sa.Column('payment_metadata', sa.Text(), nullable=True),
         sa.Column('created_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP')),
         sa.Column('updated_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), onupdate=sa.text('CURRENT_TIMESTAMP')),
         sa.PrimaryKeyConstraint('id'),

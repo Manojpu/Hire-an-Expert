@@ -301,7 +301,7 @@ async def get_payment_status(payment_intent_id: str, db: Session = Depends(get_d
                 "status": payment_intent.status,
                 "amount": payment.amount,
                 "currency": payment.currency,
-                "metadata": json.loads(payment.metadata) if payment.metadata else {},
+                "metadata": json.loads(payment.payment_metadata) if payment.payment_metadata else {},
                 "created_at": payment.created_at,
                 "updated_at": payment.updated_at,
             }
