@@ -12,23 +12,12 @@ class BookingStatus(str, enum.Enum):
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 
-# Placeholder tables for foreign key references
-class User(Base):
-    __tablename__ = 'users'
-    id = Column(UUID(as_uuid=True), primary_key=True)
-    # Add any fields you need for testing/development
-
-class Gig(Base):
-    __tablename__ = 'gigs'
-    id = Column(UUID(as_uuid=True), primary_key=True)
-    # Add any fields you need for testing/development
-
 class Booking(Base):
     __tablename__ = 'bookings'
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
-    gig_id = Column(UUID(as_uuid=True), ForeignKey('gigs.id'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), nullable=False)  # No foreign key as managed by user-service
+    gig_id = Column(UUID(as_uuid=True), nullable=False)   # No foreign key as managed by gig-service
     # Status can be 'pending', 'confirmed', 'completed', 'cancelled'
     status = Column(Enum(BookingStatus), nullable=False, default=BookingStatus.PENDING)
     scheduled_time = Column(DateTime(timezone=True), nullable=False)
