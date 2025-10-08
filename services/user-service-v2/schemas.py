@@ -202,3 +202,20 @@ class AvailabilityRule(AvailabilityRuleBase):
     
     class Config:
         from_attributes = True
+
+class AvailabilitySlotBase(BaseModel):
+    date: str  # "YYYY-MM-DD"
+    start_time: str  # "HH:MM"
+    end_time: str  # "HH:MM"
+
+class AvailabilitySlotCreate(AvailabilitySlotBase):
+    pass
+
+class AvailabilitySlotResponse(AvailabilitySlotBase):
+    id: UUID4
+    user_id: UUID4
+    is_booked: bool
+    booking_id: Optional[UUID4] = None
+    
+    class Config:
+        from_attributes = True

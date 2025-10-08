@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 import uuid
 from uuid import UUID as UUID4
-from models import User, UserRole, ExpertProfile, Preference, VerificationDocument, DocumentType, AvailabilityRule, DateOverride
+from datetime import datetime, date, time, timedelta
+from models import User, UserRole, ExpertProfile, Preference, VerificationDocument, DocumentType, AvailabilityRule, DateOverride, AvailabilitySlot
 from schemas import (
     AvailabilityRuleCreate, DateOverrideCreate, UserCreate, UserUpdate, PreferenceCreate, PreferenceUpdate, 
     ProvisionIn, ExpertProfileIn, UserOut, ExpertProfileOut, 
@@ -427,6 +428,13 @@ async def set_availability_rules(db: AsyncSession, user_id: UUID4, rules: List[A
         db.add_all(db_date_overrides)
     
     await db.commit()
+    # Generate slots for the next 30 days
+    from datetime import date, timedelta
+    today = date.today()
+    end_date = today + timedelta(days=30)
+    
+    await generate_availability_slots(db, user_id, today, end_date)
+
     return db_rules
 
 async def get_availability_rules_for_user(db: AsyncSession, user_id: UUID4) -> List[AvailabilityRule]:
@@ -435,3 +443,100 @@ async def get_availability_rules_for_user(db: AsyncSession, user_id: UUID4) -> L
         select(AvailabilityRule).where(AvailabilityRule.user_id == user_id)
     )
     return result.scalars().all()
+
+
+async def generate_availability_slots(
+    db: AsyncSession, 
+    user_id: UUID4, 
+    start_date: date, 
+    end_date: date, 
+    slot_duration_minutes: int = 60
+) -> List[AvailabilitySlot]:
+    """
+    Generate availability slots based on rules and date overrides for a specific date range.
+    
+    Args:
+        db: Database session
+        user_id: User ID to generate slots for
+        start_date: First date to generate slots for
+        end_date: Last date to generate slots for
+        slot_duration_minutes: Duration of each slot in minutes
+    
+    Returns:
+        List of created availability slots
+    """
+    # Get the user's availability rules
+    rules_result = await db.execute(
+        select(AvailabilityRule).where(AvailabilityRule.user_id == user_id)
+    )
+    availability_rules = rules_result.scalars().all()
+    
+    # Get date overrides (days when the user is not available)
+    overrides_result = await db.execute(
+        select(DateOverride).where(DateOverride.user_id == user_id)
+    )
+    unavailable_dates = [override.unavailable_date for override in overrides_result.scalars().all()]
+    
+    # Delete existing slots in the date range to avoid duplicates
+    await db.execute(
+        delete(AvailabilitySlot).where(
+            AvailabilitySlot.user_id == user_id,
+            AvailabilitySlot.date >= start_date,
+            AvailabilitySlot.date <= end_date,
+            AvailabilitySlot.is_booked == False  # Don't delete already booked slots
+        )
+    )
+    
+    # Generate slots based on rules
+    current_date = start_date
+    slots = []
+    
+    while current_date <= end_date:
+        # Skip if this date is in the unavailable dates list
+        if current_date in unavailable_dates:
+            current_date += timedelta(days=1)
+            continue
+        
+        # Find rules applicable for this day of the week (0=Monday, 6=Sunday)
+        day_of_week = current_date.weekday()
+        applicable_rules = [rule for rule in availability_rules if rule.day_of_week == day_of_week]
+        
+        for rule in applicable_rules:
+            # Parse start and end times
+            start_time_parts = [int(part) for part in rule.start_time_utc.split(':')]
+            end_time_parts = [int(part) for part in rule.end_time_utc.split(':')]
+            
+            start_datetime = datetime.combine(
+                current_date, 
+                time(hour=start_time_parts[0], minute=start_time_parts[1])
+            )
+            end_datetime = datetime.combine(
+                current_date, 
+                time(hour=end_time_parts[0], minute=end_time_parts[1])
+            )
+            
+            # Generate slots of the specified duration
+            slot_start = start_datetime
+            while slot_start < end_datetime:
+                slot_end = min(slot_start + timedelta(minutes=slot_duration_minutes), end_datetime)
+                
+                # Only create the slot if it's at least half the intended duration
+                if (slot_end - slot_start).total_seconds() >= slot_duration_minutes * 30:
+                    slots.append(AvailabilitySlot(
+                        user_id=user_id,
+                        date=current_date,
+                        start_time=slot_start.time(),
+                        end_time=slot_end.time(),
+                        is_booked=False
+                    ))
+                
+                slot_start = slot_end
+        
+        current_date += timedelta(days=1)
+    
+    # Save all slots to the database
+    db.add_all(slots)
+    await db.commit()
+    
+    # Return the created slots
+    return slots

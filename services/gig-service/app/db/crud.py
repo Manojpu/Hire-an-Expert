@@ -90,6 +90,22 @@ def create_gig(db: Session, gig: GigCreate, expert_id: str) -> Gig:
     db.commit()
     db.refresh(db_gig)
     logger.info(f"Gig created successfully with ID: {gig_id}")
+    try:
+        # Call user service to generate availability slots
+        requests.post(
+            f"{settings.user_service_url}/users/{expert_id}/generate-slots",
+            json={
+                "start_date": datetime.now().strftime("%Y-%m-%d"),
+                "end_date": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+            },
+            headers={
+                "X-Service-Key": settings.service_api_key
+            }
+        )
+    except Exception as e:
+        logger.error(f"Failed to generate availability slots: {e}")
+        # Continue with gig creation even if slot generation fails
+        
     return db_gig
 
 def get_gig(db: Session, gig_id: str) -> Optional[Gig]:
