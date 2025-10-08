@@ -10,6 +10,21 @@ def create_booking(db: Session, booking: BookingCreate, user_id: int) -> Booking
         user_id=user_id
     )
     db.add(db_booking)
+    db.flush()
+    try:
+        response = requests.put(
+            f"{settings.user_service_url}/availability-slots/{booking.slot_id}/book",
+            json={"booking_id": str(db_booking.id)},
+            headers={"X-Service-Key": settings.service_api_key}
+        )
+        if response.status_code != 200:
+            # Handle error - possibly rollback
+            db.rollback()
+            raise ValueError(f"Failed to book slot: {response.text}")
+    except Exception as e:
+        db.rollback()
+        raise ValueError(f"Failed to book slot: {str(e)}")
+    
     db.commit()
     db.refresh(db_booking)
     return db_booking

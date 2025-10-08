@@ -10,6 +10,7 @@ from typing import List, Optional
 from sqlalchemy import select
 import uuid
 from uuid import UUID as UUID4
+from datetime import date, datetime, timedelta, time
 from auth import get_current_user_id
 
 # Configure logger
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 from database import SyncSessionLocal, get_async_db
-from models import User, UserRole
+from models import User, UserRole, AvailabilitySlot, DateOverride
 from schemas import (
     UserCreate, UserUpdate, UserResponse, UserOut, ProvisionIn,
     SuccessResponse, PaginationParams, PaginatedResponse,
@@ -25,7 +26,8 @@ from schemas import (
     PreferenceBulkCreate, PreferenceBulkResponse, UserWithPreferences,
     VerificationDocumentCreate, VerificationDocumentResponse,
     ExpertVerificationUpdate, ExpertVerificationResponse,
-    AvailabilityRule, AvailabilityRuleCreate,  DateOverrideCreate, CreateAvailabilitySchedules
+    AvailabilityRule, AvailabilityRuleCreate, DateOverrideCreate, CreateAvailabilitySchedules,
+    AvailabilitySlotResponse
 ) 
 from crud import (
     create_user, get_user_by_email, get_user_by_id, get_user_by_firebase_uid, get_users, update_user, delete_user,
@@ -34,7 +36,7 @@ from crud import (
     upsert_preference, delete_preference, bulk_upsert_preferences,
     create_verification_document, get_verification_documents, get_documents_by_user, get_verification_document_by_id, delete_verification_document,
     update_expert_verification_status, get_all_expert_profiles,
-    set_availability_rules, get_availability_rules_for_user
+    set_availability_rules, get_availability_rules_for_user, generate_availability_slots
 )
 from auth import get_current_user, get_current_admin, get_user_by_id_or_current, get_optional_user
 # Removing problematic relative import
@@ -614,3 +616,30 @@ async def get_user_availability_rules(
     db: AsyncSession = Depends(get_async_db)
 ):
     return await get_availability_rules_for_user(db=db, user_id=user_id)
+
+# In routes.py
+@router.get(
+    "/users/{user_id}/availability-slots",
+    response_model=List[AvailabilitySlotResponse]
+)
+async def get_user_availability_slots(
+    user_id: UUID4,
+    start_date: date,
+    end_date: date,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Get available time slots for a user within a date range"""
+    # First, ensure slots exist by generating them
+    await generate_availability_slots(db, user_id, start_date, end_date)
+    
+    # Then fetch all available slots
+    result = await db.execute(
+        select(AvailabilitySlot).where(
+            AvailabilitySlot.user_id == user_id,
+            AvailabilitySlot.date >= start_date,
+            AvailabilitySlot.date <= end_date,
+            AvailabilitySlot.is_booked == False
+        ).order_by(AvailabilitySlot.date, AvailabilitySlot.start_time)
+    )
+    
+    return result.scalars().all()
