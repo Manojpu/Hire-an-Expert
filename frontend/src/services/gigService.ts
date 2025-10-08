@@ -1,6 +1,7 @@
 // Frontend utility to sync with Gig Service
 import { ExpertApplicationForm } from "@/types/expert";
 import { GigFilters, GigListResponse } from "@/types/publicGigs.ts";
+import { getAuth } from "firebase/auth";
 
 // Mock data for development
 const MOCK_GIGS: ExpertGig[] = [
@@ -103,8 +104,9 @@ export interface GigServiceAPI {
 }
 
 interface Certificate {
-  url: string | null;
+  url?: string | null;
   thumbnail?: File;
+  file?: File; // Allow File objects for uploads
 }
 
 export interface ExpertGigCreateData {
@@ -189,13 +191,37 @@ export const gigServiceAPI: GigServiceAPI = {
     console.log("Sending POST request to:", url);
     console.log("Gig data being sent:", gigData);
 
+    // Use FormData for multipart/form-data request to handle files
+    const formData = new FormData();
+
+    // Add all non-file fields to the form data
+    Object.keys(gigData).forEach((key) => {
+      if (key !== "certifications") {
+        // If it's an array, convert it to a string
+        if (Array.isArray(gigData[key])) {
+          formData.append(key, gigData[key].join(","));
+        } else {
+          formData.append(key, String(gigData[key]));
+        }
+      }
+    });
+
+    // Add any certificate files if they exist
+    if (gigData.certifications && Array.isArray(gigData.certifications)) {
+      gigData.certifications.forEach((cert, index) => {
+        if (cert instanceof File) {
+          formData.append(`certificate_files`, cert);
+        }
+      });
+    }
+
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        // Don't set Content-Type for multipart/form-data
         Authorization: `Bearer ${await getIdToken()}`,
       },
-      body: JSON.stringify(gigData),
+      body: formData,
     });
 
     console.log("Response status:", response.status);
@@ -541,16 +567,22 @@ export const gigServiceAPI: GigServiceAPI = {
 
 // Helper to get Firebase ID token
 async function getIdToken(): Promise<string> {
-  // This would integrate with your Firebase auth context
-  // For development, return a mock token that the backend accepts
   try {
-    // You would get this from your Firebase auth context
-    // const auth = getAuth();
-    // const user = auth.currentUser;
-    // if (user) {
-    //   return await user.getIdToken();
-    // }
-    return "dev-mock-token"; // For development only
+    // Get token from Firebase auth context
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (user) {
+      return await user.getIdToken();
+    }
+
+    // If no user is authenticated, try to get the token from localStorage
+    const storedToken = localStorage.getItem("authToken");
+    if (storedToken) {
+      return storedToken;
+    }
+
+    console.warn("No authenticated user or stored token found");
+    return ""; // Return empty string instead of mock token
   } catch (error) {
     console.error("Failed to get ID token:", error);
     return "dev-mock-token";

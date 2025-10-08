@@ -127,6 +127,17 @@ const ApplyGig: React.FC = () => {
         ...filteredForm,
       });
 
+      // Add qualification files to gigData for upload
+      if (
+        filteredForm.qualificationDocs &&
+        filteredForm.qualificationDocs.length > 0
+      ) {
+        // Convert FileList to array of File objects
+        const files = Array.from(filteredForm.qualificationDocs);
+        // @ts-ignore - we need to use Files directly for upload, but the type expects Certificate objects
+        gigData.certifications = files;
+      }
+
       // 3. Submit to Gig Service
       const createdGig = await gigServiceAPI.create(gigData);
 
