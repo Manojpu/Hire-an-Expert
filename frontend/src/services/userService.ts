@@ -86,13 +86,35 @@ export const userServiceAPI = {
       backendDocType = "PROFESSIONAL_LICENSE";
     formData.append("document_type", backendDocType);
 
-    const response = await fetch(`${USER_SERVICE_URL}/users/documents`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData,
-    });
+    // Extract user ID from token if possible, or use a default value
+    // For Firebase JWT tokens, the user ID is in the 'sub' claim
+    let userId = "";
+    try {
+      // Simple way to extract user ID from token
+      const tokenParts = token.split(".");
+      if (tokenParts.length === 3) {
+        const payload = JSON.parse(atob(tokenParts[1]));
+        userId = payload.sub || payload.user_id || "";
+      }
+    } catch (e) {
+      console.warn("Could not extract user ID from token:", e);
+    }
+
+    // Fallback to using the token itself if we couldn't extract user ID
+    if (!userId) {
+      userId = "current";
+    }
+
+    const response = await fetch(
+      `${USER_SERVICE_URL}/users/documents?user_id=${userId}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();

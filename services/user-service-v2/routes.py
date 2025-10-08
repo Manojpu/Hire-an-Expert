@@ -7,6 +7,7 @@ from models import DocumentType
 from config import settings
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
+from sqlalchemy import select
 import uuid
 from uuid import UUID as UUID4
 from auth import get_current_user_id
@@ -111,11 +112,37 @@ async def provision_user(request: Request, db: Session = Depends(get_db)):
 @router.get("/users/documents", response_model=List[VerificationDocumentResponse], summary="Get user's documents")
 async def get_user_documents(
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(get_user_by_id_or_current),
+    user_id: Optional[str] = Query(None, description="User ID (required for admin access)"),
+    current_user: User = Depends(get_current_user),
 ):
     """Retrieves all verification documents for the authenticated user."""
-    logger.info(f"🔍 GET documents endpoint hit for user_id: {current_user.id}")
-    return await get_documents_by_user(db=db, user_id=current_user.id)
+    # Determine which user ID to use
+    target_user_id = current_user.id
+    
+    # If user_id is provided and the current user is admin, use the provided user_id
+    if user_id and current_user.role == UserRole.ADMIN:
+        try:
+            target_user_id = uuid.UUID(user_id)
+        except ValueError:
+            # Try with firebase_uid
+            try:
+                result = await db.execute(select(User).where(User.firebase_uid == user_id))
+                target_user = result.scalar_one_or_none()
+                if target_user:
+                    target_user_id = target_user.id
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Target user not found"
+                    )
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid user ID format: {e}"
+                )
+    
+    logger.info(f"🔍 GET documents endpoint hit for user_id: {target_user_id}")
+    return await get_documents_by_user(db=db, user_id=target_user_id)
 
 # Public endpoints 
 @router.get("/users/{user_id}", response_model=UserResponse)
@@ -464,7 +491,8 @@ async def delete_preference_endpoint(
 )
 async def upload_verification_document(
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(get_user_by_id_or_current),
+    user_id: Optional[str] = Query(None, description="User ID (required for admin access)"),
+    current_user: User = Depends(get_current_user),
     document_type: DocumentType = Form(...),
     file: UploadFile = File(...)
 ):
@@ -475,6 +503,32 @@ async def upload_verification_document(
     - Creates a record in the verification_documents table.
     """
     try:
+        # Determine which user ID to use
+        target_user_id = current_user.id
+        
+        # If user_id is provided and the current user is admin, use the provided user_id
+        if user_id and current_user.role == UserRole.ADMIN:
+            try:
+                target_user_id = uuid.UUID(user_id)
+                # Verify the target user exists
+                result = await db.execute(select(User).where(User.id == target_user_id))
+                target_user = result.scalar_one_or_none()
+                if not target_user:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Target user not found"
+                    )
+            except ValueError:
+                # Try with firebase_uid
+                result = await db.execute(select(User).where(User.firebase_uid == user_id))
+                target_user = result.scalar_one_or_none()
+                if not target_user:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Target user not found"
+                    )
+                target_user_id = target_user.id
+                
         # Create a secure, unique filename
         file_extension = os.path.splitext(file.filename)[1]
         unique_filename = f"{uuid.uuid4()}{file_extension}"
@@ -491,7 +545,7 @@ async def upload_verification_document(
         # Create the database record
         db_document = await create_verification_document(
             db=db,
-            user_id=current_user.id,
+            user_id=target_user_id,
             document_type=document_type,
             document_url=document_url
         )
