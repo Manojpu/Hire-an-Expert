@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stripe Test Payment</title>
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      padding: 20px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .card-element {
+      border: 1px solid #ddd;
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    button {
+      background: #5469d4;
+      color: #ffffff;
+      border: 0;
+      padding: 12px 16px;
+      border-radius: 4px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+    .result-message {
+      padding: 20px;
+      background-color: #ebffef;
+      border-radius: 4px;
+      margin-top: 20px;
+      display: none;
+    }
+    .error-message {
+      padding: 20px;
+      background-color: #ffebeb;
+      border-radius: 4px;
+      margin-top: 20px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h2>Payment Test</h2>
+  <p>This page allows you to test the Stripe integration.</p>
+
+  <div id="payment-form">
+    <div>
+      <label for="booking-id">Booking ID:</label>
+      <input type="text" id="booking-id" placeholder="Enter booking ID" />
+    </div>
+    <div>
+      <label for="amount">Amount (LKR):</label>
+      <input type="number" id="amount" value="1000" min="100" />
+    </div>
+    <div>
+      <label for="gig-title">Service Title:</label>
+      <input type="text" id="gig-title" value="Test Consultation" />
+    </div>
+    <div>
+      <label for="email">Email:</label>
+      <input type="email" id="email" value="customer@example.com" />
+    </div>
+    
+    <button id="get-payment-intent">Create Payment Intent</button>
+
+    <div id="card-container" style="display: none; margin-top: 20px;">
+      <div id="card-element" class="card-element"></div>
+      <div id="card-errors" role="alert" style="color: red; margin-bottom: 10px;"></div>
+      <button id="submit-payment">Pay Now</button>
+    </div>
+  </div>
+
+  <div class="result-message" id="result-message">
+    Payment successful! Payment Intent ID: <span id="payment-intent-id"></span>
+  </div>
+  
+  <div class="error-message" id="error-message">
+    Payment failed: <span id="error-text"></span>
+  </div>
+
+  <script>
+    const stripe = Stripe('pk_test_51RtBSuC1Izya10mhxF5BJyutYn6OzIwcdICvGhvlYU4LrtFrX4ZgamJ1qjtBDzlJQ0dJzz6ILDQnkHlTQJlGJ2Wy009bTLhC06');
+    let elements;
+    let clientSecret;
+    
+    document.getElementById('get-payment-intent').addEventListener('click', async (event) => {
+      event.preventDefault();
+      
+      const bookingId = document.getElementById('booking-id').value;
+      const amount = parseFloat(document.getElementById('amount').value);
+      const gigTitle = document.getElementById('gig-title').value;
+      const email = document.getElementById('email').value;
+      
+      if (!bookingId || isNaN(amount) || amount <= 0) {
+        alert('Please enter valid booking ID and amount');
+        return;
+      }
+      
+      try {
+        const response = await fetch('http://localhost:8004/payments/create-payment-intent', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            booking_id: bookingId,
+            amount: amount,
+            gig_title: gigTitle,
+            customer_email: email,
+            metadata: {
+              booking_id: bookingId
+            }
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to create payment intent');
+        }
+        
+        const data = await response.json();
+        clientSecret = data.clientSecret;
+        
+        // Show the card element
+        document.getElementById('card-container').style.display = 'block';
+        
+        // Initialize Stripe elements
+        elements = stripe.elements({
+          clientSecret: clientSecret
+        });
+        
+        const cardElement = elements.create('card');
+        cardElement.mount('#card-element');
+        
+        cardElement.on('change', ({error}) => {
+          const displayError = document.getElementById('card-errors');
+          if (error) {
+            displayError.textContent = error.message;
+          } else {
+            displayError.textContent = '';
+          }
+        });
+      } catch (error) {
+        console.error('Error:', error);
+        showError(error.message);
+      }
+    });
+    
+    document.getElementById('submit-payment').addEventListener('click', async (event) => {
+      event.preventDefault();
+      
+      if (!clientSecret || !elements) {
+        showError('Payment intent not created yet');
+        return;
+      }
+      
+      try {
+        const {error, paymentIntent} = await stripe.confirmPayment({
+          elements,
+          confirmParams: {
+            return_url: window.location.href + '?payment_success=true',
+          },
+          redirect: 'if_required',
+        });
+        
+        if (error) {
+          showError(error.message);
+        } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+          showSuccess(paymentIntent.id);
+        } else {
+          showError('Unexpected payment state');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        showError(error.message);
+      }
+    });
+    
+    function showSuccess(paymentIntentId) {
+      document.getElementById('payment-intent-id').textContent = paymentIntentId;
+      document.getElementById('result-message').style.display = 'block';
+      document.getElementById('error-message').style.display = 'none';
+    }
+    
+    function showError(errorMessage) {
+      document.getElementById('error-text').textContent = errorMessage;
+      document.getElementById('error-message').style.display = 'block';
+      document.getElementById('result-message').style.display = 'none';
+    }
+    
+    // Check for payment success in URL params (after redirect)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('payment_success') === 'true') {
+      const paymentIntentId = urlParams.get('payment_intent');
+      if (paymentIntentId) {
+        showSuccess(paymentIntentId);
+      }
+    }
+  </script>
+</body>
+</html>
