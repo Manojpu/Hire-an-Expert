@@ -29,10 +29,22 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { CalendarIcon, CreditCard, Clock, CheckCircle } from "lucide-react";
+import {
+  CalendarIcon,
+  CreditCard,
+  Clock,
+  CheckCircle,
+  ArrowLeft,
+  Loader2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
+
+// Import Stripe components
+import StripeProvider from "@/components/payment/StripeProvider";
+import PaymentForm from "@/components/payment/PaymentForm";
+import { paymentService } from "@/services/paymentService";
 
 // Define the form schema
 const formSchema = z.object({
@@ -73,6 +85,11 @@ const BookConsultation = () => {
   const [bookingStep, setBookingStep] = useState(1);
   const [bookingComplete, setBookingComplete] = useState(false);
   const [bookingError, setBookingError] = useState("");
+  const [bookingId, setBookingId] = useState<string | null>(null);
+
+  // Stripe payment states
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
 
   // Initialize form
   const form = useForm<z.infer<typeof formSchema>>({
@@ -193,6 +210,51 @@ const BookConsultation = () => {
     setAvailableTimeSlots(slots);
   }, [form.watch("date"), availabilityRules]);
 
+  // Initialize the payment intent when moving to payment step
+  const initializePayment = async (bookingId: string) => {
+    setPaymentLoading(true);
+    try {
+      // Create a payment intent with our backend
+      const paymentData = {
+        booking_id: bookingId,
+        amount: gig.hourly_rate,
+        gig_title: gig.title || gig.service_description,
+        customer_email: user?.email,
+        metadata: {
+          booking_id: bookingId,
+          gig_id: gigId,
+          expert_id: expertId || "",
+        },
+      };
+
+      const { clientSecret: secret } = await paymentService.createPaymentIntent(
+        paymentData
+      );
+      setClientSecret(secret);
+    } catch (error) {
+      console.error("Error initializing payment:", error);
+      toast.error("Failed to initialize payment. Please try again.");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  // Handle payment success
+  const handlePaymentSuccess = async (paymentIntentId: string) => {
+    setBookingComplete(true);
+    toast.success("Payment successful! Your consultation is confirmed.");
+
+    // Redirect to bookings page after a short delay
+    setTimeout(() => {
+      navigate("/my-bookings");
+    }, 3000);
+  };
+
+  // Handle payment error
+  const handlePaymentError = (error: string) => {
+    toast.error(`Payment error: ${error}`);
+  };
+
   // Handle form submission
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
@@ -205,51 +267,47 @@ const BookConsultation = () => {
       // Move to payment step
       if (bookingStep === 1) {
         setBookingStep(2);
+
+        // Create booking
+        const selectedSlot = availableTimeSlots.find(
+          (slot) => slot.id === values.timeSlot
+        );
+        if (!selectedSlot) {
+          throw new Error("Invalid time slot selected");
+        }
+
+        // Format date and time for booking
+        const bookingDate = format(values.date, "yyyy-MM-dd");
+        const scheduledTime = `${bookingDate}T${selectedSlot.startTime}:00Z`;
+
+        const bookingPayload = {
+          gig_id: gigId,
+          scheduled_time: scheduledTime,
+        };
+
+        // Submit booking to API
+        const response = await fetch("http://localhost:8003/bookings/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify(bookingPayload),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || "Failed to create booking");
+        }
+
+        const bookingResult = await response.json();
+        setBookingId(bookingResult.id);
+
+        // Initialize payment intent
+        await initializePayment(bookingResult.id);
+
         return;
       }
-
-      // Create booking
-      const selectedSlot = availableTimeSlots.find(
-        (slot) => slot.id === values.timeSlot
-      );
-      if (!selectedSlot) {
-        throw new Error("Invalid time slot selected");
-      }
-
-      // Format date and time for booking
-      const bookingDate = format(values.date, "yyyy-MM-dd");
-      const scheduledTime = `${bookingDate}T${selectedSlot.startTime}:00Z`;
-
-      const bookingPayload = {
-        gig_id: gigId,
-        scheduled_time: scheduledTime,
-      };
-
-      // Submit booking to API
-      const response = await fetch("http://localhost:8003/bookings/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify(bookingPayload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to create booking");
-      }
-
-      const bookingResult = await response.json();
-
-      // Show success message
-      setBookingComplete(true);
-      toast.success("Consultation booked successfully!");
-
-      // Redirect to bookings page after a short delay
-      setTimeout(() => {
-        navigate("/my-bookings");
-      }, 3000);
     } catch (error: any) {
       console.error("Booking error:", error);
       toast.error(error.message || "Failed to book consultation");
@@ -293,8 +351,8 @@ const BookConsultation = () => {
             </div>
             <CardTitle className="text-2xl">Booking Successful!</CardTitle>
             <CardDescription>
-              Your consultation has been booked successfully. You will be
-              redirected to your bookings page.
+              Your consultation has been booked and payment processed. You will
+              be redirected to your bookings page.
             </CardDescription>
           </CardHeader>
           <CardFooter className="flex justify-center">
@@ -441,52 +499,38 @@ const BookConsultation = () => {
                     </>
                   ) : (
                     <>
-                      {/* Payment Form */}
+                      {/* Payment Form with Stripe */}
                       <div className="space-y-4">
-                        <FormItem>
-                          <FormLabel>Card Number</FormLabel>
-                          <FormControl>
-                            <div className="flex items-center border rounded-md px-3 py-2">
-                              <CreditCard className="w-4 h-4 mr-2 text-muted-foreground" />
-                              <input
-                                className="flex-1 bg-transparent border-none focus:outline-none"
-                                placeholder="4242 4242 4242 4242"
-                              />
-                            </div>
-                          </FormControl>
-                        </FormItem>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <FormItem>
-                            <FormLabel>Expiry Date</FormLabel>
-                            <FormControl>
-                              <input
-                                className="w-full border rounded-md px-3 py-2"
-                                placeholder="MM/YY"
-                              />
-                            </FormControl>
-                          </FormItem>
-
-                          <FormItem>
-                            <FormLabel>CVC</FormLabel>
-                            <FormControl>
-                              <input
-                                className="w-full border rounded-md px-3 py-2"
-                                placeholder="123"
-                              />
-                            </FormControl>
-                          </FormItem>
-                        </div>
-
-                        <FormItem>
-                          <FormLabel>Name on Card</FormLabel>
-                          <FormControl>
-                            <input
-                              className="w-full border rounded-md px-3 py-2"
-                              placeholder="John Doe"
+                        {paymentLoading ? (
+                          <div className="flex flex-col items-center py-8">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                            <p>Preparing payment form...</p>
+                          </div>
+                        ) : clientSecret ? (
+                          <StripeProvider options={{ clientSecret }}>
+                            <PaymentForm
+                              onPaymentSuccess={handlePaymentSuccess}
+                              onPaymentError={handlePaymentError}
+                              amount={gig.hourly_rate}
+                              currency="LKR"
                             />
-                          </FormControl>
-                        </FormItem>
+                          </StripeProvider>
+                        ) : (
+                          <div className="rounded-md bg-red-50 p-4 text-red-800 dark:bg-red-900/20 dark:text-red-500">
+                            <p>
+                              Failed to initialize payment. Please try again.
+                            </p>
+                            <Button
+                              variant="outline"
+                              className="mt-2"
+                              onClick={() =>
+                                bookingId && initializePayment(bookingId)
+                              }
+                            >
+                              Retry
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </>
                   )}
@@ -568,8 +612,7 @@ const BookConsultation = () => {
                 <span className="font-semibold">${gig.hourly_rate}</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                You'll be charged after the consultation is confirmed by the
-                expert.
+                You'll be charged immediately when you confirm this booking.
               </p>
             </CardFooter>
           </Card>
