@@ -17,8 +17,26 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, initializeUser);
-    return unsubscribe;
-  }, []);
+    
+    // Set up token refresh interval (refresh every 50 minutes)
+    const tokenRefreshInterval = setInterval(async () => {
+      if (firebaseUser) {
+        try {
+          console.log("🔄 Refreshing Firebase token...");
+          await getIdToken(firebaseUser, true); // Force refresh
+          console.log("✅ Token refreshed successfully");
+        } catch (error) {
+          console.error("❌ Token refresh failed:", error);
+          // Firebase will handle automatic logout if refresh fails
+        }
+      }
+    }, 50 * 60 * 1000); // 50 minutes
+
+    return () => {
+      unsubscribe();
+      clearInterval(tokenRefreshInterval);
+    };
+  }, [firebaseUser]);
 
   async function initializeUser(currentUser) {
     if (currentUser) {
@@ -51,12 +69,25 @@ export const AuthProvider = ({ children }) => {
         } else {
           console.warn("Failed to load user profile from User Service");
           setUserProfile(null);
+          
+          // If user service fails with 401/403, it might mean token is invalid
+          if (response.status === 401 || response.status === 403) {
+            console.warn("🔒 Authentication failed - user will be signed out");
+            // Don't set loggedIn to false here, let Firebase handle it
+          }
         }
       } catch (error) {
         console.error("Error fetching user profile:", error);
         setUserProfile(null);
+        
+        // Check if it's a network error vs auth error
+        if (error.message.includes('token') || error.message.includes('auth')) {
+          console.warn("🔒 Token-related error detected");
+        }
       }
     } else {
+      // This is where automatic logout happens
+      console.log("🚪 User signed out automatically (Firebase session ended)");
       setFirebaseUser(null);
       setUserProfile(null);
       setLoggedIn(false);
@@ -97,6 +128,20 @@ export const AuthProvider = ({ children }) => {
       }
     : null;
 
+  // Function to validate current session
+  const validateSession = async () => {
+    if (!firebaseUser) return false;
+    
+    try {
+      // Try to get a fresh token
+      const token = await getIdToken(firebaseUser, true);
+      return !!token;
+    } catch (error) {
+      console.error("Session validation failed:", error);
+      return false;
+    }
+  };
+
   const value = {
     user, // Combined user object
     firebaseUser, // Raw Firebase user
@@ -104,6 +149,7 @@ export const AuthProvider = ({ children }) => {
     loggedIn,
     loading,
     refreshUserProfile: () => initializeUser(firebaseUser), // Utility to refresh profile
+    validateSession, // Utility to check if session is still valid
   };
 
   return (

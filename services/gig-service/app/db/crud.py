@@ -289,3 +289,123 @@ def get_all_gigs(db: Session, skip: int = 0, limit: int = 100) -> list[type[Gig]
     gigs = db.query(Gig).options(joinedload(Gig.category)).offset(skip).limit(limit).all()
     logger.info(f"Retrieved {len(gigs)} gigs")
     return gigs
+
+
+def get_total_gigs_count(db: Session) -> int:
+    """Get total count of all gigs."""
+    logger.info("Getting total gigs count")
+    count = db.query(Gig).count()
+    logger.info(f"Total gigs count: {count}")
+    return count
+
+
+def get_gigs_analytics(db: Session, start_date: Optional[str] = None, end_date: Optional[str] = None) -> List[dict]:
+    """Get cumulative gigs analytics data."""
+    from sqlalchemy import func, text
+    from datetime import datetime, timedelta
+    
+    logger.info(f"Getting cumulative gig analytics from {start_date} to {end_date}")
+    
+    # First, get all gigs data (not filtered by date range for cumulative calculation)
+    base_query = """
+    WITH daily_counts AS (
+        SELECT 
+            DATE(created_at) as date,
+            COUNT(*) as daily_count
+        FROM gigs
+        GROUP BY DATE(created_at)
+    )
+    SELECT 
+        date,
+        SUM(daily_count) OVER (ORDER BY date) as count
+    FROM daily_counts
+    ORDER BY date
+    """
+    
+    result = db.execute(text(base_query))
+    all_data = [{"date": row.date.isoformat(), "count": row.count} for row in result]
+    
+    # If no data, return empty
+    if not all_data:
+        logger.info("No analytics data found")
+        return []
+    
+    # If no date filters, return all data
+    if not start_date and not end_date:
+        logger.info(f"Retrieved {len(all_data)} cumulative analytics data points")
+        return all_data
+    
+    # Filter and fill the requested date range
+    try:
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d').date() if start_date else None
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d').date() if end_date else None
+        
+        # Create a dictionary for quick lookup
+        data_dict = {datetime.strptime(dp["date"], '%Y-%m-%d').date(): dp["count"] for dp in all_data}
+        
+        # Get date range bounds
+        all_dates = sorted(data_dict.keys())
+        first_data_date = all_dates[0]
+        last_data_date = all_dates[-1]
+        
+        # Determine the actual range to show
+        range_start = start_dt if start_dt and start_dt >= first_data_date else first_data_date
+        range_end = end_dt if end_dt else last_data_date
+        
+        # If start date is before any data, start from first data date
+        if start_dt and start_dt < first_data_date:
+            range_start = first_data_date
+        
+        # Get the cumulative count at the start of our range
+        start_count = 0
+        if range_start in data_dict:
+            start_count = data_dict[range_start]
+        else:
+            # Find the cumulative count just before our start date
+            for date in sorted(data_dict.keys()):
+                if date < range_start:
+                    start_count = data_dict[date]
+                else:
+                    break
+        
+        analytics_data = []
+        current_date = range_start
+        
+        while current_date <= range_end:
+            if current_date in data_dict:
+                # Use actual data point
+                count = data_dict[current_date]
+            elif current_date <= last_data_date:
+                # Use cumulative count from previous date
+                prev_date = current_date - timedelta(days=1)
+                count = analytics_data[-1]["count"] if analytics_data else start_count
+            else:
+                # After last data date, maintain the final count
+                count = data_dict[last_data_date]
+            
+            analytics_data.append({
+                "date": current_date.isoformat(),
+                "count": count
+            })
+            
+            current_date += timedelta(days=1)
+        
+        logger.info(f"Retrieved {len(analytics_data)} cumulative analytics data points (filtered range)")
+        return analytics_data
+        
+    except ValueError as e:
+        logger.error(f"Date parsing error: {e}")
+        # Return filtered data if date parsing fails
+        filtered_data = []
+        for dp in all_data:
+            dp_date = datetime.strptime(dp["date"], '%Y-%m-%d').date()
+            if (not start_date or dp_date >= datetime.strptime(start_date, '%Y-%m-%d').date()) and \
+               (not end_date or dp_date <= datetime.strptime(end_date, '%Y-%m-%d').date()):
+                filtered_data.append(dp)
+        
+        logger.info(f"Retrieved {len(filtered_data)} cumulative analytics data points (fallback)")
+        return filtered_data
+
+
+    logger.info(f"Retrieved {len(analytics_data)} daily analytics data points")
+    return analytics_data
