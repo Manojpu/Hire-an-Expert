@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 
 type AnalyticsType = 'users' | 'experts' | 'gigs' | 'bookings';
 
-const Admin = () => {
+const AdminDashboard = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState({
@@ -371,4 +371,4 @@ const Admin = () => {
   );
 };
 
-export default Admin;
+export default AdminDashboard;
