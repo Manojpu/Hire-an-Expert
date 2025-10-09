@@ -241,13 +241,47 @@ const BookConsultation = () => {
 
   // Handle payment success
   const handlePaymentSuccess = async (paymentIntentId: string) => {
-    setBookingComplete(true);
-    toast.success("Payment successful! Your consultation is confirmed.");
+    try {
+      const paymentStatus = await paymentService.getPaymentStatus(
+        paymentIntentId
+      );
 
-    // Redirect to bookings page after a short delay
-    setTimeout(() => {
-      navigate("/my-bookings");
-    }, 3000);
+      switch (paymentStatus.status) {
+        case "succeeded":
+          setBookingComplete(true);
+          toast.success("Payment successful! Your consultation is confirmed.");
+          setTimeout(() => {
+            navigate("/my-bookings");
+          }, 3000);
+          break;
+
+        case "processing":
+          // Redirect to payment success page for status check
+          navigate(`/payment-success?payment_intent=${paymentIntentId}`);
+          break;
+
+        case "requires_action":
+        case "requires_confirmation":
+          // Handle additional actions (like 3D Secure)
+          if (paymentStatus.next_action?.redirect_to_url?.url) {
+            window.location.href =
+              paymentStatus.next_action.redirect_to_url.url;
+          } else {
+            navigate(`/payment-success?payment_intent=${paymentIntentId}`);
+          }
+          break;
+
+        default:
+          // For any other status, go to payment success page for proper handling
+          navigate(`/payment-success?payment_intent=${paymentIntentId}`);
+      }
+    } catch (error) {
+      console.error("Error handling payment success:", error);
+      toast.error(
+        "There was an issue confirming your payment. Please check your booking status."
+      );
+      navigate(`/payment-success?payment_intent=${paymentIntentId}`);
+    }
   };
 
   // Handle payment error
