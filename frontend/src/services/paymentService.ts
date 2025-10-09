@@ -27,6 +27,30 @@ export interface PaymentStatus {
 // Service functions
 export const paymentService = {
   /**
+   * Get payment service configuration
+   */
+  async getConfig(): Promise<{
+    publishableKey: string;
+    currency: string;
+    platformFeePercent: number;
+  }> {
+    try {
+      const response = await fetch(`${API_URL}/config`);
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || "Failed to get payment configuration");
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      console.error("Error getting payment configuration:", error);
+      toast.error("Failed to load payment configuration: " + error.message);
+      throw error;
+    }
+  },
+
+  /**
    * Create a payment intent for processing a payment
    */
   async createPaymentIntent(
