@@ -573,27 +573,15 @@ const BookConsultation = () => {
                         Back
                       </Button>
                     )}
-                    {!bookingComplete && (
+                    {!bookingComplete && bookingStep === 1 && (
                       <Button
                         type="submit"
                         className="ml-auto"
                         disabled={
-                          bookingStep === 1 &&
-                          (!form.watch("date") || !form.watch("timeSlot"))
+                          !form.watch("date") || !form.watch("timeSlot")
                         }
                       >
-                        {bookingStep === 1
-                          ? "Proceed to Payment"
-                          : "Confirm Booking"}
-                      </Button>
-                    )}
-                    {bookingComplete && bookingStep === 2 && (
-                      <Button
-                        type="button"
-                        className="ml-auto"
-                        onClick={() => navigate("/my-bookings")}
-                      >
-                        View My Bookings
+                        Proceed to Payment
                       </Button>
                     )}
                   </div>
