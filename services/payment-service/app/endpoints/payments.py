@@ -31,7 +31,8 @@ def ensure_url_has_scheme(url):
 
 # Initialize Stripe with the secret key from environment variables
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+stripe_publishable_key = os.getenv("STRIPE_PUBLIC_KEY")
+webhook_secret = os.getenv("WEBHOOK_SECRET") or os.getenv("STRIPE_WEBHOOK_SECRET")
 currency = os.getenv("CURRENCY", "LKR")
 platform_fee_percent = float(os.getenv("PLATFORM_FEE_PERCENT", "5"))
 frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
@@ -333,4 +334,20 @@ async def get_booking_payments(booking_id: str, db: Session = Depends(get_db)):
         ]
     except Exception as e:
         logger.error(f"Error retrieving booking payments: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/config")
+async def get_config():
+    """
+    Get payment service configuration including Stripe publishable key.
+    This endpoint is intended for frontend integration.
+    """
+    try:
+        return {
+            "publishableKey": stripe_publishable_key,
+            "currency": currency,
+            "platformFeePercent": platform_fee_percent
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving payment config: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -2,6 +2,7 @@ import uuid
 from sqlalchemy import Column, Integer, String, Float, DateTime, Enum, ForeignKey, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
+from sqlalchemy.dialects.postgresql import UUID
 import enum
 from typing import List
 from datetime import datetime
@@ -18,9 +19,9 @@ class PaymentStatus(str, enum.Enum):
 class Payment(Base):
     __tablename__ = "payments"
 
-    id = Column(uuid.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    booking_id = Column(uuid.UUID(as_uuid=True), nullable=False, index=True)
-    payment_intent_id = Column(uuid.UUID(as_uuid=True), nullable=False, unique=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    booking_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    payment_intent_id = Column(String(255), nullable=False, unique=True)
     amount = Column(Float, nullable=False)
     currency = Column(String(3), nullable=False, default="LKR")
     status = Column(Enum(PaymentStatus), nullable=False, default=PaymentStatus.PENDING)
