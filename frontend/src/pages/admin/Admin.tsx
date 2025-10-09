@@ -7,7 +7,7 @@ import { Users, UserCheck, Calendar, DollarSign, Settings, LogOut, TrendingUp } 
 import StatCard from "@/components/admin/StatCard";
 import AnalyticsChart from "@/components/admin/AnalyticsChart";
 import DateFilter, { DateRange } from "@/components/admin/DateFilter";
-import { analyticsService, AnalyticsFilters, DailyUserCount } from "@/services/analyticsService";
+import { analyticsService, AnalyticsFilters, DailyUserCount, DailyGigCount } from "@/services/analyticsService";
 import { Button } from "@/components/ui/button";
 
 type AnalyticsType = 'users' | 'experts' | 'gigs' | 'bookings';
@@ -18,13 +18,13 @@ const Admin = () => {
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalExperts: 0,
-    totalGigs: 89, // Mock data for now
+    totalGigs: 0,
     totalBookings: 234, // Mock data for now
     loading: true
   });
 
-  const [selectedAnalytics, setSelectedAnalytics] = useState<AnalyticsType>('users');
-  const [chartData, setChartData] = useState<DailyUserCount[]>([]);
+  const [selectedAnalytics, setSelectedAnalytics] = useState<AnalyticsType>('gigs');
+  const [chartData, setChartData] = useState<(DailyUserCount | DailyGigCount)[]>([]);
   const [chartLoading, setChartLoading] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
   const [selectedPreset, setSelectedPreset] = useState('month');
@@ -38,8 +38,17 @@ const Admin = () => {
 
     // Load admin statistics
     if (user && user.role === 'admin') {
+      // Initialize with default date range
+      const defaultDateRange = analyticsService.getDateRange('month');
+      const initialDateRange = {
+        from: new Date(defaultDateRange.startDate),
+        to: new Date(defaultDateRange.endDate)
+      };
+      
+      setDateRange(initialDateRange);
+      
       loadAdminStats();
-      loadAnalyticsData('users'); // Default to users
+      loadAnalyticsData('gigs', initialDateRange); // Default to gigs with date range
     }
   }, [user, loading, navigate]);
 
@@ -51,8 +60,8 @@ const Admin = () => {
       setStats({
         totalUsers: totalStats.totalUsers,
         totalExperts: totalStats.totalExperts,
-        totalGigs: 89, // These would come from other services
-        totalBookings: 234,
+        totalGigs: totalStats.totalGigs,
+        totalBookings: 234, // This would come from booking service
         loading: false
       });
     } catch (error) {
@@ -61,9 +70,9 @@ const Admin = () => {
     }
   };
 
-  const loadAnalyticsData = async (type: AnalyticsType) => {
-    if (type === 'gigs' || type === 'bookings') {
-      // Mock data for now since these services aren't implemented yet
+  const loadAnalyticsData = async (type: AnalyticsType, customDateRange?: DateRange) => {
+    if (type === 'bookings') {
+      // Mock data for now since booking service isn't implemented yet
       setChartData([]);
       return;
     }
@@ -73,21 +82,29 @@ const Admin = () => {
       
       const filters: AnalyticsFilters = {};
       
-      if (dateRange.from) {
-        filters.startDate = dateRange.from.toISOString().split('T')[0];
+      // Use custom date range if provided, otherwise use current state
+      const currentDateRange = customDateRange || dateRange;
+      
+      if (currentDateRange.from) {
+        filters.startDate = currentDateRange.from.toISOString().split('T')[0];
       }
-      if (dateRange.to) {
-        filters.endDate = dateRange.to.toISOString().split('T')[0];
+      if (currentDateRange.to) {
+        filters.endDate = currentDateRange.to.toISOString().split('T')[0];
       }
+
+      console.log('🔄 Loading analytics data with filters:', filters);
 
       let response;
       if (type === 'users') {
         response = await analyticsService.getUserAnalytics({ ...filters, userType: 'all' });
       } else if (type === 'experts') {
         response = await analyticsService.getExpertAnalytics(filters);
+      } else if (type === 'gigs') {
+        response = await analyticsService.getGigAnalytics(filters);
       }
 
       if (response) {
+        console.log('📊 Chart data updated:', response.data);
         setChartData(response.data);
       }
     } catch (error) {
@@ -100,17 +117,30 @@ const Admin = () => {
 
   const handleAnalyticsChange = (type: AnalyticsType) => {
     setSelectedAnalytics(type);
-    loadAnalyticsData(type);
+    // Pass current date range to ensure consistency
+    loadAnalyticsData(type, dateRange);
   };
 
   const handleDateRangeChange = (range: DateRange) => {
     setDateRange(range);
-    loadAnalyticsData(selectedAnalytics);
+    // Pass the new date range directly to avoid race condition
+    loadAnalyticsData(selectedAnalytics, range);
   };
 
   const handlePresetChange = (preset: string) => {
     setSelectedPreset(preset);
-    loadAnalyticsData(selectedAnalytics);
+    
+    // Get the date range for the selected preset
+    const dateRange = analyticsService.getDateRange(preset);
+    const newDateRange = {
+      from: new Date(dateRange.startDate),
+      to: new Date(dateRange.endDate)
+    };
+    
+    setDateRange(newDateRange);
+    
+    // Pass the new date range directly to avoid race condition
+    loadAnalyticsData(selectedAnalytics, newDateRange);
   };
 
   const handleLogout = async () => {

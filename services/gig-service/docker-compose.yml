@@ -1,34 +1,12 @@
 services:
-  gig-db:
-    # We will use the official PostgreSQL image, version 15.
-    image: postgres:17
-
-    # These environment variables configure PostgreSQL when it first starts.
-    environment:
-      - POSTGRES_USER=gig_user
-      - POSTGRES_PASSWORD=gig123
-      - POSTGRES_DB=gig_db
-
-    # Use unique port for gig service database (different from booking)
-    ports:
-      - "5434:5432" # Gig DB port (different from booking)
-
-    # This makes sure your data is saved even if you stop or remove
-    # the container. Your data will be stored in a "volume" named 'gig_postgres_data'.
-    volumes:
-      - gig_postgres_data:/var/lib/postgresql/data/
-
-  # Optional: Gig service itself (for individual testing)
+  # Gig service using AWS RDS database
   gig-service:
     build: .
     ports:
       - "8002:8002"
+    env_file:
+      - .env
     environment:
-      - DATABASE_URL=postgresql://gig_user:gig123@gig-db:5432/gig_db
-
-    depends_on:
-      - gig-db
-
-# This defines the named volume we used above.
-volumes:
-  gig_postgres_data:
+      - DATABASE_URL=postgresql://postgres:S.pubi91@addwise.crci4mwg2cjb.eu-north-1.rds.amazonaws.com:5432/AddWise?options=-csearch_path%3dgig_db
+      - JWT_SECRET_KEY=4866529bc05efeff764d41b723921b2a
+      - ALGORITHM=HS256
