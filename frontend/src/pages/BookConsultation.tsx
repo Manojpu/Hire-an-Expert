@@ -250,43 +250,44 @@ const BookConsultation = () => {
         case "succeeded":
           setBookingComplete(true);
           toast.success("Payment successful! Your consultation is confirmed.");
-          setTimeout(() => {
-            navigate("/my-bookings");
-          }, 3000);
+          // Don't navigate away automatically
           break;
 
         case "processing":
-          // Redirect to payment success page for status check
-          navigate(`/payment-success?payment_intent=${paymentIntentId}`);
+          toast.info("Your payment is being processed. Please wait a moment.");
+          // Don't navigate away, stay on the payment page
           break;
 
         case "requires_action":
         case "requires_confirmation":
           // Handle additional actions (like 3D Secure)
           if (paymentStatus.next_action?.redirect_to_url?.url) {
+            // We still need to redirect for 3D Secure authentication
             window.location.href =
               paymentStatus.next_action.redirect_to_url.url;
           } else {
-            navigate(`/payment-success?payment_intent=${paymentIntentId}`);
+            toast.info("Additional verification may be required.");
+            // Stay on the current page
           }
           break;
 
         default:
-          // For any other status, go to payment success page for proper handling
-          navigate(`/payment-success?payment_intent=${paymentIntentId}`);
+          toast.info(`Payment status: ${paymentStatus.status}`);
+        // Stay on the current page
       }
     } catch (error) {
       console.error("Error handling payment success:", error);
       toast.error(
         "There was an issue confirming your payment. Please check your booking status."
       );
-      navigate(`/payment-success?payment_intent=${paymentIntentId}`);
+      // Stay on the current page instead of navigating away
     }
   };
 
   // Handle payment error
   const handlePaymentError = (error: string) => {
     toast.error(`Payment error: ${error}`);
+    // No navigation - stay on the payment page
   };
 
   // Handle form submission
@@ -375,32 +376,8 @@ const BookConsultation = () => {
     );
   }
 
-  if (bookingComplete) {
-    return (
-      <div className="container py-12 flex items-center justify-center min-h-[70vh]">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 bg-green-100 dark:bg-green-900/20 p-3 rounded-full">
-              <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400" />
-            </div>
-            <CardTitle className="text-2xl">Booking Successful!</CardTitle>
-            <CardDescription>
-              Your consultation has been booked and payment processed. You will
-              be redirected to your bookings page.
-            </CardDescription>
-          </CardHeader>
-          <CardFooter className="flex justify-center">
-            <Button
-              onClick={() => navigate("/my-bookings")}
-              className="w-full max-w-xs"
-            >
-              View My Bookings
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
-    );
-  }
+  // We no longer need the separate success page rendering
+  // The success state is now handled inline within the payment step
 
   return (
     <div className="container py-8">
@@ -535,7 +512,24 @@ const BookConsultation = () => {
                     <>
                       {/* Payment Form with Stripe */}
                       <div className="space-y-4">
-                        {paymentLoading ? (
+                        {bookingComplete ? (
+                          <div className="rounded-md bg-green-50 p-6 text-green-800 dark:bg-green-900/20 dark:text-green-500 text-center">
+                            <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-600 dark:text-green-400" />
+                            <h3 className="text-lg font-medium mb-2">
+                              Booking Successful!
+                            </h3>
+                            <p className="mb-4">
+                              Your consultation has been booked and payment
+                              processed successfully.
+                            </p>
+                            <Button
+                              onClick={() => navigate("/my-bookings")}
+                              className="mx-auto"
+                            >
+                              View My Bookings
+                            </Button>
+                          </div>
+                        ) : paymentLoading ? (
                           <div className="flex flex-col items-center py-8">
                             <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
                             <p>Preparing payment form...</p>
@@ -547,7 +541,6 @@ const BookConsultation = () => {
                               onPaymentError={handlePaymentError}
                               amount={gig.hourly_rate}
                               currency="LKR"
-                              clientSecret={clientSecret}
                             />
                           </StripeProvider>
                         ) : (
@@ -571,7 +564,7 @@ const BookConsultation = () => {
                   )}
 
                   <div className="flex justify-between pt-4">
-                    {bookingStep === 2 && (
+                    {bookingStep === 2 && !bookingComplete && (
                       <Button
                         type="button"
                         variant="outline"
@@ -580,18 +573,29 @@ const BookConsultation = () => {
                         Back
                       </Button>
                     )}
-                    <Button
-                      type="submit"
-                      className="ml-auto"
-                      disabled={
-                        bookingStep === 1 &&
-                        (!form.watch("date") || !form.watch("timeSlot"))
-                      }
-                    >
-                      {bookingStep === 1
-                        ? "Proceed to Payment"
-                        : "Confirm Booking"}
-                    </Button>
+                    {!bookingComplete && (
+                      <Button
+                        type="submit"
+                        className="ml-auto"
+                        disabled={
+                          bookingStep === 1 &&
+                          (!form.watch("date") || !form.watch("timeSlot"))
+                        }
+                      >
+                        {bookingStep === 1
+                          ? "Proceed to Payment"
+                          : "Confirm Booking"}
+                      </Button>
+                    )}
+                    {bookingComplete && bookingStep === 2 && (
+                      <Button
+                        type="button"
+                        className="ml-auto"
+                        onClick={() => navigate("/my-bookings")}
+                      >
+                        View My Bookings
+                      </Button>
+                    )}
                   </div>
                 </form>
               </Form>
