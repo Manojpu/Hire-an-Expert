@@ -1,70 +1,40 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
+  PaymentElement,
   useStripe,
   useElements,
-  PaymentElement,
-  AddressElement,
 } from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, CheckCircle, AlertTriangle } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { toast } from "../ui/sonner";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
-type PaymentStatus = "initial" | "processing" | "succeeded" | "error";
-
-type PaymentFormProps = {
+interface PaymentFormProps {
   onPaymentSuccess: (paymentIntentId: string) => void;
   onPaymentError: (error: string) => void;
   amount: number;
-  currency?: string;
-};
+  currency: string;
+}
 
 export default function PaymentForm({
   onPaymentSuccess,
   onPaymentError,
   amount,
-  currency = "LKR",
+  currency,
 }: PaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("initial");
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
     if (!stripe || !elements) {
-      // Stripe.js hasn't loaded yet. Make sure to disable form submission until Stripe.js has loaded.
+      toast.error("Stripe hasn't loaded yet. Please wait.");
       return;
     }
 
     setIsProcessing(true);
-    setPaymentStatus("processing");
 
-    const { error, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: `${window.location.origin}/payment-success`,
-      },
-      redirect: "if_required",
-    });
-
-    if (error) {
-      setErrorMessage(error.message || "Payment failed. Please try again.");
-      setPaymentStatus("error");
-      onPaymentError(error.message || "Payment failed");
-    } else if (paymentIntent && paymentIntent.status === "succeeded") {
-      setPaymentStatus("succeeded");
-      onPaymentSuccess(paymentIntent.id);
-    } else {
-      setErrorMessage("Unexpected error occurred. Please try again.");
-      setPaymentStatus("error");
-      onPaymentError("Unexpected error occurred");
-    }
-
-    setIsProcessing(false);
     try {
       // Confirm the payment
       const { error, paymentIntent } = await stripe.confirmPayment({
@@ -96,49 +66,39 @@ export default function PaymentForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <Card>
-        <CardContent className="pt-6">
-          <div className="space-y-6">
-            <PaymentElement />
-            <AddressElement options={{ mode: "billing" }} />
-          </div>
-        </CardContent>
-      </Card>
-
-      {errorMessage && (
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Payment Error</AlertTitle>
-          <AlertDescription>{errorMessage}</AlertDescription>
-        </Alert>
-      )}
-
-      {paymentStatus === "succeeded" && (
-        <Alert className="bg-green-50 border-green-200 text-green-800">
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <AlertTitle>Payment Successful</AlertTitle>
-          <AlertDescription>
-            Your payment has been processed successfully.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      <div className="flex justify-end">
-        <Button
-          type="submit"
-          disabled={!stripe || isProcessing}
-          className="w-full md:w-auto"
-        >
-          {isProcessing ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Processing...
-            </>
-          ) : (
-            `Pay ${amount.toFixed(2)} ${currency}`
-          )}
-        </Button>
+      <div className="bg-muted/50 p-4 rounded-md mb-4">
+        <div className="flex justify-between items-center">
+          <span className="text-sm font-medium">Amount to pay:</span>
+          <span className="text-lg font-bold">
+            {currency} {amount.toFixed(2)}
+          </span>
+        </div>
       </div>
+
+      <PaymentElement
+        options={{
+          layout: "tabs",
+        }}
+      />
+
+      <Button
+        type="submit"
+        className="w-full"
+        disabled={isProcessing || !stripe || !elements}
+      >
+        {isProcessing ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Processing...
+          </>
+        ) : (
+          `Pay ${currency} ${amount.toFixed(2)}`
+        )}
+      </Button>
+
+      <p className="text-xs text-muted-foreground text-center">
+        Your payment information is secure and encrypted.
+      </p>
     </form>
   );
 }
