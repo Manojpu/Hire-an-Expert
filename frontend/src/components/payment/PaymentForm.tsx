@@ -17,6 +17,7 @@ type PaymentFormProps = {
   onPaymentError: (error: string) => void;
   amount: number;
   currency?: string;
+  clientSecret?: string;
 };
 
 export default function PaymentForm({
@@ -24,6 +25,7 @@ export default function PaymentForm({
   onPaymentError,
   amount,
   currency = "LKR",
+  clientSecret,
 }: PaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
@@ -42,37 +44,93 @@ export default function PaymentForm({
     setIsProcessing(true);
     setPaymentStatus("processing");
 
-    const { error, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: `${window.location.origin}/payment-success`,
-      },
-      redirect: "if_required",
-    });
+    try {
+      // Use the client secret to confirm the payment
+      const { error, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: `${window.location.origin}/payment-success`,
+        },
+        redirect: "if_required",
+      });
 
-    if (error) {
-      setErrorMessage(error.message || "Payment failed. Please try again.");
+      if (error) {
+        console.error("Payment confirmation error:", error);
+        setErrorMessage(error.message || "Payment failed. Please try again.");
+        setPaymentStatus("error");
+        onPaymentError(error.message || "Payment failed");
+      } else if (paymentIntent && paymentIntent.status === "succeeded") {
+        setPaymentStatus("succeeded");
+        onPaymentSuccess(paymentIntent.id);
+      } else if (paymentIntent) {
+        // Handle other payment statuses if needed
+        switch (paymentIntent.status) {
+          case "processing":
+            setPaymentStatus("processing");
+            break;
+          case "requires_action":
+            // If 3D Secure authentication is required, Stripe.js will handle it
+            break;
+          default:
+            setPaymentStatus("initial");
+        }
+        // Still call success handler with the ID so the app can check status later
+        onPaymentSuccess(paymentIntent.id);
+      } else {
+        setErrorMessage("Unexpected error occurred. Please try again.");
+        setPaymentStatus("error");
+        onPaymentError("Unexpected error occurred");
+      }
+    } catch (err: any) {
+      console.error("Payment submission error:", err);
+      setErrorMessage(err.message || "An unexpected error occurred");
       setPaymentStatus("error");
-      onPaymentError(error.message || "Payment failed");
-    } else if (paymentIntent && paymentIntent.status === "succeeded") {
-      setPaymentStatus("succeeded");
-      onPaymentSuccess(paymentIntent.id);
-    } else {
-      setErrorMessage("Unexpected error occurred. Please try again.");
-      setPaymentStatus("error");
-      onPaymentError("Unexpected error occurred");
+      onPaymentError(err.message || "Payment failed");
+    } finally {
+      setIsProcessing(false);
     }
-
-    setIsProcessing(false);
   };
 
+  // Check if the component has everything it needs to render
+  useEffect(() => {
+    if (!stripe || !elements) {
+      return;
+    }
+    
+    // Clear any previous errors when dependencies change
+    setErrorMessage(null);
+  }, [stripe, elements]);
+  
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <Card>
         <CardContent className="pt-6">
           <div className="space-y-6">
-            <PaymentElement />
-            <AddressElement options={{ mode: "billing" }} />
+            <div className="mb-4">
+              <h3 className="font-medium text-lg mb-2">Payment Details</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Enter your payment information to complete your booking.
+              </p>
+            </div>
+            
+            <PaymentElement options={{
+              layout: {
+                type: 'tabs',
+                defaultCollapsed: false,
+              }
+            }} />
+            
+            <AddressElement options={{ 
+              mode: "billing",
+              fields: {
+                phone: 'always',
+              },
+              validation: {
+                phone: {
+                  required: 'auto',
+                }
+              }
+            }} />
           </div>
         </CardContent>
       </Card>
@@ -98,7 +156,7 @@ export default function PaymentForm({
       <div className="flex justify-end">
         <Button
           type="submit"
-          disabled={!stripe || isProcessing}
+          disabled={!stripe || !elements || isProcessing}
           className="w-full md:w-auto"
         >
           {isProcessing ? (

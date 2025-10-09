@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 from app.db import crud, models, schemas
 from app.db.session import get_db
+import asyncio
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -86,7 +87,7 @@ def create_checkout_session(request: CheckoutRequest, db: Session = Depends(get_
     This uses Stripe's hosted checkout page.
     """
     try:
-        # Calculate the total amount including platform fee
+
         base_amount = request.booking_price
         platform_fee = base_amount * (platform_fee_percent / 100)
         total_amount = base_amount + platform_fee
