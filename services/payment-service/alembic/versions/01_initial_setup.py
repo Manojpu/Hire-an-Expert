@@ -18,8 +18,8 @@ def upgrade():
     # Create the payments table
     op.create_table(
         'payments',
-        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column('booking_id', sa.String(length=255), nullable=False),
+        sa.Column('id', sa.UUID(), nullable=False),
+        sa.Column('booking_id', sa.UUID(), nullable=False),
         sa.Column('payment_intent_id', sa.String(length=255), nullable=False),
         sa.Column('amount', sa.Float(), nullable=False),
         sa.Column('currency', sa.String(length=3), nullable=False, server_default='LKR'),
