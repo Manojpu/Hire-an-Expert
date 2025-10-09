@@ -547,6 +547,7 @@ const BookConsultation = () => {
                               onPaymentError={handlePaymentError}
                               amount={gig.hourly_rate}
                               currency="LKR"
+                              clientSecret={clientSecret}
                             />
                           </StripeProvider>
                         ) : (
