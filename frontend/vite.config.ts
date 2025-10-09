@@ -12,26 +12,7 @@ export default defineConfig(async ({ mode }) => {
   return {
     server: {
       host: "::",
-      port: 8080,
-      cors: {
-        origin: ["https://r.stripe.com", "http://localhost:8004"],
-        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"],
-        credentials: true,
-      },
-      headers: {
-        "Content-Security-Policy": `
-          default-src 'self';
-          script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://r.stripe.com;
-          style-src 'self' 'unsafe-inline';
-          img-src 'self' data: https: http:;
-          connect-src 'self' http://localhost:* https://api.stripe.com https://r.stripe.com;
-          frame-src 'self' https://js.stripe.com https://hooks.stripe.com;
-          font-src 'self' data:;
-        `
-          .replace(/\s+/g, " ")
-          .trim(),
-      },
+      port: 3000,
     },
     plugins: [react(), taggerPlugin].filter(Boolean),
     resolve: {
