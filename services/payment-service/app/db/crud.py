@@ -46,9 +46,7 @@ def get_payments_by_booking_id(db: Session, booking_id: str):
     """
     # Convert booking_id string to UUID object
     booking_id_uuid = uuid.UUID(booking_id) if isinstance(booking_id, str) else booking_id
-    # Convert booking_id string to UUID object
-    booking_id_uuid = uuid.UUID(booking_id) if isinstance(booking_id, str) else booking_id
-    return db.query(models.Payment).filter(models.Payment.booking_id == booking_id_uuid_uuid).all()
+    return db.query(models.Payment).filter(models.Payment.booking_id == booking_id_uuid).all()
 
 def update_payment_status(db: Session, payment_intent_id: str, status: models.PaymentStatus):
     """

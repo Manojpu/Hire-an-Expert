@@ -24,7 +24,7 @@ class Payment(Base):
     payment_intent_id = Column(String(255), nullable=False, unique=True)
     amount = Column(Float, nullable=False)
     currency = Column(String(3), nullable=False, default="LKR")
-    status = Column(Enum(PaymentStatus), nullable=False, default=PaymentStatus.PENDING)
+    status = Column(String(50), nullable=False, default=PaymentStatus.PENDING.value)
     payment_metadata = Column(Text, nullable=True)  # JSON string
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
