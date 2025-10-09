@@ -39,41 +39,15 @@ const DateFilter: React.FC<DateFilterProps> = ({
   const presets = [
     { label: 'Last 7 days', value: 'week' },
     { label: 'Last 30 days', value: 'month' },
-    { label: 'Last 90 days', value: 'quarter' },
+    { label: 'Last 3 months', value: '3months' },
+    { label: 'Last 6 months', value: '6months' },
     { label: 'Last year', value: 'year' },
-    { label: 'All time', value: 'all' },
     { label: 'Custom range', value: 'custom' }
   ];
 
   const handlePresetSelect = (preset: string) => {
     onPresetChange(preset);
-    
-    if (preset !== 'custom') {
-      const now = new Date();
-      let from: Date | undefined;
-      
-      switch (preset) {
-        case 'week':
-          from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          break;
-        case 'month':
-          from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-          break;
-        case 'quarter':
-          from = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-          break;
-        case 'year':
-          from = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-          break;
-        case 'all':
-          from = undefined;
-          break;
-      }
-      
-      const range = { from, to: preset === 'all' ? undefined : now };
-      setDateRange(range);
-      onDateRangeChange(range);
-    }
+    // Date range calculation is handled by the parent component
   };
 
   const handleCustomDateChange = (range: DateRange) => {
