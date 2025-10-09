@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, CheckCircle, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { toast } from "../ui/sonner";
 
 type PaymentStatus = "initial" | "processing" | "succeeded" | "error";
 
@@ -64,6 +65,33 @@ export default function PaymentForm({
     }
 
     setIsProcessing(false);
+    try {
+      // Confirm the payment
+      const { error, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: `${window.location.origin}/payment-success`,
+        },
+        redirect: "if_required", // Only redirect if 3D Secure is needed
+      });
+
+      if (error) {
+        // Payment failed
+        console.error("Payment error:", error);
+        onPaymentError(error.message || "Payment failed");
+        toast.error(error.message || "Payment failed");
+      } else if (paymentIntent) {
+        // Payment succeeded
+        console.log("Payment succeeded:", paymentIntent);
+        onPaymentSuccess(paymentIntent.id);
+      }
+    } catch (err: any) {
+      console.error("Unexpected error:", err);
+      onPaymentError(err.message || "An unexpected error occurred");
+      toast.error("An unexpected error occurred");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (

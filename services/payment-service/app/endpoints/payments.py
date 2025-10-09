@@ -221,7 +221,6 @@ async def stripe_webhook(request: Request, background_tasks: BackgroundTasks,
         sig_header = stripe_signature
 
         try:
-            # Verify the webhook signature
             event = stripe.Webhook.construct_event(
                 payload, sig_header, webhook_secret
             )
@@ -232,11 +231,15 @@ async def stripe_webhook(request: Request, background_tasks: BackgroundTasks,
             logger.error(f"Invalid signature: {str(e)}")
             raise HTTPException(status_code=400, detail="Invalid signature")
 
+        logger.info(f"Received webhook event: {event['type']}")
+
         # Handle the event
         if event['type'] == 'payment_intent.succeeded':
             payment_intent = event['data']['object']
             payment_intent_id = payment_intent.id
             booking_id = payment_intent.metadata.get('booking_id')
+            
+            logger.info(f"Payment succeeded for payment_intent: {payment_intent_id}, booking: {booking_id}")
             
             # Update our database record
             if payment_intent_id:
@@ -244,25 +247,32 @@ async def stripe_webhook(request: Request, background_tasks: BackgroundTasks,
             
             if booking_id:
                 # Update the booking status asynchronously
-                background_tasks.add_task(update_booking_status, booking_id, "confirmed")
-                logger.info(f"Payment succeeded for booking {booking_id}")
+                success = await update_booking_status(booking_id, "confirmed")
+                if success:
+                    logger.info(f"Successfully updated booking {booking_id} to confirmed")
+                else:
+                    logger.error(f"Failed to update booking {booking_id}")
             
         elif event['type'] == 'payment_intent.payment_failed':
             payment_intent = event['data']['object']
             payment_intent_id = payment_intent.id
             booking_id = payment_intent.metadata.get('booking_id')
             
+            logger.info(f"Payment failed for payment_intent: {payment_intent_id}, booking: {booking_id}")
+            
             # Update our database record
             if payment_intent_id:
                 crud.update_payment_status(db, payment_intent_id, models.PaymentStatus.FAILED)
             
             if booking_id:
-                # Update the booking status asynchronously
-                background_tasks.add_task(update_booking_status, booking_id, "cancelled")
-                logger.info(f"Payment failed for booking {booking_id}")
+                await update_booking_status(booking_id, "cancelled")
         
-        # Return a 200 response to acknowledge receipt of the event
-        return {"status": "success"}
+        elif event['type'] == 'payment_intent.processing':
+            payment_intent = event['data']['object']
+            logger.info(f"Payment processing: {payment_intent.id}")
+        
+        # Return a 200 response to acknowledge receipt
+        return {"status": "success", "event_type": event['type']}
         
     except Exception as e:
         logger.error(f"Error processing webhook: {str(e)}")
