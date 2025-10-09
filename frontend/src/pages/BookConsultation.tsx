@@ -534,50 +534,38 @@ const BookConsultation = () => {
                   ) : (
                     <>
                       {/* Payment Form with Stripe */}
-                      {bookingStep === 2 && (
-                        <div className="space-y-4">
-                          {paymentLoading ? (
-                            <div className="flex flex-col items-center py-8">
-                              <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-                              <p>Preparing payment form...</p>
-                            </div>
-                          ) : clientSecret ? (
-                            <StripeProvider
-                              options={{
-                                clientSecret,
-                                appearance: {
-                                  theme: "stripe",
-                                  variables: {
-                                    colorPrimary: "#0570de",
-                                  },
-                                },
-                              }}
+                      <div className="space-y-4">
+                        {paymentLoading ? (
+                          <div className="flex flex-col items-center py-8">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                            <p>Preparing payment form...</p>
+                          </div>
+                        ) : clientSecret ? (
+                          <StripeProvider options={{ clientSecret }}>
+                            <PaymentForm
+                              onPaymentSuccess={handlePaymentSuccess}
+                              onPaymentError={handlePaymentError}
+                              amount={gig.hourly_rate}
+                              currency="LKR"
+                            />
+                          </StripeProvider>
+                        ) : (
+                          <div className="rounded-md bg-red-50 p-4 text-red-800 dark:bg-red-900/20 dark:text-red-500">
+                            <p>
+                              Failed to initialize payment. Please try again.
+                            </p>
+                            <Button
+                              variant="outline"
+                              className="mt-2"
+                              onClick={() =>
+                                bookingId && initializePayment(bookingId)
+                              }
                             >
-                              <PaymentForm
-                                onPaymentSuccess={handlePaymentSuccess}
-                                onPaymentError={handlePaymentError}
-                                amount={gig.hourly_rate}
-                                currency="LKR"
-                              />
-                            </StripeProvider>
-                          ) : (
-                            <div className="rounded-md bg-red-50 p-4 text-red-800 dark:bg-red-900/20 dark:text-red-500">
-                              <p>
-                                Failed to initialize payment. Please try again.
-                              </p>
-                              <Button
-                                variant="outline"
-                                className="mt-2"
-                                onClick={() =>
-                                  bookingId && initializePayment(bookingId)
-                                }
-                              >
-                                Retry
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                              Retry
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </>
                   )}
 
@@ -591,6 +579,18 @@ const BookConsultation = () => {
                         Back
                       </Button>
                     )}
+                    <Button
+                      type="submit"
+                      className="ml-auto"
+                      disabled={
+                        bookingStep === 1 &&
+                        (!form.watch("date") || !form.watch("timeSlot"))
+                      }
+                    >
+                      {bookingStep === 1
+                        ? "Proceed to Payment"
+                        : "Confirm Booking"}
+                    </Button>
                   </div>
                 </form>
               </Form>
