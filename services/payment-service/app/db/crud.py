@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from datetime import datetime
 import json
+import uuid
 from . import models
 from typing import Dict, Any, Optional
 
@@ -16,9 +17,12 @@ def create_payment_record(
     """
     Create a new payment record in the database.
     """
+    # Convert booking_id string to UUID object
+    booking_id_uuid = uuid.UUID(booking_id) if isinstance(booking_id, str) else booking_id
+    
     payment = models.Payment(
-        booking_id=booking_id,
-        payment_intent_id=payment_intent_id,
+        booking_id=booking_id_uuid,
+        payment_intent_id=payment_intent_id,  # Keep as string since it's a Stripe ID
         amount=amount,
         currency=currency,
         status=status,
@@ -40,7 +44,11 @@ def get_payments_by_booking_id(db: Session, booking_id: str):
     """
     Get all payment records for a booking.
     """
-    return db.query(models.Payment).filter(models.Payment.booking_id == booking_id).all()
+    # Convert booking_id string to UUID object
+    booking_id_uuid = uuid.UUID(booking_id) if isinstance(booking_id, str) else booking_id
+    # Convert booking_id string to UUID object
+    booking_id_uuid = uuid.UUID(booking_id) if isinstance(booking_id, str) else booking_id
+    return db.query(models.Payment).filter(models.Payment.booking_id == booking_id_uuid_uuid).all()
 
 def update_payment_status(db: Session, payment_intent_id: str, status: models.PaymentStatus):
     """

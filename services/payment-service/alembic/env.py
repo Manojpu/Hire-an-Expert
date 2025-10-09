@@ -19,7 +19,11 @@ load_dotenv()
 config = context.config
 
 # Replace the database URL with the one from the environment
-config.set_main_option('sqlalchemy.url', os.getenv('DATABASE_URL', 'sqlite:///./payments.db'))
+# Also replace % signs with %% to escape them for ConfigParser
+db_url = os.getenv('DATABASE_URL', 'sqlite:///./payments.db')
+if '%' in db_url:
+    db_url = db_url.replace('%', '%%')
+config.set_main_option('sqlalchemy.url', db_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
