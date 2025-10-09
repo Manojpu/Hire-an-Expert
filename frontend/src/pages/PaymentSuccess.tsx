@@ -35,14 +35,27 @@ export default function PaymentSuccess() {
           paymentIntentId
         );
 
-        if (
-          paymentStatus.status === "succeeded" ||
-          redirectStatus === "succeeded"
-        ) {
-          setStatus("success");
-          setPaymentInfo(paymentStatus);
-        } else {
-          setStatus("error");
+        switch (paymentStatus.status) {
+          case "succeeded":
+            setStatus("success");
+            setPaymentInfo(paymentStatus);
+            break;
+          case "processing":
+            // Payment is still processing, poll for updates
+            setTimeout(verifyPayment, 3000);
+            break;
+          case "requires_payment_method":
+            // Payment failed, redirect to payment page
+            navigate(`/book/${paymentStatus.metadata?.gig_id}`);
+            break;
+          case "requires_confirmation":
+          case "requires_action":
+            // Redirect to handle additional actions (like 3D Secure)
+            window.location.href =
+              paymentStatus.next_action?.redirect_to_url?.url || "/my-bookings";
+            break;
+          default:
+            setStatus("error");
         }
       } catch (error) {
         console.error("Error verifying payment:", error);
@@ -51,7 +64,7 @@ export default function PaymentSuccess() {
     };
 
     verifyPayment();
-  }, [paymentIntentId, redirectStatus]);
+  }, [paymentIntentId, redirectStatus, navigate]);
 
   return (
     <div className="container max-w-md mx-auto py-12">

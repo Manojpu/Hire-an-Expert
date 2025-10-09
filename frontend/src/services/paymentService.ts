@@ -22,6 +22,13 @@ export interface PaymentStatus {
   amount: number;
   currency: string;
   metadata?: Record<string, any>;
+  next_action?: {
+    type: string;
+    redirect_to_url?: {
+      url: string;
+      return_url: string;
+    };
+  };
 }
 
 // Service functions
@@ -87,22 +94,43 @@ export const paymentService = {
   async getPaymentStatus(paymentIntentId: string): Promise<PaymentStatus> {
     try {
       const token = localStorage.getItem("token");
+      const maxRetries = 3;
+      let retries = 0;
 
-      const response = await fetch(
-        `${API_URL}/payment-status/${paymentIntentId}`,
-        {
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+      while (retries < maxRetries) {
+        const response = await fetch(
+          `${API_URL}/payment-status/${paymentIntentId}`,
+          {
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          }
+        );
+
+        if (!response.ok) {
+          const error = await response.json();
+          if (response.status === 404) {
+            // Payment not found, might be processing
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            retries++;
+            continue;
+          }
+          throw new Error(error.detail || "Failed to get payment status");
         }
-      );
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || "Failed to get payment status");
+        const data = await response.json();
+
+        // If payment is processing, wait and retry
+        if (data.status === "processing" && retries < maxRetries - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          retries++;
+          continue;
+        }
+
+        return data;
       }
 
-      return await response.json();
+      throw new Error("Payment status check timed out");
     } catch (error: any) {
       console.error("Error getting payment status:", error);
       toast.error("Failed to check payment status: " + error.message);
