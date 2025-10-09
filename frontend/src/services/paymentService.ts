@@ -2,6 +2,26 @@ import { toast } from "sonner";
 
 const API_URL = "http://localhost:8004/payments";
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second
+
+async function fetchWithRetry(
+  url: string,
+  options?: RequestInit,
+  retries = MAX_RETRIES
+): Promise<Response> {
+  try {
+    const response = await fetch(url, options);
+    return response;
+  } catch (error) {
+    if (retries > 0) {
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+      return fetchWithRetry(url, options, retries - 1);
+    }
+    throw error;
+  }
+}
+
 // Type definitions
 export interface CreatePaymentIntentRequest {
   booking_id: string;
@@ -42,7 +62,7 @@ export const paymentService = {
     platformFeePercent: number;
   }> {
     try {
-      const response = await fetch(`${API_URL}/config`);
+      const response = await fetchWithRetry(`${API_URL}/config`);
 
       if (!response.ok) {
         const error = await response.json();
@@ -66,14 +86,17 @@ export const paymentService = {
     try {
       const token = localStorage.getItem("token");
 
-      const response = await fetch(`${API_URL}/create-payment-intent`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(data),
-      });
+      const response = await fetchWithRetry(
+        `${API_URL}/create-payment-intent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify(data),
+        }
+      );
 
       if (!response.ok) {
         const error = await response.json();
