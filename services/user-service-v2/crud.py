@@ -426,7 +426,7 @@ async def get_user_analytics(db: AsyncSession, start_date: Optional[str] = None,
             daily_counts[user_date] = 0
         daily_counts[user_date] += 1
     
-    # Generate cumulative data
+    # Generate cumulative data for all dates
     cumulative_data = []
     sorted_dates = sorted(daily_counts.keys())
     
@@ -437,9 +437,75 @@ async def get_user_analytics(db: AsyncSession, start_date: Optional[str] = None,
             "count": cumulative_count
         })
     
-    # Filter data based on start_date and end_date if provided
-    filtered_data = cumulative_data
-    if start_date or end_date:
+    # If no data, return empty
+    if not cumulative_data:
+        return {
+            "data": [],
+            "total_count": 0,
+            "user_type": user_type
+        }
+    
+    # If no date filters, return all data
+    if not start_date and not end_date:
+        return {
+            "data": cumulative_data,
+            "total_count": cumulative_data[-1]["count"],
+            "user_type": user_type
+        }
+    
+    # Filter and fill the requested date range
+    try:
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d').date() if start_date else None
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d').date() if end_date else None
+        
+        # Create a dictionary for quick lookup
+        data_dict = {datetime.strptime(dp["date"], '%Y-%m-%d').date(): dp["count"] for dp in cumulative_data}
+        
+        # Get date range bounds
+        all_dates = sorted(data_dict.keys())
+        first_data_date = all_dates[0]
+        last_data_date = all_dates[-1]
+        
+        # Determine the actual range to show
+        range_start = start_dt if start_dt and start_dt >= first_data_date else first_data_date
+        range_end = end_dt if end_dt else last_data_date
+        
+        # If start date is before any data, start from first data date
+        if start_dt and start_dt < first_data_date:
+            range_start = first_data_date
+        
+        filtered_data = []
+        current_date = range_start
+        
+        while current_date <= range_end:
+            if current_date in data_dict:
+                # Use actual data point
+                count = data_dict[current_date]
+            elif current_date <= last_data_date:
+                # Use cumulative count from previous date
+                count = filtered_data[-1]["count"] if filtered_data else 0
+            else:
+                # After last data date, maintain the final count
+                count = data_dict[last_data_date]
+            
+            filtered_data.append({
+                "date": current_date.isoformat(),
+                "count": count
+            })
+            
+            current_date += timedelta(days=1)
+        
+        # Get total count (final cumulative count)
+        total_count = data_dict[last_data_date] if data_dict else 0
+        
+        return {
+            "data": filtered_data,
+            "total_count": total_count,
+            "user_type": user_type
+        }
+        
+    except ValueError as e:
+        # Return filtered data if date parsing fails
         filtered_data = []
         for item in cumulative_data:
             item_date = datetime.strptime(item["date"], "%Y-%m-%d").date()
@@ -458,17 +524,17 @@ async def get_user_analytics(db: AsyncSession, start_date: Optional[str] = None,
             
             if include_date:
                 filtered_data.append(item)
-    
-    # Get total count up to end_date (or all time if no end_date)
-    total_count = 0
-    if filtered_data:
-        total_count = filtered_data[-1]["count"]
-    
-    return {
-        "data": filtered_data,
-        "total_count": total_count,
-        "user_type": user_type
-    }
+        
+        # Get total count up to end_date (or all time if no end_date)
+        total_count = 0
+        if filtered_data:
+            total_count = filtered_data[-1]["count"]
+        
+        return {
+            "data": filtered_data,
+            "total_count": total_count,
+            "user_type": user_type
+        }
 
 
 async def get_daily_registrations(db: AsyncSession, start_date: Optional[str] = None, end_date: Optional[str] = None, user_type: str = "all"):

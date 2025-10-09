@@ -237,3 +237,48 @@ def delete_my_gig(
 
     logger.info(f"Gig deleted for current user ID: {expert_id}")
     return None  # 204 No Content response
+
+
+@router.get("/admin/analytics/total-stats")
+def get_total_gig_stats(
+        db: Session = Depends(session.get_db)
+):
+    """
+    Get total gig statistics for admin dashboard.
+    """
+    logger.info("Getting total gig statistics")
+    try:
+        total_gigs = crud.get_total_gigs_count(db)
+        
+        return {
+            "totalGigs": total_gigs
+        }
+    except Exception as e:
+        logger.error(f"Error getting total gig stats: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get gig statistics: {str(e)}")
+
+
+@router.get("/admin/analytics/gigs", response_model=schemas.GigAnalyticsResponse)
+def get_gig_analytics(
+        start_date: Optional[str] = Query(None, description="Start date in YYYY-MM-DD format"),
+        end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
+        db: Session = Depends(session.get_db)
+):
+    """
+    Get cumulative gig analytics data for admin dashboard.
+    Shows total gigs created up to each date for growth trend analysis.
+    """
+    logger.info(f"Getting cumulative gig analytics from {start_date} to {end_date}")
+    try:
+        analytics_data = crud.get_gigs_analytics(db=db, start_date=start_date, end_date=end_date)
+        total_count = crud.get_total_gigs_count(db)
+        
+        daily_counts = [schemas.DailyGigCount(**item) for item in analytics_data]
+        
+        return schemas.GigAnalyticsResponse(
+            data=daily_counts,
+            total_count=total_count
+        )
+    except Exception as e:
+        logger.error(f"Error getting gig analytics: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get gig analytics: {str(e)}")

@@ -557,7 +557,6 @@ async def get_user_analytics_endpoint(
     start_date: Optional[str] = Query(None, description="Start date in YYYY-MM-DD format"),
     end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
     user_type: str = Query("all", description="User type filter: all, expert, client"),
-    current_user_id: str = Depends(get_current_admin),
     db: AsyncSession = Depends(get_async_db)
 ):
     """Get cumulative user analytics data for admin dashboard."""
@@ -569,7 +568,6 @@ async def get_daily_registrations_endpoint(
     start_date: Optional[str] = Query(None, description="Start date in YYYY-MM-DD format"),
     end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
     user_type: str = Query("all", description="User type filter: all, expert, client"),
-    current_user_id: str = Depends(get_current_admin),
     db: AsyncSession = Depends(get_async_db)
 ):
     """Get daily registration analytics data for admin dashboard."""

@@ -176,9 +176,19 @@ async def proxy_user_v2(request):
     path = request.path_params.get("path", "")
     return await proxy_request(request, services["user_v2"], f"/{path}")
 
+async def proxy_user_v2_admin(request):
+    """Proxy for user admin endpoints - authentication handled by user service"""
+    path = request.path_params.get("path", "")
+    return await proxy_request(request, services["user_v2"], f"/admin/{path}", auth_required=False)
+
 async def proxy_gigs(request):
     path = request.path_params.get("path", "")
     return await proxy_request(request, services["gig"], f"/gigs/{path}")
+
+async def proxy_gigs_admin(request):
+    """Proxy for gig admin endpoints - authentication handled by gig service"""
+    path = request.path_params.get("path", "")
+    return await proxy_request(request, services["gig"], f"/gigs/admin/{path}", auth_required=False)
 
 async def proxy_bookings(request):
     path = request.path_params.get("path", "")
@@ -230,7 +240,9 @@ class LoggingMiddleware:
 routes = [
     Route("/health", health_check, methods=["GET"]),
     Route("/api/auth/{path:path}", proxy_auth, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
+    Route("/api/user-v2/admin/{path:path}", proxy_user_v2_admin, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/user-v2/{path:path}", proxy_user_v2, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
+    Route("/api/gigs/admin/{path:path}", proxy_gigs_admin, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/gigs/{path:path}", proxy_gigs, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/bookings/{path:path}", proxy_bookings, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/payments/{path:path}", proxy_payments, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
