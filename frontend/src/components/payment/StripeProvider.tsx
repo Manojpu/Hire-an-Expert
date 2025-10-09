@@ -3,7 +3,8 @@ import { Elements } from "@stripe/react-stripe-js";
 import { ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 
-// We'll fetch the publishable key from the backend
+// Get the publishable key from environment variables
+const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 let stripePromise: ReturnType<typeof loadStripe> | null = null;
 
 type StripeProviderProps = {
@@ -21,23 +22,19 @@ export default function StripeProvider({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch the publishable key from the backend
+  // Initialize Stripe with the publishable key from environment variables
   useEffect(() => {
-    const fetchConfig = async () => {
+    const initializeStripe = async () => {
       try {
-        const response = await fetch("http://localhost:8004/payments/config");
-        if (!response.ok) {
-          throw new Error("Failed to load payment configuration");
-        }
-
-        const config = await response.json();
-        if (!config.publishableKey) {
-          throw new Error("No publishable key found");
+        if (!publishableKey) {
+          throw new Error(
+            "No Stripe publishable key found in environment variables"
+          );
         }
 
         // Initialize Stripe only once
         if (!stripePromise) {
-          stripePromise = loadStripe(config.publishableKey);
+          stripePromise = loadStripe(publishableKey);
         }
       } catch (err) {
         console.error("Failed to load Stripe configuration:", err);
@@ -50,7 +47,7 @@ export default function StripeProvider({
       }
     };
 
-    fetchConfig();
+    initializeStripe();
   }, []);
 
   if (loading) {
