@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session , joinedload
 from sqlalchemy import or_
 
 # Import the correct models and schemas for your new structure
-from .models import Gig, Category, GigStatus
+from .models import Gig, Category, GigStatus, Certification
 from .schemas import GigCreate, GigUpdate, GigFilters, CategoryCreate
 from app.utils.logger import get_logger
 
@@ -409,3 +409,11 @@ def get_gigs_analytics(db: Session, start_date: Optional[str] = None, end_date: 
 
     logger.info(f"Retrieved {len(analytics_data)} daily analytics data points")
     return analytics_data
+
+
+def get_gig_certifications(db: Session, gig_id: str) -> List[Certification]:
+    """Get all certifications for a specific gig."""
+    logger.info(f"Retrieving certifications for gig: {gig_id}")
+    certifications = db.query(Certification).filter(Certification.gig_id == gig_id).all()
+    logger.info(f"Found {len(certifications)} certifications for gig: {gig_id}")
+    return certifications
