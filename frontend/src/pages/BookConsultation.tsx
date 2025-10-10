@@ -140,7 +140,7 @@ const BookConsultation = () => {
 
       try {
         const response = await fetch(
-          `http://localhost:8001/users/${expertId}/availability-rules`
+          `http://localhost:8006/users/${expertId}/availability-rules`
         );
         if (!response.ok) {
           throw new Error(
@@ -320,16 +320,23 @@ const BookConsultation = () => {
           scheduled_time: scheduledTime,
         };
 
+        // Get a fresh token directly from the user object
+        let idToken = "";
+        if (user && user.getIdToken) {
+          idToken = await user.getIdToken();
+        } else {
+          throw new Error("Unable to get authentication token");
+        }
+
         // Submit booking to API
         const response = await fetch("http://localhost:8003/bookings/", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${idToken}`,
           },
           body: JSON.stringify(bookingPayload),
         });
-
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.detail || "Failed to create booking");

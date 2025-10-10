@@ -5,16 +5,21 @@ from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, HTTPException   
 from fastapi import status
 from app.core.logging import logger
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from app.core.firebase_auth import get_current_user_id
 
 router = APIRouter()
 
 @router.post("/", response_model=BookingResponse, status_code=status.HTTP_201_CREATED)
-def create_booking(booking: BookingCreate, db: Session = Depends(session.get_db)):
+def create_booking(
+    booking: BookingCreate, 
+    db: Session = Depends(session.get_db),
+    current_user_id: str = Depends(get_current_user_id)
+):
     """Create a new booking."""
     try:
-        user_id = session.get_current_user_id()
-        logger.info(f"Creating booking for user {user_id}, gig {booking.gig_id}")
-        db_booking = crud.create_booking(db=db, booking=booking, user_id=user_id)
+        logger.info(f"Creating booking for user {current_user_id}, gig {booking.gig_id}")
+        db_booking = crud.create_booking(db=db, booking=booking, user_id=current_user_id)
         if not db_booking:
             raise HTTPException(status_code=400, detail="Booking creation failed")
         return db_booking
@@ -84,15 +89,17 @@ def delete_booking(booking_id: str, db: Session = Depends(session.get_db)):
         )
 
 @router.get("/user", response_model=list[BookingResponse])
-def get_bookings_by_user(db: Session = Depends(session.get_db)):
+def get_bookings_by_user(
+    db: Session = Depends(session.get_db),
+    current_user_id: str = Depends(get_current_user_id)
+):
     """Retrieve all bookings made by the current user."""
     try:
-        user_id = session.get_current_user_id()
-        logger.info(f"Getting bookings for user: {user_id}")
-        bookings = crud.get_bookings_by_user(db=db, user_id=user_id)
+        logger.info(f"Getting bookings for user: {current_user_id}")
+        bookings = crud.get_bookings_by_user(db=db, user_id=current_user_id)
         return bookings
     except Exception as e:
-        logger.error(f"Error getting bookings for user {user_id}: {str(e)}")
+        logger.error(f"Error getting bookings for user {current_user_id}: {str(e)}")
         raise HTTPException(
             status_code=500, 
             detail=f"Failed to get user bookings: {str(e)}"

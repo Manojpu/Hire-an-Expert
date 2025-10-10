@@ -3,7 +3,7 @@ import { AvailabilityRule, DateOverride } from "@/types/availability";
 
 // TODO: Replace with your actual user service URL
 const USER_SERVICE_URL =
-  import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:8001";
+  import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:8006";
 
 interface CreateAvailabilitySchedules {
   availabilityRules: AvailabilityRule[];
