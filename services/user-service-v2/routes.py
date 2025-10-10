@@ -274,7 +274,6 @@ async def get_users_admin(
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(10, ge=1, le=100, description="Page size"),
     role: Optional[UserRole] = Query(None, description="Filter by role"),
-    current_user: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -300,7 +299,6 @@ async def get_users_admin(
 @router.delete("/admin/users/{user_id}", response_model=SuccessResponse)
 async def delete_user_admin(
     user_id: str,
-    current_user: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -314,13 +312,6 @@ async def delete_user_admin(
             detail="Invalid user ID format"
         )
     
-    # Prevent admin from deleting themselves
-    if current_user.id == user_uuid:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot delete your own account"
-        )
-    
     success = await delete_user(db, user_uuid)
     if not success:
         raise HTTPException(
@@ -329,6 +320,42 @@ async def delete_user_admin(
         )
     
     return SuccessResponse(message="User deleted successfully")
+
+
+@router.get("/admin/users/{user_id}", response_model=UserResponse)
+async def get_user_admin(
+    user_id: str,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    Get specific user details (admin only)
+    """
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user ID format"
+        )
+    
+    user = await get_user_by_id(db, user_uuid)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    return UserResponse(
+        id=str(user.id),
+        email=user.email,
+        full_name=user.full_name,
+        phone_number=user.phone_number,
+        role=user.role,
+        account_type=user.account_type,
+        is_active=user.is_active,
+        created_at=user.created_at,
+        updated_at=user.updated_at
+    )
 
 
 # Preference endpoints

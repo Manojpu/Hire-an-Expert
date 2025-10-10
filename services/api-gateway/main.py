@@ -177,8 +177,15 @@ async def proxy_user_v2(request):
     return await proxy_request(request, services["user_v2"], f"/{path}")
 
 async def proxy_user_v2_admin(request):
-    """Proxy for user admin endpoints - authentication handled by user service"""
+    """Proxy for user admin endpoints - route to regular user endpoints as fallback"""
     path = request.path_params.get("path", "")
+    
+    # For user details, route to regular user endpoint instead of admin
+    if path.startswith("users/"):
+        user_id = path.replace("users/", "")
+        return await proxy_request(request, services["user_v2"], f"/users/{user_id}", auth_required=False)
+    
+    # For other admin endpoints, use admin route
     return await proxy_request(request, services["user_v2"], f"/admin/{path}", auth_required=False)
 
 async def proxy_gigs(request):
