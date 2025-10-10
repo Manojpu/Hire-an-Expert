@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://booking:booking123@localhost:5433/booking_db")
     
     # External services
-   
+    AUTH_SERVICE_URL: str = os.getenv("AUTH_SERVICE_URL", "http://localhost:8001")
     USER_SERVICE_URL: str = os.getenv("USER_SERVICE_URL", "http://localhost:8006")  # Alias for backward compatibility
     
     # CORS settings

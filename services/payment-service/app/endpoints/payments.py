@@ -37,7 +37,7 @@ webhook_secret = os.getenv("WEBHOOK_SECRET") or os.getenv("STRIPE_WEBHOOK_SECRET
 currency = os.getenv("CURRENCY", "LKR")
 platform_fee_percent = float(os.getenv("PLATFORM_FEE_PERCENT", "5"))
 frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-booking_service_url = os.getenv("BOOKING_SERVICE_URL", "http://localhost:8001")
+booking_service_url = os.getenv("BOOKING_SERVICE_URL", "http://localhost:8006")
 
 router = APIRouter()
 

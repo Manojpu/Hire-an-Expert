@@ -46,8 +46,8 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(secu
         firebase_uid = decoded_token['uid']
         logger.info(f"✅ Token verified successfully for Firebase UID: {firebase_uid}")
         
-        # Use the auth-service to get the user ID
-        user_service_url = f"{settings.USER_SERVICE_URL}/users/by-firebase-uid/{firebase_uid}"
+        # Use the user-service to get the user ID
+        user_service_url = f"{settings.USER_SERVICE_URL}/users/firebase/{firebase_uid}"
         
         # Call user service to get user information
         try:
