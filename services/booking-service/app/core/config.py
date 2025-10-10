@@ -13,6 +13,13 @@ class Settings(BaseSettings):
     # Database settings
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://booking:booking123@localhost:5433/booking_db")
     
+    # External services
+   
+    USER_SERVICE_URL: str = os.getenv("USER_SERVICE_URL", "http://localhost:8006")  # Alias for backward compatibility
+    
+    # CORS settings
+    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:3000")
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
