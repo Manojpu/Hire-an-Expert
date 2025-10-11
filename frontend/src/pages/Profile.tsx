@@ -904,8 +904,14 @@ const Profile = () => {
                                   <div className="flex items-center gap-1 mt-3">
                                     <DollarSign className="h-4 w-4 text-primary" />
                                     <span className="font-medium text-primary">
-                                      {gigDetails.hourly_rate}{" "}
-                                      {gigDetails.currency}/hour
+                                      {gigDetails.currency === "USD"
+                                        ? "$"
+                                        : gigDetails.currency === "LKR"
+                                        ? "Rs. "
+                                        : gigDetails.currency === "EUR"
+                                        ? "€"
+                                        : `${gigDetails.currency} `}
+                                      {gigDetails.hourly_rate}/hour
                                     </span>
                                   </div>
                                 )}
@@ -975,7 +981,14 @@ const Profile = () => {
                               {/* Total amount calculation - hourly_rate * 1 hour */}
                               {gigDetails && (
                                 <div className="text-xl font-bold text-primary">
-                                  {gigDetails.hourly_rate} {gigDetails.currency}
+                                  {gigDetails.currency === "USD"
+                                    ? "$"
+                                    : gigDetails.currency === "LKR"
+                                    ? "Rs. "
+                                    : gigDetails.currency === "EUR"
+                                    ? "€"
+                                    : `${gigDetails.currency} `}
+                                  {gigDetails.hourly_rate}
                                 </div>
                               )}
 
