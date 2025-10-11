@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { getICalHref, getGoogleCalendarUrl } from "@/lib/calendar";
 import { bookingService, Booking } from "@/services/bookingService";
+import { toSriLankaTime } from "@/utils/dateUtils";
 import { Loader2 } from "lucide-react";
 
 const MyBookings = () => {
@@ -79,7 +80,12 @@ const MyBookings = () => {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold">My Bookings</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold">My Bookings</h2>
+        <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+          All times shown in Sri Lanka time (GMT+5:30)
+        </div>
+      </div>
 
       {loading && (
         <div className="min-h-[40vh] flex items-center justify-center">
@@ -141,7 +147,7 @@ const MyBookings = () => {
                   )}
 
                   <div className="text-sm text-muted-foreground mt-1">
-                    {new Date(booking.scheduled_time).toLocaleString()}
+                    {toSriLankaTime(booking.scheduled_time)} (Sri Lanka time)
                   </div>
 
                   <div className="text-sm text-muted-foreground mt-2">
@@ -216,22 +222,68 @@ const MyBookings = () => {
                     </a>
                   )}
 
-                  {/* Calendar links would need to be updated for the new booking format */}
+                  {/* Calendar integration with Sri Lanka time */}
                   {booking.status === "confirmed" && (
                     <div className="mt-2 flex gap-2">
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          toast({
-                            title: "Calendar export",
-                            description: "This feature will be available soon!",
-                          });
-                        }}
-                        className="text-xs text-muted-foreground underline"
-                      >
-                        Add to Calendar
-                      </a>
+                      <div className="dropdown">
+                        <a
+                          href="#"
+                          className="text-xs text-muted-foreground underline"
+                          onClick={(e) => {
+                            e.preventDefault();
+
+                            // Create calendar event based on scheduled time
+                            const startTime = new Date(booking.scheduled_time);
+                            // Assuming sessions last 1 hour
+                            const endTime = new Date(
+                              startTime.getTime() + 60 * 60 * 1000
+                            );
+
+                            // Format title and description
+                            const title = `Booking - ${
+                              gigDetails?.service_description?.substring(
+                                0,
+                                30
+                              ) || "Expert Session"
+                            }`;
+                            const description = `Booking session for ${
+                              gigDetails?.service_description ||
+                              "Expert Service"
+                            }.`;
+
+                            // Create Google Calendar URL
+                            const googleUrl = new URL(
+                              "https://calendar.google.com/calendar/render"
+                            );
+                            googleUrl.searchParams.append("action", "TEMPLATE");
+                            googleUrl.searchParams.append("text", title);
+                            googleUrl.searchParams.append(
+                              "details",
+                              description
+                            );
+                            googleUrl.searchParams.append(
+                              "dates",
+                              `${
+                                startTime
+                                  .toISOString()
+                                  .replace(/[-:]/g, "")
+                                  .split(".")[0]
+                              }Z/` +
+                                `${
+                                  endTime
+                                    .toISOString()
+                                    .replace(/[-:]/g, "")
+                                    .split(".")[0]
+                                }Z`
+                            );
+
+                            // Open in new window
+                            window.open(googleUrl.toString(), "_blank");
+                          }}
+                        >
+                          Add to Calendar
+                        </a>
+                      </div>
                     </div>
                   )}
                 </div>
