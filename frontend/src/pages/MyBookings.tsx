@@ -101,9 +101,12 @@ const MyBookings = () => {
           )}
 
           {bookings.map((booking) => {
-            // Get expert info from mock data - this would come from API in production
-            const expertId = booking.gig_id; // Using gig_id as substitute in this example
+            // Get expert info from mock data for backward compatibility
+            const expertId = booking.gig_id;
             const expert = MOCK_EXPERTS.find((e) => e.id === expertId);
+
+            // Get gig details from the API response
+            const gigDetails = booking.gig_details;
 
             // Action handlers
             const onExpertApprove = () =>
@@ -117,22 +120,46 @@ const MyBookings = () => {
                 key={booking.id}
                 className="border rounded p-4 bg-background flex items-start justify-between"
               >
-                <div>
+                <div className="flex-1">
+                  {/* Display service description if available */}
                   <div className="font-medium">
-                    {/* Display gig title or ID */}
-                    Booking for Gig{" "}
-                    {expert
-                      ? `— ${expert.name}`
-                      : booking.gig_id.substring(0, 8)}
+                    {gigDetails?.service_description
+                      ? gigDetails.service_description.substring(0, 50) +
+                        (gigDetails.service_description.length > 50
+                          ? "..."
+                          : "")
+                      : expert
+                      ? `Booking for Gig — ${expert.name}`
+                      : `Booking for Gig ID: ${booking.gig_id.substring(0, 8)}`}
                   </div>
-                  <div className="text-sm text-muted-foreground">
+
+                  {/* Display rate if available */}
+                  {gigDetails && (
+                    <div className="text-sm font-medium text-primary-600">
+                      {gigDetails.hourly_rate} {gigDetails.currency}/hour
+                    </div>
+                  )}
+
+                  <div className="text-sm text-muted-foreground mt-1">
                     {new Date(booking.scheduled_time).toLocaleString()}
                   </div>
+
                   <div className="text-sm text-muted-foreground mt-2">
                     Status:{" "}
                     <span className="font-medium">{booking.status}</span>
                   </div>
                 </div>
+
+                {/* Display thumbnail if available */}
+                {gigDetails?.thumbnail_url && (
+                  <div className="flex-shrink-0 ml-4 mr-4">
+                    <img
+                      src={gigDetails.thumbnail_url}
+                      alt="Gig thumbnail"
+                      className="w-16 h-16 object-cover rounded"
+                    />
+                  </div>
+                )}
 
                 <div className="flex flex-col items-end gap-2">
                   {/* Expert actions */}

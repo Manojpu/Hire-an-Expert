@@ -25,6 +25,14 @@ async function fetchWithRetry(
 }
 
 // Type definitions from your lib/bookings.ts, but aligned with backend format
+export interface GigDetails {
+  id: string;
+  service_description: string;
+  thumbnail_url?: string;
+  hourly_rate: number;
+  currency: string;
+}
+
 export interface Booking {
   id: string;
   user_id: string; // matches backend format
@@ -32,6 +40,7 @@ export interface Booking {
   status: "pending" | "confirmed" | "completed" | "cancelled";
   scheduled_time: string; // ISO format from backend
   created_at: string;
+  gig_details?: GigDetails; // The gig details from the enhanced response
 }
 
 // Get all bookings for the current user

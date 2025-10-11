@@ -21,6 +21,16 @@ class BookingResponse(BookingBase):
 
     class Config:
         from_attributes = True
+        
+class GigDetails(BaseModel):
+    id: str
+    service_description: str
+    thumbnail_url: Optional[str] = None
+    hourly_rate: float
+    currency: str
+    
+class BookingResponseWithGigDetails(BookingResponse):
+    gig_details: Optional[GigDetails] = None
 class BookingUpdate(BaseModel):
     status: str | None = None
     scheduled_time: datetime | None = None
