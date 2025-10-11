@@ -79,18 +79,14 @@ const Signup: React.FC = () => {
 
       // Create user profile in User Service
       try {
-  const response = await fetch(`${import.meta.env.VITE_USER_SERVICE_URL}/internal/users/provision`, {
+        const response = await fetch(`${import.meta.env.VITE_USER_SERVICE_URL}/internal/users/provision`, {
           method: "POST",
           headers: { 
-            "Content-Type": "application/json",
-            "X-Webhook-Secret": "7f6b8e2e6b9147f0b34a84d5b673d3e85d3a21b6b3c847c0a9e32f8f8a172ab4"
+            "Content-Type": "application/json"
           },
           body: JSON.stringify({ 
             firebase_uid: userCredential.user.uid,
-            email: formData.email,
-            name: userCredential.user.displayName || formData.email.split('@')[0],  // Change from full_name to name
-            is_expert: true,
-            expert_profiles: []
+            email: formData.email
           }),
         });
 
@@ -128,18 +124,14 @@ const Signup: React.FC = () => {
 
       // Create user profile in User Service
       try {
-  const response = await fetch(`${import.meta.env.VITE_USER_SERVICE_URL}/internal/users/provision`, {
+        const response = await fetch(`${import.meta.env.VITE_USER_SERVICE_URL}/internal/users/provision`, {
           method: "POST",
           headers: { 
-            "Content-Type": "application/json",
-            "X-Webhook-Secret": "7f6b8e2e6b9147f0b34a84d5b673d3e85d3a21b6b3c847c0a9e32f8f8a172ab4"
+            "Content-Type": "application/json"
           },
           body: JSON.stringify({ 
             firebase_uid: userCredential.user.uid,
-            email: userCredential.user.email,
-            name: userCredential.user.displayName || userCredential.user.email?.split('@')[0] || 'User',  // Change from full_name to name
-            is_expert: true,
-            expert_profiles: []
+            email: userCredential.user.email
           }),
         });
 

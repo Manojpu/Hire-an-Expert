@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session , joinedload
 from sqlalchemy import or_
 
 # Import the correct models and schemas for your new structure
-from .models import Gig, Category, GigStatus
+from .models import Gig, Category, GigStatus, Certification
 from .schemas import GigCreate, GigUpdate, GigFilters, CategoryCreate
 from app.utils.logger import get_logger
 

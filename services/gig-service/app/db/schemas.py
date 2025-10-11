@@ -169,3 +169,21 @@ class GigStatusUpdate(BaseModel):
 
     status: GigStatus
     rejection_reason: Optional[str] = Field(None, max_length=1000)
+
+
+class DailyGigCount(BaseModel):
+    """Schema for daily gig count analytics."""
+    date: str
+    count: int
+
+
+class GigAnalyticsResponse(BaseModel):
+    """Response schema for gig analytics."""
+    data: List[DailyGigCount]
+    total_count: int
+
+
+class GigAnalyticsRequest(BaseModel):
+    """Request schema for gig analytics filters."""
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None

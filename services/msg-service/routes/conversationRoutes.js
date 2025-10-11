@@ -6,7 +6,8 @@ const {
   getConversation 
 } = require("../controllers/conversationController");
 
-router.get("/:userId", getUserConversations);
+// Get conversations by Firebase UID
+router.get("/user/:userId", getUserConversations);
 router.post("/", createConversation);
 router.get("/details/:id", getConversation);
 

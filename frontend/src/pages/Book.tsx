@@ -35,7 +35,7 @@ const Book = () => {
   const [description, setDescription] = useState("");
   const [language, setLanguage] = useState<string | null>(null);
   const [pendingBooking, setPendingBooking] = useState<Booking | null>(null);
-  const { state } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const expert = useMemo(
