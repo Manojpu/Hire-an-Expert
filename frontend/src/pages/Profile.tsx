@@ -902,7 +902,9 @@ const Profile = () => {
                                 {/* Price display */}
                                 {gigDetails && (
                                   <div className="flex items-center gap-1 mt-3">
-                                    <DollarSign className="h-4 w-4 text-primary" />
+                                    {gigDetails.currency === "USD" && (
+                                      <DollarSign className="h-4 w-4 text-primary" />
+                                    )}
                                     <span className="font-medium text-primary">
                                       {gigDetails.currency === "USD"
                                         ? "$"
