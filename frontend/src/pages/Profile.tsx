@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
+import { toast } from "sonner";
 import {
   Camera,
   Mail,
@@ -1017,6 +1018,30 @@ const Profile = () => {
                                     size="sm"
                                     variant="outline"
                                     className="text-rose-500 border-rose-200 hover:bg-rose-50"
+                                    onClick={async () => {
+                                      try {
+                                        setBookingsLoading(true);
+                                        await bookingService.updateBookingStatus(
+                                          booking.id,
+                                          "cancelled"
+                                        );
+                                        toast.success(
+                                          "Booking cancelled successfully"
+                                        );
+                                        // Refresh bookings list
+                                        const updatedBookings =
+                                          await bookingService.getUserBookings();
+                                        setUserBookings(updatedBookings || []);
+                                      } catch (err) {
+                                        console.error(
+                                          "Error cancelling booking:",
+                                          err
+                                        );
+                                        toast.error("Failed to cancel booking");
+                                      } finally {
+                                        setBookingsLoading(false);
+                                      }
+                                    }}
                                   >
                                     Cancel
                                   </Button>
