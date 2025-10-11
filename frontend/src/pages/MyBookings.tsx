@@ -1,46 +1,78 @@
-import React, { useMemo, useState, useEffect } from "react";
-import {
-  getBookings,
-  updateBookingStatus,
-  cancelBooking,
-  confirmBookingWithPayment,
-  capturePayment,
-  Booking,
-} from "@/lib/bookings";
+import React, { useState, useEffect } from "react";
 import { MOCK_EXPERTS } from "@/data/mockExperts";
 import { useAuth } from "@/context/auth/AuthContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { getICalHref, getGoogleCalendarUrl } from "@/lib/calendar";
+import { bookingService, Booking } from "@/services/bookingService";
+import { Loader2 } from "lucide-react";
 
 const MyBookings = () => {
   const { user } = useAuth();
   const userId = user?.id;
-  const [tick, setTick] = useState(0);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const bookings = useMemo(() => {
-    if (!userId) return [] as Booking[];
-    return getBookings().filter(
-      (b) => b.clientId === userId || b.expertId === userId
-    );
+  // Fetch bookings from API when component mounts or userId changes
+  useEffect(() => {
+    async function fetchUserBookings() {
+      if (!userId) {
+        setBookings([]);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null); // Clear any previous errors
+        const userBookings = await bookingService.getUserBookings();
+        console.log("Fetched bookings:", userBookings); // Debug log
+        setBookings(userBookings || []);
+      } catch (err) {
+        console.error("Error fetching bookings:", err);
+        setError(
+          "Failed to load your bookings. Please ensure you are logged in."
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchUserBookings();
   }, [userId]);
 
-  useEffect(() => {
-    // listen for storage events to update bookings across tabs
-    const handler = () => setTick((t) => t + 1);
-    window.addEventListener("storage", handler);
-    return () => window.removeEventListener("storage", handler);
-  }, []);
+  // Modified action handlers for the API
+  const handleUpdateStatus = async (bookingId: string, status: string) => {
+    try {
+      await bookingService.updateBookingStatus(bookingId, status);
+      // Refresh bookings after update
+      const updatedBookings = await bookingService.getUserBookings();
+      setBookings(updatedBookings);
 
-  // refresh when tick changes
-  useEffect(() => {
-    // no-op, tick used to re-evaluate bookings via useMemo's closure by reading from localStorage inside the render
-  }, [tick]);
+      toast({
+        title: `Booking ${status}`,
+        description: `Booking has been ${status}`,
+      });
+    } catch (err) {
+      console.error(`Failed to update booking status:`, err);
+      toast({
+        title: "Update failed",
+        description: "Failed to update booking status",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (!userId) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        Please sign in to view your bookings.
+      <div className="min-h-[60vh] flex flex-col items-center justify-center">
+        <div className="text-xl font-semibold mb-4">
+          Authentication Required
+        </div>
+        <div className="text-muted-foreground">
+          Please sign in to view your bookings.
+        </div>
       </div>
     );
   }
@@ -48,141 +80,139 @@ const MyBookings = () => {
   return (
     <div>
       <h2 className="text-2xl font-bold">My Bookings</h2>
-      <div className="mt-4 space-y-4">
-        {bookings.length === 0 && (
-          <div className="text-muted-foreground">No bookings yet.</div>
-        )}
-        {bookings.map((b) => {
-          const expert =
-            MOCK_EXPERTS.find((e) => e.id === b.expertId) ||
-            MOCK_EXPERTS.find((e) => e.userId === b.expertId);
-          const onExpertApprove = () => {
-            updateBookingStatus(b.id, "approved");
-            setTick((t) => t + 1);
-            toast({
-              title: "Request approved",
-              description: `You approved booking request ${b.id}. Client can now pay to confirm.`,
-            });
-          };
-          const onExpertReject = () => {
-            updateBookingStatus(b.id, "cancelled");
-            setTick((t) => t + 1);
-            toast({
-              title: "Request rejected",
-              description: `You rejected booking request ${b.id}.`,
-            });
-          };
-          const onClientCancel = () => {
-            cancelBooking(b.id);
-            setTick((t) => t + 1);
-            toast({
-              title: "Booking cancelled",
-              description: `Booking ${b.id} was cancelled.`,
-            });
-          };
-          const onClientPay = () => {
-            const updated = capturePayment(b.id, b.amount);
-            setTick((t) => t + 1);
-            toast({
-              title: "Payment successful",
-              description: `Booking confirmed. Meeting: ${
-                updated?.meetingLink || "N/A"
-              }`,
-            });
-          };
-          return (
-            <div
-              key={b.id}
-              className="border rounded p-4 bg-background flex items-start justify-between"
-            >
-              <div>
-                <div className="font-medium">
-                  {b.service} {expert ? `— ${expert.name}` : ""}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {new Date(b.dateTime).toLocaleString()}
-                </div>
-                <div className="text-sm text-muted-foreground mt-2">
-                  Status: <span className="font-medium">{b.status}</span>
-                </div>
-              </div>
 
-              <div className="flex flex-col items-end gap-2">
-                {/* Expert actions */}
-                {user?.role === "expert" &&
-                  user?.id === expert?.userId &&
-                  b.status === "pending" && (
-                    <div className="flex gap-2">
-                      <Button onClick={onExpertApprove} size="sm">
-                        Approve
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        onClick={onExpertReject}
-                        size="sm"
-                      >
-                        Reject
-                      </Button>
-                    </div>
-                  )}
+      {loading && (
+        <div className="min-h-[40vh] flex items-center justify-center">
+          <Loader2 className="h-8 w-8 text-primary animate-spin mr-2" />
+          <p>Loading your bookings...</p>
+        </div>
+      )}
 
-                {/* Client actions */}
-                {user?.role === "client" && user?.id === b.clientId && (
-                  <div className="flex flex-col items-end gap-2">
-                    {b.status === "approved" && (
-                      <Button onClick={onClientPay} size="sm">
-                        Pay & Confirm
-                      </Button>
-                    )}
-                    {b.status === "pending" && (
-                      <Button
-                        variant="ghost"
-                        onClick={onClientCancel}
-                        size="sm"
-                      >
-                        Cancel
-                      </Button>
-                    )}
+      {error && (
+        <div className="mt-4 p-4 bg-red-50 text-red-600 rounded-md">
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && (
+        <div className="mt-4 space-y-4">
+          {bookings.length === 0 && (
+            <div className="text-muted-foreground">No bookings yet.</div>
+          )}
+
+          {bookings.map((booking) => {
+            // Get expert info from mock data - this would come from API in production
+            const expertId = booking.gig_id; // Using gig_id as substitute in this example
+            const expert = MOCK_EXPERTS.find((e) => e.id === expertId);
+
+            // Action handlers
+            const onExpertApprove = () =>
+              handleUpdateStatus(booking.id, "confirmed");
+            const onExpertReject = () =>
+              handleUpdateStatus(booking.id, "cancelled");
+            const onClientCancel = () =>
+              handleUpdateStatus(booking.id, "cancelled");
+            return (
+              <div
+                key={booking.id}
+                className="border rounded p-4 bg-background flex items-start justify-between"
+              >
+                <div>
+                  <div className="font-medium">
+                    {/* Display gig title or ID */}
+                    Booking for Gig{" "}
+                    {expert
+                      ? `— ${expert.name}`
+                      : booking.gig_id.substring(0, 8)}
                   </div>
-                )}
-
-                <div className="text-sm text-muted-foreground">
-                  Amount: Rs. {b.amount}
+                  <div className="text-sm text-muted-foreground">
+                    {new Date(booking.scheduled_time).toLocaleString()}
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-2">
+                    Status:{" "}
+                    <span className="font-medium">{booking.status}</span>
+                  </div>
                 </div>
-                {b.meetingLink && (
-                  <a
-                    href={b.meetingLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-primary underline"
-                  >
-                    Join Meeting
-                  </a>
-                )}
-                {b.status === "confirmed" && (
-                  <div className="mt-2 flex gap-2">
+
+                <div className="flex flex-col items-end gap-2">
+                  {/* Expert actions */}
+                  {user?.role === "expert" &&
+                    user?.id === expert?.userId &&
+                    booking.status === "pending" && (
+                      <div className="flex gap-2">
+                        <Button onClick={onExpertApprove} size="sm">
+                          Approve
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={onExpertReject}
+                          size="sm"
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+
+                  {/* Client actions */}
+                  {user?.role === "client" &&
+                    booking.user_id === userId &&
+                    booking.status === "pending" && (
+                      <div className="flex flex-col items-end gap-2">
+                        <Button
+                          variant="ghost"
+                          onClick={onClientCancel}
+                          size="sm"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
+
+                  {/* We don't have amount in the API response, but if you add it, uncomment this
+                <div className="text-sm text-muted-foreground">
+                  Amount: Rs. {booking.amount || "N/A"}
+                </div> 
+                */}
+
+                  {/* Link would come from your database if you implement it */}
+                  {booking.status === "confirmed" && (
                     <a
-                      href={getICalHref(b)}
-                      download={`booking-${b.id}.ics`}
-                      className="text-xs text-muted-foreground underline"
-                    >
-                      Add to iCal
-                    </a>
-                    <a
-                      href={getGoogleCalendarUrl(b)}
+                      href={`https://meet.mock/room-${booking.id.substring(
+                        0,
+                        8
+                      )}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-xs text-muted-foreground underline"
+                      className="text-xs text-primary underline"
                     >
-                      Add to Google Calendar
+                      Join Meeting
                     </a>
-                  </div>
-                )}
+                  )}
+
+                  {/* Calendar links would need to be updated for the new booking format */}
+                  {booking.status === "confirmed" && (
+                    <div className="mt-2 flex gap-2">
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          toast({
+                            title: "Calendar export",
+                            description: "This feature will be available soon!",
+                          });
+                        }}
+                        className="text-xs text-muted-foreground underline"
+                      >
+                        Add to Calendar
+                      </a>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
