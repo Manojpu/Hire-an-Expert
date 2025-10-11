@@ -79,7 +79,7 @@ const GigOverview: React.FC<GigOverviewProps> = ({ gig }) => {
                 {gig.status}
               </Badge>
               <span className="text-sm text-muted-foreground capitalize">
-                {gig.category.replace('-', ' ')}
+                {gig.category_id ? String(gig.category_id).replace('-', ' ') : 'Uncategorized'}
               </span>
               <span className="flex items-center gap-1 text-sm">
                 <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />

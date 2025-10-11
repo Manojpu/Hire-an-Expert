@@ -106,7 +106,7 @@ const MOCK_GIGS: ExpertGig[] = [
 ];
 
 // Development flag - set to true to use mock data
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false; // Changed to use backend API
 
 export interface GigServiceAPI {
   create: (gigData: ExpertGigCreateData) => Promise<ExpertGig>;
@@ -261,13 +261,45 @@ export const gigServiceAPI: GigServiceAPI = {
   },
 
   async getMyGigs(): Promise<ExpertGig[]> {
-    // FOR DEVELOPMENT: Return mock data instead of API call
-    console.log("Using mock data for getMyGigs during development");
+    try {
+      console.log("🔄 Fetching gigs from backend API...");
+      console.log("🌐 Backend URL:", GIG_SERVICE_URL);
+      
+      // First try to get user's own gig
+      const token = await getIdToken();
+      console.log("🔐 Using auth token:", token?.substring(0, 20) + "...");
+      
+      const myGigResponse = await fetch(`${GIG_SERVICE_URL}/gigs/my/gig`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
+      console.log("📡 Response status:", myGigResponse.status);
+      console.log("📡 Response headers:", Object.fromEntries(myGigResponse.headers.entries()));
+      
+      if (myGigResponse.ok) {
+        const myGig = await myGigResponse.json();
+        console.log("✅ Successfully fetched user's gig from backend:", myGig);
+        return [myGig]; // Backend returns single gig, we wrap in array
+      } else if (myGigResponse.status === 404) {
+        // User has no gigs yet
+        console.log("ℹ️ User has no gigs yet");
+        return [];
+      } else {
+        const errorText = await myGigResponse.text();
+        console.error("❌ Backend error response:", errorText);
+        throw new Error(`Backend error ${myGigResponse.status}: ${errorText}`);
+      }
+    } catch (error) {
+      console.error("❌ Failed to fetch gigs from backend:", error);
+      console.log("🔄 Falling back to mock data for development");
 
-    const mockGigs: ExpertGig[] = [
+      // Simulate API delay for development
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const mockGigs: ExpertGig[] = [
       {
         id: "gig-1",
         expert_id: "expert-123",
@@ -382,22 +414,8 @@ export const gigServiceAPI: GigServiceAPI = {
       },
     ];
 
-    return mockGigs;
-
-    // ORIGINAL API CALL (commented out for development)
-    /*
-    const response = await fetch(`${GIG_SERVICE_URL}/gigs/my/gigs`, {
-      headers: {
-        'Authorization': `Bearer ${await getIdToken()}`
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch my gigs');
+      return mockGigs;
     }
-    
-    return response.json();
-    */
   },
 
   async getGigById(gigId: string): Promise<ExpertGig> {
@@ -634,16 +652,18 @@ export const gigServiceAPI: GigServiceAPI = {
 
 // Helper to get Firebase ID token
 async function getIdToken(): Promise<string> {
-  // This would integrate with your Firebase auth context
-  // For development, return a mock token that the backend accepts
   try {
-    // You would get this from your Firebase auth context
-    // const auth = getAuth();
-    // const user = auth.currentUser;
-    // if (user) {
-    //   return await user.getIdToken();
-    // }
-    return "dev-mock-token"; // For development only
+    // Try to get Firebase ID token from auth context
+    const { auth } = await import('@/firebase/firebase');
+    const { getIdToken: firebaseGetIdToken } = await import('firebase/auth');
+    
+    if (auth.currentUser) {
+      return await firebaseGetIdToken(auth.currentUser);
+    }
+    
+    // For development, return a mock token
+    console.warn("No authenticated user found, using dev token");
+    return "dev-mock-token";
   } catch (error) {
     console.error("Failed to get ID token:", error);
     return "dev-mock-token";

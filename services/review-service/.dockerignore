@@ -1,0 +1,55 @@
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.venv
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+docs/
+
+# Test files
+tests/
+*_test.py
+test_*.py
+
+# Logs
+*.log
+logs/
+
+# Alembic (we'll run migrations in container)
+alembic/versions/__pycache__
+
+# Environment files (will be set in container)
+.env.example
+.env.local
+
+# Migration scripts (not needed in final image)
+migrate.sh
+migrate.bat
+verify_db.py
+DATABASE_SETUP_COMPLETE.md

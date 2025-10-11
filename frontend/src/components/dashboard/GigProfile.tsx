@@ -22,7 +22,7 @@ const GigProfile: React.FC<GigProfileProps> = ({ gig, onUpdate }) => {
     service_description: gig.service_description || '',
     hourly_rate: gig.hourly_rate,
     availability_preferences: gig.availability_preferences || '',
-    category: gig.category,
+    category: gig.category_id,
     languages: gig.languages.join(', '),
     education: gig.education || '',
     experience: gig.experience || ''
@@ -58,7 +58,7 @@ const GigProfile: React.FC<GigProfileProps> = ({ gig, onUpdate }) => {
       service_description: gig.service_description || '',
       hourly_rate: gig.hourly_rate,
       availability_preferences: gig.availability_preferences || '',
-      category: gig.category,
+      category: gig.category_id,
       languages: gig.languages.join(', '),
       education: gig.education || '',
       experience: gig.experience || ''
@@ -188,7 +188,7 @@ const GigProfile: React.FC<GigProfileProps> = ({ gig, onUpdate }) => {
                 </Select>
               ) : (
                 <div className="mt-1 p-2 bg-gray-50 rounded border capitalize">
-                  {gig.category.replace('-', ' ')}
+                  {gig.category_id ? String(gig.category_id).replace('-', ' ') : 'Uncategorized'}
                 </div>
               )}
             </div>
