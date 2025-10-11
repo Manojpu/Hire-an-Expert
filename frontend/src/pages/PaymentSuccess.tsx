@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle, AlertTriangle } from "lucide-react";
 import { paymentService } from "@/services/paymentService";
+import { toSriLankaTime } from "@/utils/dateUtils";
 
 export default function PaymentSuccess() {
   const [searchParams] = useSearchParams();
@@ -126,7 +127,15 @@ export default function PaymentSuccess() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Date:</span>
-                <span>{new Date().toLocaleDateString()}</span>
+                <span>
+                  {toSriLankaTime(new Date(), {
+                    dateStyle: "long",
+                    timeStyle: "short",
+                  })}
+                </span>
+              </div>
+              <div className="text-xs text-center text-muted-foreground mt-2">
+                All times shown in Sri Lanka time (GMT+5:30)
               </div>
             </div>
           </CardContent>
