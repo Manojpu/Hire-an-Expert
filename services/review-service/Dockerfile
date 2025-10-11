@@ -5,21 +5,28 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     curl \
+    build-essential \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt ./
+RUN pip install --upgrade pip setuptools wheel
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source code
 COPY . .
 
-# Expose port
-EXPOSE 8007
+# Create a non-root user
+RUN useradd --create-home --shell /bin/bash app && chown -R app:app /app
+USER app
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8002/ || exit 1
+# Expose port (review service should be on 8005)
+EXPOSE 8005
 
-# Start the application
-CMD ["python", "main.py"]
+# Health check (fix port and path)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8005/health || exit 1
+
+# Start the application with uvicorn
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8005"]

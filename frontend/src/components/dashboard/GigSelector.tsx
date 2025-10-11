@@ -26,9 +26,10 @@ const GigSelector: React.FC<GigSelectorProps> = ({ onGigSelect, onCreateNew, onV
       const myGigs = await gigServiceAPI.getMyGigs();
       setGigs(myGigs);
       setError(null);
+      console.log("✅ Successfully loaded gigs from backend:", myGigs);
     } catch (err) {
-      console.error('Error loading gigs:', err);
-      setError('Unable to load your gigs at this time. The gig service may be offline.');
+      console.error('❌ Error loading gigs from backend:', err);
+      setError(`Backend Connection Failed: ${err instanceof Error ? err.message : 'Unknown error'}. Gig service may be offline at ${import.meta.env.VITE_GIG_SERVICE_URL || 'http://localhost:8002'}.`);
       // Don't clear existing gigs on error, keep them if they exist
     } finally {
       setLoading(false);
@@ -204,7 +205,9 @@ const GigSelector: React.FC<GigSelectorProps> = ({ onGigSelect, onCreateNew, onV
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <CardTitle className="text-lg mb-1">{gig.title}</CardTitle>
-                        <p className="text-sm text-muted-foreground capitalize">{gig.category.replace('-', ' ')}</p>
+                        <p className="text-sm text-muted-foreground capitalize">
+                          {typeof gig.category_id === 'string' ? gig.category_id.replace(/-/g, ' ') : 'Uncategorized'}
+                        </p>
                       </div>
                       <Badge className={getStatusColor(gig.status)}>
                         {gig.status}
