@@ -47,7 +47,20 @@ def delete_booking(db: Session, booking_id: str) -> bool:
 
 def get_bookings_by_user(db: Session, user_id: str):
     """Retrieve all bookings made by a specific user."""
-    return db.query(Booking).filter(Booking.user_id == user_id).all()
+    try:
+        # First try to convert to UUID to ensure proper format
+        import uuid
+        if not isinstance(user_id, uuid.UUID):
+            try:
+                # Try to convert to UUID
+                user_id = uuid.UUID(user_id)
+            except ValueError:
+                # If conversion fails, leave as is (in case it's stored as string)
+                pass
+        
+        return db.query(Booking).filter(Booking.user_id == user_id).all()
+    except Exception as e:
+        raise Exception(f"Error retrieving bookings by user: {str(e)}")
 
 def get_bookings(db: Session, skip: int = 0, limit: int = 100) -> list[Booking]:
     """Fetch a list of bookings, with pagination."""

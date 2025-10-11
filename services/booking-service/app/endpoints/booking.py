@@ -98,26 +98,27 @@ def get_bookings_by_user(
     try:
         logger.info(f"Getting bookings for user: {current_user_id}")
         
-        # Attempt to convert the user_id to UUID if it's not already
+        # Get bookings using the current_user_id
         try:
-            # First try to get bookings using the user_id as is
+            # Query bookings by user_id
             bookings = crud.get_bookings_by_user(db=db, user_id=current_user_id)
+            logger.info(f"Found {len(bookings)} bookings for user {current_user_id}")
+            return bookings
         except Exception as inner_e:
-            logger.warning(f"Error when querying with user_id as is: {str(inner_e)}")
+            logger.warning(f"Error when querying with user_id as string: {str(inner_e)}")
             try:
                 # If that fails, try to convert to UUID
                 import uuid
-                uuid_user_id = uuid.UUID(current_user_id)
+                uuid_user_id = str(uuid.UUID(current_user_id))
                 bookings = crud.get_bookings_by_user(db=db, user_id=uuid_user_id)
+                logger.info(f"Found {len(bookings)} bookings for user {uuid_user_id}")
+                return bookings
             except ValueError:
                 logger.error(f"User ID {current_user_id} is not a valid UUID")
                 raise HTTPException(
                     status_code=400,
                     detail=f"Invalid user ID format: {current_user_id}"
                 )
-        
-        logger.info(f"Found {len(bookings)} bookings for user {current_user_id}")
-        return bookings
     except HTTPException as he:
         raise he
     except Exception as e:
@@ -140,7 +141,4 @@ def get_bookings(skip: int = 0, limit: int = 100, db: Session = Depends(session.
             status_code=500, 
             detail=f"Failed to get bookings: {str(e)}"
         )
-    """Fetch a list of bookings, with pagination."""
-    bookings = session.get_bookings(db=db, skip=skip, limit=limit)
-    return bookings
 
