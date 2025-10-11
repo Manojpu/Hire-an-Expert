@@ -10,6 +10,8 @@ import {
   Star,
   Clock,
   CalendarRange,
+  DollarSign,
+  Loader2,
 } from "lucide-react";
 import Header from "@/components/navigation/Header";
 import Footer from "@/components/ui/footer";
@@ -23,11 +25,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/context/auth/AuthContext";
-import { mockBookings, experts } from "@/data/mockData";
+import { experts } from "@/data/mockData";
 import { format } from "date-fns";
 import { doPasswordUpdate } from "@/firebase/auth.js";
 import ExpertAvailabilityDisplay from "@/components/expert/ExpertAvailabilityDisplay";
 import AvailabilitySettings from "@/components/dashboard/AvailabilitySettings";
+import { bookingService, Booking } from "@/services/bookingService";
+import { toSriLankaTime } from "@/utils/dateUtils";
 
 // Utility function to safely format dates
 const safeFormatDate = (
@@ -53,6 +57,11 @@ const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
+
+  // Booking states
+  const [userBookings, setUserBookings] = useState<Booking[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [bookingsError, setBookingsError] = useState<string | null>(null);
 
   // Profile editing states
   const [editedProfile, setEditedProfile] = useState({
@@ -88,10 +97,6 @@ const Profile = () => {
   const isOwnProfile =
     !userId || userId === (currentUser?.uid || currentUser?.id);
   const user = isOwnProfile ? currentUser : null; // You might want to fetch user data by userId here
-
-  const userBookings = mockBookings.filter(
-    (booking) => booking.clientId === user?.id
-  );
   // Load user preferences on component mount
   useEffect(() => {
     const loadUserPreferences = async () => {
@@ -140,6 +145,59 @@ const Profile = () => {
       });
     }
   }, [user]);
+
+  // Load user bookings when the component mounts or when tab changes to bookings
+  useEffect(() => {
+    async function fetchUserBookings() {
+      if (!user?.id) {
+        setUserBookings([]);
+        return;
+      }
+
+      // Only fetch if we're on the bookings tab to avoid unnecessary API calls
+      if (activeTab !== "bookings") return;
+
+      try {
+        setBookingsLoading(true);
+        setBookingsError(null);
+        const fetchedBookings = await bookingService.getUserBookings();
+        console.log("Fetched bookings in profile:", fetchedBookings);
+        setUserBookings(fetchedBookings || []);
+      } catch (err) {
+        console.error("Error fetching bookings:", err);
+        setBookingsError(
+          "Failed to load your bookings. Please try again later."
+        );
+      } finally {
+        setBookingsLoading(false);
+      }
+    }
+
+    fetchUserBookings();
+  }, [user?.id, activeTab]);
+
+  // This ensures bookings are loaded when the component first loads with the bookings tab active
+  useEffect(() => {
+    if (activeTab === "bookings" && user?.id) {
+      const loadInitialBookings = async () => {
+        try {
+          setBookingsLoading(true);
+          setBookingsError(null);
+          const fetchedBookings = await bookingService.getUserBookings();
+          setUserBookings(fetchedBookings || []);
+        } catch (err) {
+          console.error("Error fetching initial bookings:", err);
+          setBookingsError(
+            "Failed to load your bookings. Please try again later."
+          );
+        } finally {
+          setBookingsLoading(false);
+        }
+      };
+
+      loadInitialBookings();
+    }
+  }, []);
 
   const savePreferences = async (updatedPreferences) => {
     setSavingPreferences(true);
@@ -557,7 +615,28 @@ const Profile = () => {
           {/* Tabs */}
           <Tabs
             value={activeTab}
-            onValueChange={setActiveTab}
+            onValueChange={(value) => {
+              setActiveTab(value);
+              // If changing to bookings tab, trigger a refresh of data
+              if (value === "bookings" && user?.id) {
+                setBookingsLoading(true);
+                setBookingsError(null);
+                bookingService
+                  .getUserBookings()
+                  .then((bookings) => {
+                    console.log("Refreshed bookings on tab change:", bookings);
+                    setUserBookings(bookings || []);
+                    setBookingsLoading(false);
+                  })
+                  .catch((err) => {
+                    console.error("Error refreshing bookings:", err);
+                    setBookingsError(
+                      "Failed to load your bookings. Please try again later."
+                    );
+                    setBookingsLoading(false);
+                  });
+              }
+            }}
             className="w-full"
           >
             <TabsList className="w-full grid grid-cols-4 lg:grid-cols-5">
@@ -565,7 +644,10 @@ const Profile = () => {
                 Profile
               </TabsTrigger>
               <TabsTrigger value="bookings" className="flex-1">
-                Bookings ({userBookings.length})
+                Bookings {!bookingsLoading && `(${userBookings.length})`}
+                {bookingsLoading && (
+                  <Loader2 className="ml-1 h-3 w-3 animate-spin" />
+                )}
               </TabsTrigger>
               <TabsTrigger value="preferences" className="flex-1">
                 Preferences
@@ -674,70 +756,178 @@ const Profile = () => {
 
             <TabsContent value="bookings" className="space-y-6 mt-6">
               <div className="grid gap-4">
-                {userBookings.length === 0 ? (
-                  <Card>
-                    <CardContent className="text-center py-8">
-                      <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                      <h3 className="font-semibold mb-2">No bookings yet</h3>
-                      <p className="text-muted-foreground mb-4">
-                        Start your journey by booking a consultation with one of
-                        our experts.
+                {bookingsLoading ? (
+                  <Card className="border border-muted/50">
+                    <CardContent className="flex flex-col items-center justify-center py-12">
+                      <div className="relative">
+                        <div className="h-16 w-16 rounded-full bg-primary/10 absolute animate-ping opacity-50"></div>
+                        <div className="h-16 w-16 rounded-full bg-primary/5 flex items-center justify-center">
+                          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                        </div>
+                      </div>
+                      <h3 className="text-xl font-medium mt-6 mb-2">
+                        Loading your bookings
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Please wait while we fetch your booking details...
                       </p>
-                      <Button>Browse Experts</Button>
+                    </CardContent>
+                  </Card>
+                ) : bookingsError ? (
+                  <Card className="border-red-100 bg-red-50/50">
+                    <CardContent className="text-center py-10">
+                      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 mb-6">
+                        <Mail className="h-8 w-8 text-red-600" />
+                      </div>
+                      <h3 className="text-xl font-medium mb-2 text-red-800">
+                        Error Loading Bookings
+                      </h3>
+                      <p className="text-red-600 mb-6 max-w-md mx-auto">
+                        {bookingsError}
+                      </p>
+                      <Button
+                        onClick={() => {
+                          setBookingsLoading(true);
+                          setBookingsError(null);
+                          // Reset the active tab to trigger a refetch
+                          setActiveTab("profile");
+                          setTimeout(() => setActiveTab("bookings"), 10);
+                        }}
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                      >
+                        Retry Loading
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ) : userBookings.length === 0 ? (
+                  <Card>
+                    <CardContent className="text-center py-12">
+                      <div className="bg-muted/30 h-24 w-24 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Clock className="h-12 w-12 text-muted-foreground opacity-60" />
+                      </div>
+                      <h3 className="text-xl font-semibold mb-2">
+                        No bookings found
+                      </h3>
+                      <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                        You don't have any bookings yet. Start your journey by
+                        booking a consultation with one of our skilled experts.
+                      </p>
+                      <Button size="lg" className="px-6">
+                        Browse Experts
+                      </Button>
                     </CardContent>
                   </Card>
                 ) : (
                   userBookings.map((booking) => {
-                    const expert = getExpertById(booking.expertId);
-                    if (!expert) return null;
+                    // Get gig details from the API response
+                    const gigDetails = booking.gig_details;
+
+                    // Get expert info from our data if needed
+                    const expert = experts.find((e) => e.id === booking.gig_id);
 
                     return (
-                      <Card key={booking.id}>
-                        <CardContent className="pt-6">
-                          <div className="flex flex-col md:flex-row gap-4">
-                            <div className="flex items-center gap-4">
-                              <Avatar className="h-12 w-12">
-                                <AvatarImage
-                                  src={expert.profileImage}
-                                  alt={expert.name}
-                                />
-                                <AvatarFallback>
-                                  {expert.name.charAt(0)}
-                                </AvatarFallback>
-                              </Avatar>
+                      <Card
+                        key={booking.id}
+                        className="overflow-hidden group hover:shadow-md transition-all duration-300"
+                      >
+                        {/* Status indicator at the top */}
+                        <div
+                          className={`h-1.5 w-full ${
+                            booking.status === "confirmed"
+                              ? "bg-emerald-500"
+                              : booking.status === "completed"
+                              ? "bg-blue-500"
+                              : booking.status === "cancelled"
+                              ? "bg-rose-500"
+                              : "bg-amber-400"
+                          }`}
+                        ></div>
+
+                        <CardContent className="pt-6 pb-6">
+                          <div className="flex flex-col md:flex-row gap-5">
+                            {/* Left column: Expert/Gig Info */}
+                            <div className="flex items-start gap-4 md:w-1/3">
+                              {/* Thumbnail or Expert Avatar */}
+                              {gigDetails?.thumbnail_url ? (
+                                <div className="h-24 w-24 rounded-md overflow-hidden flex-shrink-0 shadow-sm group-hover:shadow transition-all duration-300">
+                                  <img
+                                    src={gigDetails.thumbnail_url}
+                                    alt="Gig thumbnail"
+                                    className="h-full w-full object-cover transition-transform group-hover:scale-105 duration-500"
+                                  />
+                                </div>
+                              ) : (
+                                <Avatar className="h-20 w-20 shadow-sm">
+                                  <AvatarImage
+                                    src={expert?.profileImage}
+                                    alt={expert?.name || "Expert"}
+                                    className="transition-transform group-hover:scale-105 duration-500"
+                                  />
+                                  <AvatarFallback className="bg-primary/10 text-primary font-semibold text-lg">
+                                    {expert?.name?.charAt(0) || "E"}
+                                  </AvatarFallback>
+                                </Avatar>
+                              )}
+
                               <div>
-                                <h4 className="font-semibold">{expert.name}</h4>
-                                <p className="text-sm text-muted-foreground">
-                                  {expert.title}
-                                </p>
+                                <h4 className="font-semibold text-lg text-foreground">
+                                  {gigDetails?.service_description
+                                    ? gigDetails.service_description.substring(
+                                        0,
+                                        50
+                                      ) +
+                                      (gigDetails.service_description.length >
+                                      50
+                                        ? "..."
+                                        : "")
+                                    : expert?.name
+                                    ? `Session with ${expert.name}`
+                                    : `Booking ID: ${booking.id.substring(
+                                        0,
+                                        8
+                                      )}`}
+                                </h4>
+
+                                {expert && (
+                                  <div className="flex items-center text-sm text-muted-foreground gap-1 mt-1">
+                                    <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
+                                    <span>{expert.rating || "4.9"}</span>
+                                    <span className="text-muted-foreground/50 mx-1">
+                                      •
+                                    </span>
+                                    <span>{expert?.title || "Expert"}</span>
+                                  </div>
+                                )}
+
+                                {/* Price display */}
+                                {gigDetails && (
+                                  <div className="flex items-center gap-1 mt-3">
+                                    <DollarSign className="h-4 w-4 text-primary" />
+                                    <span className="font-medium text-primary">
+                                      {gigDetails.hourly_rate}{" "}
+                                      {gigDetails.currency}/hour
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
 
-                            <div className="flex-1 grid md:grid-cols-3 gap-4 text-sm">
+                            {/* Middle column: Booking Details */}
+                            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mt-2 md:mt-0">
                               <div>
-                                <span className="text-muted-foreground">
-                                  Service:
+                                <span className="text-muted-foreground text-xs uppercase tracking-wider font-medium block">
+                                  Scheduled Time:
                                 </span>
-                                <p className="font-medium">{booking.service}</p>
-                              </div>
-                              <div>
-                                <span className="text-muted-foreground">
-                                  Date & Time:
-                                </span>
-                                <p className="font-medium">
-                                  {safeFormatDate(
-                                    booking.dateTime,
-                                    "MMM dd, yyyy"
-                                  )}
-                                  <br />
-                                  {safeFormatDate(booking.dateTime, "h:mm a")}
+                                <p className="font-medium flex items-center mt-1 text-foreground">
+                                  <Calendar className="h-4 w-4 mr-1.5 text-primary" />
+                                  {toSriLankaTime(booking.scheduled_time)}
                                 </p>
                               </div>
+
                               <div>
-                                <span className="text-muted-foreground">
+                                <span className="text-muted-foreground text-xs uppercase tracking-wider font-medium block">
                                   Status:
                                 </span>
-                                <br />
                                 <Badge
                                   variant={
                                     booking.status === "confirmed"
@@ -748,29 +938,81 @@ const Profile = () => {
                                       ? "outline"
                                       : "destructive"
                                   }
-                                  className="text-xs"
+                                  className="mt-1"
                                 >
+                                  {booking.status === "confirmed" && (
+                                    <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse mr-1.5"></div>
+                                  )}
                                   {booking.status.charAt(0).toUpperCase() +
                                     booking.status.slice(1)}
                                 </Badge>
                               </div>
+
+                              <div>
+                                <span className="text-muted-foreground text-xs uppercase tracking-wider font-medium block">
+                                  Booking Date:
+                                </span>
+                                <p className="font-medium mt-1 flex items-center text-foreground">
+                                  <CalendarRange className="h-4 w-4 mr-1.5 text-primary" />
+                                  {new Date(
+                                    booking.created_at
+                                  ).toLocaleDateString()}
+                                </p>
+                              </div>
+
+                              <div>
+                                <span className="text-muted-foreground text-xs uppercase tracking-wider font-medium block">
+                                  Booking ID:
+                                </span>
+                                <p className="font-medium mt-1 text-xs text-foreground/80 font-mono">
+                                  {booking.id.substring(0, 13)}...
+                                </p>
+                              </div>
                             </div>
 
-                            <div className="flex flex-col gap-2">
-                              <div className="text-lg font-bold text-primary">
-                                LKR {booking.amount}
-                              </div>
-                              <div className="flex gap-2">
+                            {/* Right column: Actions */}
+                            <div className="flex flex-col items-end gap-2 justify-center">
+                              {/* Total amount calculation - hourly_rate * 1 hour */}
+                              {gigDetails && (
+                                <div className="text-xl font-bold text-primary">
+                                  {gigDetails.hourly_rate} {gigDetails.currency}
+                                </div>
+                              )}
+
+                              <div className="flex gap-2 mt-2">
                                 {booking.status === "confirmed" && (
-                                  <Button size="sm" variant="outline">
+                                  <Button
+                                    size="sm"
+                                    className="bg-primary hover:bg-primary/90 transition-all"
+                                  >
                                     Join Meeting
                                   </Button>
                                 )}
                                 {booking.status === "completed" && (
-                                  <Button size="sm" variant="outline">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-blue-200 text-blue-600 hover:bg-blue-50"
+                                  >
                                     Leave Review
                                   </Button>
                                 )}
+                                {booking.status === "pending" && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-rose-500 border-rose-200 hover:bg-rose-50"
+                                  >
+                                    Cancel
+                                  </Button>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="group-hover:border-primary/70 group-hover:text-primary transition-colors"
+                                >
+                                  Details
+                                </Button>
                               </div>
                             </div>
                           </div>
