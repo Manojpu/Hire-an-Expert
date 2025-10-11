@@ -2,18 +2,24 @@ import React, { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import MainLayout from "@/layouts/MainLayout";
 import DashboardLayout from "@/layouts/DashboardLayout";
+import AdminLayout from "@/layouts/AdminLayout";
 import { useAuth } from "@/context/auth/AuthContext.jsx";
 import Login from "@/pages/Login.tsx";
 import SignUp from "@/pages/Signup.tsx";
+import DashboardRedirect from "@/components/auth/DashboardRedirect";
 
 const Home = lazy(() => import("@/pages/Home"));
 const Category = lazy(() => import("@/pages/GigCategory"));
 const Expert = lazy(() => import("@/pages/Expert"));
 const Book = lazy(() => import("@/pages/Book"));
 const Chat = lazy(() => import("@/pages/Chat"));
+const Messages = lazy(() => import("@/pages/MessagesPage"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const ExpertDashboard = lazy(() => import("@/pages/expert/ExpertDashboard"));
-const Admin = lazy(() => import("@/pages/Admin"));
+const AdminDashboard = lazy(() => import("@/pages/admin/AdminDashboard"));
+const AdminRequests = lazy(() => import("@/pages/admin/AdminRequests"));
+const AdminPayments = lazy(() => import("@/pages/admin/AdminPayments"));
+const AdminRAGSystem = lazy(() => import("@/pages/admin/AdminRAGSystem"));
 const BecomeExpert = lazy(() => import("@/pages/CreateGig"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const MyBookings = lazy(() => import("@/pages/MyBookings"));
@@ -62,6 +68,59 @@ const AppRoutes = () => (
       {/* Standalone pages (no header/footer) */}
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<SignUp />} />
+      
+      {/* Smart dashboard redirect route */}
+      <Route 
+        path="/dashboard" 
+        element={
+          <ProtectedRoute>
+            <DashboardRedirect />
+          </ProtectedRoute>
+        } 
+      />
+
+      {/* Messages page standalone (no header/footer) */}
+      <Route
+        path="/messages"
+        element={
+          <ProtectedRoute>
+            <Messages />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Admin routes with AdminLayout */}
+      <Route path="/admin-dashboard" element={
+        <ProtectedRoute role="admin">
+          <AdminLayout>
+            <AdminDashboard />
+          </AdminLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/admin-requests" element={
+        <ProtectedRoute role="admin">
+          <AdminLayout>
+            <AdminRequests />
+          </AdminLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/admin-payments" element={
+        <ProtectedRoute role="admin">
+          <AdminLayout>
+            <AdminPayments />
+          </AdminLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/admin-rag" element={
+        <ProtectedRoute role="admin">
+          <AdminLayout>
+            <AdminRAGSystem />
+          </AdminLayout>
+        </ProtectedRoute>
+      } />
+
+      {/* Legacy admin route - redirect to new admin dashboard */}
+      <Route path="/admin" element={<Navigate to="/admin-dashboard" replace />} />
 
       {/* Main layout with footer */}
       <Route path="/" element={<MainLayout />}>
@@ -94,14 +153,6 @@ const AppRoutes = () => (
           element={
             <ProtectedRoute>
               <Profile />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="admin/*"
-          element={
-            <ProtectedRoute role="admin">
-              <Admin />
             </ProtectedRoute>
           }
         />

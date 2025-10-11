@@ -128,6 +128,7 @@ const Header: React.FC<{ onMenuToggle?: () => void }> = ({ onMenuToggle }) => {
           </nav>
         </div>
       </div>
+      </div>
     </header>
   );
 };
