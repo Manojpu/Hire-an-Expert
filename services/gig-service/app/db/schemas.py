@@ -3,6 +3,7 @@ from typing import List, Optional
 import uuid
 from pydantic import BaseModel, Field, UUID4
 import enum
+from fastapi import Form
 from app.db.models import GigStatus
 
 
@@ -55,22 +56,39 @@ class Category(CategoryBase):
 
 
 class GigBase(BaseModel):
-    """Base schema with common fields for a gig."""
-
     service_description: Optional[str] = Field(None, max_length=5000)
     hourly_rate: float = Field(..., gt=0, description="Price in LKR")
-    availability_preferences: Optional[str] = Field(None, max_length=1000)
-    expertise_areas: List[str] = Field(default=[])
+    expertise_areas: List[str] = []
     experience_years: Optional[int] = Field(None, ge=0)
-    work_experience: Optional[str] = Field(None, max_length=2000)  # New field for work experience details
+    work_experience: Optional[str] = Field(None, max_length=2000)
     thumbnail_url: Optional[str] = Field(None, max_length=2000)
 
 
 class GigCreate(GigBase):
-    """Schema for creating a new gig. expert_id will be derived from the auth token."""
+    category_id: str = Field(..., description="The ID or slug of the category")
+    
 
-    category_id: str = Field(..., description="The ID or slug of the category this gig belongs to")
-
+# Helper dependency to parse form fields into GigCreate
+def gig_create_form(
+    service_description: Optional[str] = Form(None),
+    hourly_rate: float = Form(...),
+    expertise_areas: Optional[str] = Form(None),   # You’ll need to handle conversion
+    experience_years: Optional[int] = Form(None),
+    work_experience: Optional[str] = Form(None),
+    thumbnail_url: Optional[str] = Form(None),
+    category_id: str = Form(...)
+) -> GigCreate:
+    # Convert comma-separated string into list for expertise_areas
+    expertise_list = expertise_areas.split(",") if expertise_areas else []
+    return GigCreate(
+        service_description=service_description,
+        hourly_rate=hourly_rate,
+        expertise_areas=expertise_list,
+        experience_years=experience_years,
+        work_experience=work_experience,
+        thumbnail_url=thumbnail_url,
+        category_id=category_id
+    )
 
 class GigUpdate(BaseModel):
     """Schema for updating an existing gig. All fields are optional."""

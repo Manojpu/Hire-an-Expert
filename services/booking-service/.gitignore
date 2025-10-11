@@ -6,6 +6,8 @@ env/
 # Ignore environment variable files
 .env
 
+# Ignore Firebase service account keys
+serviceAccountKey.json
 
 # Byte-compiled / cache
 __pycache__/

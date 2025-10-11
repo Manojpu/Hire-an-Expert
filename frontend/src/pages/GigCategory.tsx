@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { gigServiceAPI } from "@/services/gigService";
 import { Gig } from "@/types/publicGigs.ts";
 
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 100;
 
 const Category = () => {
   const { slug } = useParams<{ slug: string }>();

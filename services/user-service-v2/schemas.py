@@ -203,18 +203,19 @@ class AvailabilityRule(AvailabilityRuleBase):
     class Config:
         from_attributes = True
 
+class AvailabilitySlotBase(BaseModel):
+    date: str  # "YYYY-MM-DD"
+    start_time: str  # "HH:MM"
+    end_time: str  # "HH:MM"
 
-# Analytics schemas
-class UserAnalyticsRequest(BaseModel):
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
-    user_type: Optional[str] = "all"  # "all", "expert", "client"
+class AvailabilitySlotCreate(AvailabilitySlotBase):
+    pass
 
-class DailyUserCount(BaseModel):
-    date: str
-    count: int
-
-class UserAnalyticsResponse(BaseModel):
-    data: List[DailyUserCount]
-    total_count: int
-    user_type: str
+class AvailabilitySlotResponse(AvailabilitySlotBase):
+    id: UUID4
+    user_id: UUID4
+    is_booked: bool
+    booking_id: Optional[UUID4] = None
+    
+    class Config:
+        from_attributes = True

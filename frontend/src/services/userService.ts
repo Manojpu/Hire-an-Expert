@@ -1,0 +1,126 @@
+import { useAuth } from "@/context/auth/AuthContext";
+import { AvailabilityRule, DateOverride } from "@/types/availability";
+
+// TODO: Replace with your actual user service URL
+const USER_SERVICE_URL =
+  import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:8006";
+
+interface CreateAvailabilitySchedules {
+  availabilityRules: AvailabilityRule[];
+  dateOverrides?: DateOverride[];
+}
+
+/**
+ * Service functions for interacting with the user service API
+ */
+export const userServiceAPI = {
+  /**
+   * Set availability rules for the current user
+   * @param rules - Availability rules to set
+   * @param token - User authentication token
+   * @returns Promise with the saved availability rules
+   */
+  async setAvailabilityRules(
+    availabilityRules: AvailabilityRule[],
+    dateOverrides: DateOverride[] = [],
+    token: string
+  ): Promise<AvailabilityRule[]> {
+    const response = await fetch(
+      `${USER_SERVICE_URL}/users/me/availability-rules`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          availabilityRules,
+          dateOverrides,
+        } as CreateAvailabilitySchedules),
+      }
+    );
+
+    if (!response.ok) {
+      let errorText = await response.text();
+      console.error(
+        "Failed to set availability rules:",
+        response.status,
+        errorText
+      );
+
+      // Try to parse the error as JSON
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.detail) {
+          errorText = errorJson.detail;
+        }
+      } catch (e) {
+        // If it's not valid JSON, use the text as is
+      }
+
+      throw new Error(errorText);
+    }
+
+    return response.json();
+  },
+
+  /**
+   * Upload a verification document to the user service
+   * @param file - The file to upload
+   * @param documentType - Type of document being uploaded
+   * @param token - User authentication token
+   * @returns Promise with the uploaded document details
+   */
+  async uploadVerificationDocument(
+    file: File,
+    documentType: string,
+    token: string
+  ) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    // Map to backend enum
+    let backendDocType = "OTHER";
+    if (documentType === "government_id") backendDocType = "ID_PROOF";
+    if (documentType === "professional_license")
+      backendDocType = "PROFESSIONAL_LICENSE";
+    formData.append("document_type", backendDocType);
+
+    // Extract user ID from token if possible, or use a default value
+    // For Firebase JWT tokens, the user ID is in the 'sub' claim
+    let userId = "";
+    try {
+      // Simple way to extract user ID from token
+      const tokenParts = token.split(".");
+      if (tokenParts.length === 3) {
+        const payload = JSON.parse(atob(tokenParts[1]));
+        userId = payload.sub || payload.user_id || "";
+      }
+    } catch (e) {
+      console.warn("Could not extract user ID from token:", e);
+    }
+
+    // Fallback to using the token itself if we couldn't extract user ID
+    if (!userId) {
+      userId = "current";
+    }
+
+    const response = await fetch(
+      `${USER_SERVICE_URL}/users/documents?user_id=${userId}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Document upload failed:", response.status, errorText);
+      throw new Error(`Failed to upload document: ${errorText}`);
+    }
+    return response.json();
+  },
+};

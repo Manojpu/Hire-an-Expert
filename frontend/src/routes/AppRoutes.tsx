@@ -28,6 +28,7 @@ const ClientDashboard = lazy(() => import("@/pages/ClientDashboard"));
 const ExpertProfile = lazy(() => import("@/pages/ExpertProfile"));
 const GigView = lazy(() => import("@/pages/GigView"));
 const BookConsultation = lazy(() => import("@/pages/BookConsultation"));
+const PaymentSuccess = lazy(() => import("@/pages/PaymentSuccess"));
 
 const ProtectedRoute = ({
   children,
@@ -128,6 +129,7 @@ const AppRoutes = () => (
         <Route path="category/:slug" element={<Category />} />
         <Route path="gig/:id" element={<GigView />} />
         <Route path="gig/:id/book" element={<BookConsultation />} />
+        <Route path="payment-success" element={<PaymentSuccess />} />
         <Route path="expert/:slug" element={<Expert />} />
         <Route path="book/:expertId" element={<Book />} />
         <Route
