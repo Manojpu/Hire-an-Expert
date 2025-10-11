@@ -1,4 +1,6 @@
 import { toast } from "sonner";
+import { getIdToken } from "firebase/auth";
+import { auth } from "../firebase/firebase"; // Import the Firebase auth instance directly
 
 const API_URL = "http://localhost:8004/payments";
 
@@ -84,7 +86,13 @@ export const paymentService = {
     data: CreatePaymentIntentRequest
   ): Promise<CreatePaymentIntentResponse> {
     try {
-      const token = localStorage.getItem("token");
+      // Using the imported auth instance directly
+      const currentUser = auth.currentUser;
+
+      let token = null;
+      if (currentUser) {
+        token = await getIdToken(currentUser);
+      }
 
       const response = await fetchWithRetry(
         `${API_URL}/create-payment-intent`,
@@ -116,7 +124,14 @@ export const paymentService = {
    */
   async getPaymentStatus(paymentIntentId: string): Promise<PaymentStatus> {
     try {
-      const token = localStorage.getItem("token");
+      // Using the imported auth instance directly
+      const currentUser = auth.currentUser;
+
+      let token = null;
+      if (currentUser) {
+        token = await getIdToken(currentUser);
+      }
+
       const maxRetries = 3;
       let retries = 0;
 

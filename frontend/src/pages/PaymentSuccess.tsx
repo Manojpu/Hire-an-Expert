@@ -133,7 +133,14 @@ export default function PaymentSuccess() {
         )}
 
         <CardFooter className="flex justify-center pt-2">
-          <Button onClick={() => navigate("/my-bookings")} className="w-full">
+          <Button
+            onClick={() => {
+              // Force a refresh of the booking service cache before navigating
+              sessionStorage.setItem("refresh_bookings", Date.now().toString());
+              navigate("/my-bookings");
+            }}
+            className="w-full"
+          >
             View My Bookings
           </Button>
         </CardFooter>
