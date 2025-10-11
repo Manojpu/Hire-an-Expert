@@ -1,6 +1,6 @@
 from app.db import session
 from app.db import crud
-from app.db.schemas import BookingCreate, BookingUpdate, BookingResponse
+from app.db.schemas import BookingCreate, BookingUpdate, BookingResponse, BookingResponseWithGigDetails, GigDetails
 from app.db.models import Booking  # Import the Booking model
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, HTTPException, Path
@@ -8,7 +8,9 @@ from fastapi import status
 from app.core.logging import logger
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.core.firebase_auth import get_current_user_id
+from app.utils.gig_service import get_gig_details
 from typing import List
+import uuid
 import uuid
 
 # Create router with explicit prefix to avoid path parameter conflicts
@@ -40,12 +42,13 @@ def get_bookings(skip: int = 0, limit: int = 100, db: Session = Depends(session.
         )
 
 # 2. User-specific endpoints - important that these come before path parameters
-@router.get("/by-current-user", response_model=List[BookingResponse])
+@router.get("/by-current-user", response_model=List[BookingResponseWithGigDetails])
 def get_bookings_by_user_new_endpoint(
     db: Session = Depends(session.get_db),
-    current_user_id: str = Depends(get_current_user_id)
+    current_user_id: str = Depends(get_current_user_id),
+    include_gig_details: bool = True
 ):
-    """Retrieve all bookings made by the current user (new endpoint)."""
+    """Retrieve all bookings made by the current user with gig details (new endpoint)."""
     try:
         logger.info(f"Getting bookings for user: {current_user_id}")
         
@@ -63,6 +66,31 @@ def get_bookings_by_user_new_endpoint(
             # Query bookings by user_id
             bookings = crud.get_bookings_by_user(db=db, user_id=uuid_user_id)
             logger.info(f"Found {len(bookings)} bookings for user {uuid_user_id}")
+            
+            # If gig details are requested, fetch them for each booking
+            if include_gig_details:
+                enhanced_bookings = []
+                for booking in bookings:
+                    # Create a copy of the booking as a dict for modification
+                    booking_dict = {
+                        "id": booking.id,
+                        "user_id": booking.user_id,
+                        "gig_id": booking.gig_id,
+                        "status": booking.status,
+                        "scheduled_time": booking.scheduled_time,
+                        "created_at": booking.created_at
+                    }
+                    
+                    # Fetch gig details from gig service
+                    gig_details = get_gig_details(str(booking.gig_id))
+                    if gig_details:
+                        booking_dict["gig_details"] = gig_details
+                    else:
+                        booking_dict["gig_details"] = None
+                        
+                    enhanced_bookings.append(booking_dict)
+                return enhanced_bookings
+            
             return bookings
         except Exception as inner_e:
             logger.error(f"Error retrieving bookings for user {current_user_id}: {str(inner_e)}")

@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     # External services
     AUTH_SERVICE_URL: str = os.getenv("AUTH_SERVICE_URL", "http://localhost:8001")
     USER_SERVICE_URL: str = os.getenv("USER_SERVICE_URL", "http://localhost:8006")  # Alias for backward compatibility
+    GIG_SERVICE_URL: str = os.getenv("GIG_SERVICE_URL", "http://localhost:8002")  # Default gig service URL
     
     # CORS settings
     CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:3000")
