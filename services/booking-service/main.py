@@ -64,6 +64,7 @@ except OperationalError as e:
     logger.info("Make sure your database is running. You can start it with 'docker-compose up -d'")
 
 # Include the booking router
+# Important: routes in booking.router should be ordered with fixed paths before path parameters
 app.include_router(booking.router, prefix="/bookings", tags=["bookings"])
 
 @app.get("/")
