@@ -1,6 +1,7 @@
 from app.db import session
 from app.db import crud
 from app.db.schemas import BookingCreate, BookingUpdate, BookingResponse
+from app.db.models import Booking  # Import the Booking model
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, HTTPException   
 from fastapi import status
@@ -96,8 +97,29 @@ def get_bookings_by_user(
     """Retrieve all bookings made by the current user."""
     try:
         logger.info(f"Getting bookings for user: {current_user_id}")
-        bookings = crud.get_bookings_by_user(db=db, user_id=current_user_id)
+        
+        # Attempt to convert the user_id to UUID if it's not already
+        try:
+            # First try to get bookings using the user_id as is
+            bookings = crud.get_bookings_by_user(db=db, user_id=current_user_id)
+        except Exception as inner_e:
+            logger.warning(f"Error when querying with user_id as is: {str(inner_e)}")
+            try:
+                # If that fails, try to convert to UUID
+                import uuid
+                uuid_user_id = uuid.UUID(current_user_id)
+                bookings = crud.get_bookings_by_user(db=db, user_id=uuid_user_id)
+            except ValueError:
+                logger.error(f"User ID {current_user_id} is not a valid UUID")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid user ID format: {current_user_id}"
+                )
+        
+        logger.info(f"Found {len(bookings)} bookings for user {current_user_id}")
         return bookings
+    except HTTPException as he:
+        raise he
     except Exception as e:
         logger.error(f"Error getting bookings for user {current_user_id}: {str(e)}")
         raise HTTPException(
