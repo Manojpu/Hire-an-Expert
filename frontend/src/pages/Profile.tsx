@@ -13,6 +13,7 @@ import {
   CalendarRange,
   DollarSign,
   Loader2,
+  Info,
 } from "lucide-react";
 import Header from "@/components/navigation/Header";
 import Footer from "@/components/ui/footer";
@@ -25,6 +26,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/context/auth/AuthContext";
 import { experts } from "@/data/mockData";
 import { format } from "date-fns";
@@ -62,6 +71,8 @@ const Profile = () => {
   // Booking states
   const [userBookings, setUserBookings] = useState<Booking[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [bookingsError, setBookingsError] = useState<string | null>(null);
 
   // Profile editing states
@@ -1050,6 +1061,10 @@ const Profile = () => {
                                   size="sm"
                                   variant="outline"
                                   className="group-hover:border-primary/70 group-hover:text-primary transition-colors"
+                                  onClick={() => {
+                                    setSelectedBooking(booking);
+                                    setIsDetailsDialogOpen(true);
+                                  }}
                                 >
                                   Details
                                 </Button>
@@ -1306,6 +1321,168 @@ const Profile = () => {
           </Tabs>
         </div>
       </main>
+
+      {/* Booking Details Dialog */}
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Booking Details</DialogTitle>
+            <DialogDescription>
+              Complete information about your booking
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedBooking && (
+            <div className="space-y-6 py-4">
+              {/* Service/Expert Info */}
+              <div className="flex items-start gap-4">
+                {selectedBooking.gig_details?.thumbnail_url ? (
+                  <div className="h-24 w-24 rounded-md overflow-hidden flex-shrink-0 shadow-sm">
+                    <img
+                      src={selectedBooking.gig_details.thumbnail_url}
+                      alt="Gig thumbnail"
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="h-24 w-24 rounded-md overflow-hidden flex-shrink-0 bg-primary/10 flex items-center justify-center">
+                    <Info className="h-10 w-10 text-primary/50" />
+                  </div>
+                )}
+
+                <div>
+                  <h3 className="font-semibold text-lg">
+                    {selectedBooking.gig_details?.service_description ||
+                      `Booking ID: ${selectedBooking.id}`}
+                  </h3>
+
+                  {/* Status Badge */}
+                  <Badge
+                    variant={
+                      selectedBooking.status === "confirmed"
+                        ? "default"
+                        : selectedBooking.status === "pending"
+                        ? "secondary"
+                        : selectedBooking.status === "completed"
+                        ? "outline"
+                        : "destructive"
+                    }
+                    className="mt-2"
+                  >
+                    {selectedBooking.status === "confirmed" && (
+                      <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse mr-1.5"></div>
+                    )}
+                    {selectedBooking.status.charAt(0).toUpperCase() +
+                      selectedBooking.status.slice(1)}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                {/* Booking ID */}
+                <div>
+                  <span className="text-muted-foreground text-xs uppercase tracking-wider font-medium block">
+                    Booking ID:
+                  </span>
+                  <p className="font-medium mt-1 text-xs font-mono">
+                    {selectedBooking.id}
+                  </p>
+                </div>
+
+                {/* Created At */}
+                <div>
+                  <span className="text-muted-foreground text-xs uppercase tracking-wider font-medium block">
+                    Booking Date:
+                  </span>
+                  <p className="font-medium mt-1 flex items-center">
+                    <CalendarRange className="h-4 w-4 mr-1.5 text-primary" />
+                    {new Date(selectedBooking.created_at).toLocaleString()}
+                  </p>
+                </div>
+
+                {/* Scheduled Time */}
+                <div>
+                  <span className="text-muted-foreground text-xs uppercase tracking-wider font-medium block">
+                    Scheduled Time:
+                  </span>
+                  <p className="font-medium flex items-center mt-1">
+                    <Calendar className="h-4 w-4 mr-1.5 text-primary" />
+                    {toSriLankaTime(selectedBooking.scheduled_time)}
+                  </p>
+                </div>
+
+                {/* Price */}
+                {selectedBooking.gig_details && (
+                  <div>
+                    <span className="text-muted-foreground text-xs uppercase tracking-wider font-medium block">
+                      Rate:
+                    </span>
+                    <p className="font-medium mt-1 flex items-center">
+                      <DollarSign className="h-4 w-4 mr-1.5 text-primary" />
+                      {selectedBooking.gig_details.currency === "USD"
+                        ? "$"
+                        : selectedBooking.gig_details.currency === "LKR"
+                        ? "Rs. "
+                        : selectedBooking.gig_details.currency === "EUR"
+                        ? "€"
+                        : `${selectedBooking.gig_details.currency} `}
+                      {selectedBooking.gig_details.hourly_rate}/hour
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Notes or Additional Info section */}
+              <div className="border-t pt-4 mt-4">
+                <h4 className="font-medium mb-2">Service Description</h4>
+                <p className="text-sm text-muted-foreground">
+                  {selectedBooking.gig_details?.service_description ||
+                    "No additional information available for this booking."}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDetailsDialogOpen(false)}
+            >
+              Close
+            </Button>
+            {selectedBooking &&
+              (selectedBooking.status === "pending" ||
+                selectedBooking.status === "confirmed") && (
+                <Button
+                  variant="destructive"
+                  onClick={async () => {
+                    try {
+                      setBookingsLoading(true);
+                      await bookingService.updateBookingStatus(
+                        selectedBooking.id,
+                        "cancelled"
+                      );
+                      toast.success("Booking cancelled successfully");
+                      // Refresh bookings list
+                      const updatedBookings =
+                        await bookingService.getUserBookings();
+                      setUserBookings(updatedBookings || []);
+                      // Close dialog
+                      setIsDetailsDialogOpen(false);
+                    } catch (err) {
+                      console.error("Error cancelling booking:", err);
+                      toast.error("Failed to cancel booking");
+                    } finally {
+                      setBookingsLoading(false);
+                    }
+                  }}
+                >
+                  Cancel Booking
+                </Button>
+              )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
