@@ -540,3 +540,112 @@ async def generate_availability_slots(
     
     # Return the created slots
     return slots
+
+
+async def get_user_analytics_data(
+    db: AsyncSession, 
+    user_type: Optional[str] = None, 
+    start_date: Optional[str] = None, 
+    end_date: Optional[str] = None
+):
+    """
+    Get user analytics data for admin dashboard.
+    Returns daily user counts within the specified date range.
+    """
+    from sqlalchemy import func
+    from schemas import UserAnalyticsResponse, DailyUserCount
+    from datetime import datetime, timedelta
+    
+    try:
+        # Parse dates
+        if start_date:
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        else:
+            # Default to 30 days ago
+            start_dt = datetime.now() - timedelta(days=30)
+        
+        if end_date:
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        else:
+            # Default to today
+            end_dt = datetime.now()
+        
+        # Build the query for daily counts
+        query = select(
+            func.date(User.created_at).label('date'),
+            func.count(User.id).label('count')
+        ).where(
+            User.created_at >= start_dt,
+            User.created_at <= end_dt
+        )
+        
+        # Add user type filter if specified (but not for 'all')
+        if user_type and user_type != 'all':
+            if user_type == 'expert':
+                query = query.where(User.role == 'expert')
+            elif user_type == 'client':
+                query = query.where(User.role == 'client')
+        
+        query = query.group_by(
+            func.date(User.created_at)
+        ).order_by(
+            func.date(User.created_at)
+        )
+        
+        result = await db.execute(query)
+        daily_data = result.all()
+        
+        # Create a dictionary of existing data for easy lookup
+        data_dict = {row.date.strftime('%Y-%m-%d'): row.count for row in daily_data}
+        
+        # Get cumulative count up to start_date
+        cumulative_base_query = select(func.count(User.id)).where(
+            User.created_at < start_dt
+        )
+        
+        # Add user type filter for cumulative base
+        if user_type and user_type != 'all':
+            if user_type == 'expert':
+                cumulative_base_query = cumulative_base_query.where(User.role == 'expert')
+            elif user_type == 'client':
+                cumulative_base_query = cumulative_base_query.where(User.role == 'client')
+        
+        cumulative_base_result = await db.execute(cumulative_base_query)
+        cumulative_count = cumulative_base_result.scalar() or 0
+        
+        # Generate all dates in the range and calculate cumulative counts
+        daily_counts = []
+        current_date = start_dt.date()
+        end_date_obj = end_dt.date()
+        
+        while current_date <= end_date_obj:
+            date_str = current_date.strftime('%Y-%m-%d')
+            daily_new_users = data_dict.get(date_str, 0)  # New users on this date
+            cumulative_count += daily_new_users  # Add to cumulative total
+            
+            daily_counts.append(DailyUserCount(
+                date=date_str,
+                count=cumulative_count  # Use cumulative count instead of daily count
+            ))
+            current_date += timedelta(days=1)
+        
+        # For total count, we want ALL users of that type ever registered, not just in date range
+        total_query = select(func.count(User.id))
+        
+        # Apply user type filter for total count
+        if user_type and user_type != 'all':
+            if user_type == 'expert':
+                total_query = total_query.where(User.role == 'expert')
+            elif user_type == 'client':
+                total_query = total_query.where(User.role == 'client')
+        
+        total_result = await db.execute(total_query)
+        total_count = total_result.scalar()
+        
+        return UserAnalyticsResponse(
+            data=daily_counts,
+            total_count=total_count or 0
+        )
+        
+    except Exception as e:
+        raise e
