@@ -3,9 +3,11 @@ from sqlalchemy.orm import Session
 import os
 import shutil
 import logging
+from datetime import datetime
 from models import DocumentType
 from config import settings
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from typing import List, Optional
 import uuid
 from uuid import UUID as UUID4
@@ -348,11 +350,13 @@ async def get_user_admin(
     return UserResponse(
         id=str(user.id),
         email=user.email,
-        full_name=user.full_name,
-        phone_number=user.phone_number,
+        name=user.name,
+        phone=user.phone,
         role=user.role,
-        account_type=user.account_type,
-        is_active=user.is_active,
+        bio=user.bio,
+        profile_image_url=user.profile_image_url,
+        location=user.location,
+        is_expert=user.is_expert,
         created_at=user.created_at,
         updated_at=user.updated_at
     )
@@ -599,3 +603,129 @@ async def get_daily_registrations_endpoint(
 ):
     """Get daily registration analytics data for admin dashboard."""
     return await get_daily_registrations(db=db, start_date=start_date, end_date=end_date, user_type=user_type)
+
+
+# Admin User Verification Endpoints
+@router.get("/admin/users/{user_id}/verification-documents", response_model=List[VerificationDocumentResponse])
+async def get_user_verification_documents_admin(
+    user_id: str,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    Get verification documents for a specific user (Admin only)
+    
+    This endpoint is used by the admin verification system to view
+    documents uploaded by users with "Client" role for gig verification.
+    """
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user ID format"
+        )
+    
+    try:
+        # First verify the user exists
+        user = await get_user_by_id(db, user_uuid)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Get verification documents for the user
+        documents = await get_documents_by_user(db, user_uuid)
+        
+        return [
+            VerificationDocumentResponse(
+                id=str(doc.id),
+                user_id=str(doc.user_id),
+                document_type=doc.document_type,
+                document_url=doc.document_url,
+                uploaded_at=doc.uploaded_at
+            )
+            for doc in documents
+        ]
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching verification documents: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve verification documents"
+        )
+
+
+@router.patch("/admin/users/{user_id}/verify-as-expert", response_model=UserResponse)
+async def verify_user_as_expert_admin(
+    user_id: str,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    Verify a user as an expert (Admin only)
+    
+    Changes user role from CLIENT to EXPERT after admin verification.
+    Used in the gig verification workflow.
+    """
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user ID format"
+        )
+    
+    try:
+        # Get the user with row locking to prevent race conditions
+        result = await db.execute(
+            select(User).where(User.id == user_uuid).with_for_update()
+        )
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Check if user is currently a CLIENT
+        if user.role != "client":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"User is already an {user.role}. Only client users can be verified as experts."
+            )
+        
+        # Update user role to EXPERT
+        user.role = "expert"
+        user.updated_at = datetime.utcnow()
+        
+        # Commit the changes
+        await db.commit()
+        await db.refresh(user)
+        
+        return UserResponse(
+            id=user.id,
+            firebase_uid=user.firebase_uid,
+            name=user.name,
+            email=user.email,
+            phone=user.phone,
+            role=user.role,
+            bio=user.bio,
+            profile_image_url=user.profile_image_url,
+            location=user.location,
+            is_expert=user.is_expert,
+            created_at=user.created_at,
+            updated_at=user.updated_at
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error during user verification: {e}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to verify user as expert"
+        )

@@ -180,8 +180,12 @@ async def proxy_user_v2_admin(request):
     """Proxy for user admin endpoints - route to regular user endpoints as fallback"""
     path = request.path_params.get("path", "")
     
-    # For user details, route to regular user endpoint instead of admin
-    if path.startswith("users/"):
+    # For verification documents and verify-as-expert, always use admin route
+    if "verification-documents" in path or "verify-as-expert" in path:
+        return await proxy_request(request, services["user_v2"], f"/admin/{path}", auth_required=False)
+    
+    # For user details (but not verification-related), route to regular user endpoint
+    if path.startswith("users/") and "verification" not in path and "verify" not in path:
         user_id = path.replace("users/", "")
         return await proxy_request(request, services["user_v2"], f"/users/{user_id}", auth_required=False)
     

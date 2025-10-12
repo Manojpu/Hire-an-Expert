@@ -397,14 +397,14 @@ def approve_gig_for_admin(
         from app.db.schemas import GigStatusUpdate
         from app.db.models import GigStatus
         
-        status_update = GigStatusUpdate(status=GigStatus.APPROVED)
+        status_update = GigStatusUpdate(status=GigStatus.ACTIVE)
         updated_gig = crud.update_gig_status(db=db, gig_id=gig_id, status_update=status_update)
         
         if not updated_gig:
             raise HTTPException(status_code=500, detail="Failed to update gig status")
             
-        logger.info(f"Gig {gig_id} approved successfully")
-        return {"message": "Gig approved successfully", "gig_id": gig_id}
+        logger.info(f"Gig {gig_id} approved and activated successfully")
+        return {"message": "Gig approved and activated successfully", "gig_id": gig_id}
     except Exception as e:
         logger.error(f"Error approving gig: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to approve gig: {str(e)}")
