@@ -21,7 +21,7 @@ fi
 
 # Run the tests with coverage
 echo "Running tests: $test_path"
-python -m pytest --cov=app $test_path -v
+python3 -m pytest --cov=app $test_path -v
 
 # Return the exit code from pytest
 exit $?
