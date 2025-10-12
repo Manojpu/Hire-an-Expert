@@ -29,7 +29,7 @@ from schemas import (
     VerificationDocumentCreate, VerificationDocumentResponse,
     ExpertVerificationUpdate, ExpertVerificationResponse,
     AvailabilityRule, AvailabilityRuleCreate, DateOverrideCreate, CreateAvailabilitySchedules,
-    AvailabilitySlotResponse
+    AvailabilitySlotResponse, UserAnalyticsResponse, DailyUserCount
 ) 
 from crud import (
     create_user, get_user_by_email, get_user_by_id, get_user_by_firebase_uid, get_users, update_user, delete_user,
@@ -38,7 +38,8 @@ from crud import (
     upsert_preference, delete_preference, bulk_upsert_preferences,
     create_verification_document, get_verification_documents, get_documents_by_user, get_verification_document_by_id, delete_verification_document,
     update_expert_verification_status, get_all_expert_profiles,
-    set_availability_rules, get_availability_rules_for_user, generate_availability_slots
+    set_availability_rules, get_availability_rules_for_user, generate_availability_slots,
+    get_user_analytics_data
 )
 from auth import get_current_user, get_current_admin, get_user_by_id_or_current, get_optional_user
 # Removing problematic relative import
@@ -800,3 +801,28 @@ async def verify_user_as_expert_admin(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to verify user as expert"
         )
+
+
+@router.get("/admin/analytics/users", response_model=UserAnalyticsResponse)
+async def get_user_analytics(
+    user_type: Optional[str] = Query(None, description="Filter by user type (expert, client)"),
+    start_date: Optional[str] = Query(None, description="Start date in YYYY-MM-DD format"),
+    end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    Get user analytics data for admin dashboard.
+    Returns daily user counts within the specified date range.
+    """
+    try:
+        logger.info(f"Getting user analytics for user_type: {user_type}, date range: {start_date} to {end_date}")
+        
+        # Get analytics data from database
+        analytics_data = await get_user_analytics_data(db, user_type, start_date, end_date)
+        
+        logger.info(f"Retrieved {len(analytics_data.data)} analytics data points")
+        return analytics_data
+        
+    except Exception as e:
+        logger.error(f"Error getting user analytics: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get user analytics: {str(e)}")

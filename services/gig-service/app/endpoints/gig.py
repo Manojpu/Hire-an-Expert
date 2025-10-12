@@ -136,8 +136,8 @@ def get_gig_detail(
         logger.warning(f"Gig not found for gig ID: {gig_id}")
         raise HTTPException(status_code=404, detail="Gig not found")
 
-    # Only show approved/active gigs to public
-    if db_gig.status not in [schemas.GigStatus.APPROVED, schemas.GigStatus.ACTIVE]:
+    # Only show active gigs to public
+    if db_gig.status not in [schemas.GigStatus.ACTIVE]:
         logger.warning(f"Gig with ID {gig_id} is not available (status: {db_gig.status})")
         raise HTTPException(status_code=404, detail="Gig not available")
 
@@ -189,7 +189,7 @@ def get_gig_by_expert(
         logger.warning(f"Expert gig not found for expert ID: {expert_id}")
         raise HTTPException(status_code=404, detail="Expert gig not found")
 
-    if db_gig.status not in [schemas.GigStatus.APPROVED, schemas.GigStatus.ACTIVE]:
+    if db_gig.status not in [schemas.GigStatus.ACTIVE]:
         logger.warning(f"Expert profile not available for expert ID: {expert_id} (status: {db_gig.status})")
         raise HTTPException(status_code=404, detail="Expert profile not available")
 
@@ -447,7 +447,7 @@ def get_gig_certificates_for_admin(
             raise HTTPException(status_code=404, detail="Gig not found")
         
         # Get certifications for this gig
-        certifications = crud.get_gig_certifications(db=db, gig_id=gig_id)
+        certifications = crud.get_certifications_by_gig(db=db, gig_id=gig_id)
         
         # Convert to response format
         certificates = []
@@ -535,7 +535,7 @@ def reject_gig_for_admin(
         from app.db.schemas import GigStatusUpdate
         from app.db.models import GigStatus
         
-        status_update = GigStatusUpdate(status=GigStatus.REJECTED)
+        status_update = GigStatusUpdate(status=GigStatus.REJECT)
         updated_gig = crud.update_gig_status(db=db, gig_id=gig_id, status_update=status_update)
         
         if not updated_gig:
@@ -584,3 +584,48 @@ async def get_user_details_for_admin(
     except Exception as e:
         logger.error(f"Error getting user details: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get user details: {str(e)}")
+
+
+@router.get("/admin/analytics/gigs", response_model=schemas.GigAnalyticsResponse)
+async def get_gig_analytics(
+    start_date: Optional[str] = Query(None, description="Start date in YYYY-MM-DD format"),
+    end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
+    db: Session = Depends(session.get_db)
+):
+    """
+    Get gig analytics data for admin dashboard.
+    Returns daily gig counts within the specified date range.
+    """
+    try:
+        logger.info(f"Getting gig analytics for date range: {start_date} to {end_date}")
+        
+        # Get analytics data from database
+        analytics_data = crud.get_gig_analytics(db, start_date, end_date)
+        
+        logger.info(f"Retrieved {len(analytics_data.data)} analytics data points")
+        return analytics_data
+        
+    except Exception as e:
+        logger.error(f"Error getting gig analytics: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get gig analytics: {str(e)}")
+
+
+@router.get("/admin/analytics/total-stats")
+async def get_gig_total_stats(
+    db: Session = Depends(session.get_db)
+):
+    """
+    Get total stats for gigs - returns total count of active gigs.
+    """
+    try:
+        logger.info("Getting total gig stats")
+        
+        # Get total count of active gigs
+        total_active_gigs = crud.get_total_active_gigs(db)
+        
+        logger.info(f"Total active gigs: {total_active_gigs}")
+        return {"totalGigs": total_active_gigs}
+        
+    except Exception as e:
+        logger.error(f"Error getting total gig stats: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get total gig stats: {str(e)}")
