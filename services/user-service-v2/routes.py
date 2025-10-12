@@ -9,8 +9,10 @@ from config import settings
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List, Optional
+from sqlalchemy import select
 import uuid
 from uuid import UUID as UUID4
+from datetime import date, datetime, timedelta, time
 from auth import get_current_user_id
 
 # Configure logger
@@ -18,7 +20,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 from database import SyncSessionLocal, get_async_db
-from models import User, UserRole
+from models import User, UserRole, AvailabilitySlot, DateOverride
 from schemas import (
     UserCreate, UserUpdate, UserResponse, UserOut, ProvisionIn,
     SuccessResponse, PaginationParams, PaginatedResponse,
@@ -26,8 +28,8 @@ from schemas import (
     PreferenceBulkCreate, PreferenceBulkResponse, UserWithPreferences,
     VerificationDocumentCreate, VerificationDocumentResponse,
     ExpertVerificationUpdate, ExpertVerificationResponse,
-    AvailabilityRule, AvailabilityRuleCreate,  DateOverrideCreate, CreateAvailabilitySchedules,
-    UserAnalyticsRequest, UserAnalyticsResponse
+    AvailabilityRule, AvailabilityRuleCreate, DateOverrideCreate, CreateAvailabilitySchedules,
+    AvailabilitySlotResponse
 ) 
 from crud import (
     create_user, get_user_by_email, get_user_by_id, get_user_by_firebase_uid, get_users, update_user, delete_user,
@@ -36,7 +38,7 @@ from crud import (
     upsert_preference, delete_preference, bulk_upsert_preferences,
     create_verification_document, get_verification_documents, get_documents_by_user, get_verification_document_by_id, delete_verification_document,
     update_expert_verification_status, get_all_expert_profiles,
-    set_availability_rules, get_availability_rules_for_user, get_user_analytics, get_daily_registrations
+    set_availability_rules, get_availability_rules_for_user, generate_availability_slots
 )
 from auth import get_current_user, get_current_admin, get_user_by_id_or_current, get_optional_user
 # Removing problematic relative import
@@ -114,11 +116,37 @@ async def provision_user(request: Request, db: Session = Depends(get_db)):
 @router.get("/users/documents", response_model=List[VerificationDocumentResponse], summary="Get user's documents")
 async def get_user_documents(
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(get_user_by_id_or_current),
+    user_id: Optional[str] = Query(None, description="User ID (required for admin access)"),
+    current_user: User = Depends(get_current_user),
 ):
     """Retrieves all verification documents for the authenticated user."""
-    logger.info(f"🔍 GET documents endpoint hit for user_id: {current_user.id}")
-    return await get_documents_by_user(db=db, user_id=current_user.id)
+    # Determine which user ID to use
+    target_user_id = current_user.id
+    
+    # If user_id is provided and the current user is admin, use the provided user_id
+    if user_id and current_user.role == UserRole.ADMIN:
+        try:
+            target_user_id = uuid.UUID(user_id)
+        except ValueError:
+            # Try with firebase_uid
+            try:
+                result = await db.execute(select(User).where(User.firebase_uid == user_id))
+                target_user = result.scalar_one_or_none()
+                if target_user:
+                    target_user_id = target_user.id
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Target user not found"
+                    )
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid user ID format: {e}"
+                )
+    
+    logger.info(f"🔍 GET documents endpoint hit for user_id: {target_user_id}")
+    return await get_documents_by_user(db=db, user_id=target_user_id)
 
 # Public endpoints 
 @router.get("/users/{user_id}", response_model=UserResponse)
@@ -496,7 +524,8 @@ async def delete_preference_endpoint(
 )
 async def upload_verification_document(
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(get_user_by_id_or_current),
+    user_id: Optional[str] = Query(None, description="User ID (required for admin access)"),
+    current_user: User = Depends(get_current_user),
     document_type: DocumentType = Form(...),
     file: UploadFile = File(...)
 ):
@@ -507,6 +536,32 @@ async def upload_verification_document(
     - Creates a record in the verification_documents table.
     """
     try:
+        # Determine which user ID to use
+        target_user_id = current_user.id
+        
+        # If user_id is provided and the current user is admin, use the provided user_id
+        if user_id and current_user.role == UserRole.ADMIN:
+            try:
+                target_user_id = uuid.UUID(user_id)
+                # Verify the target user exists
+                result = await db.execute(select(User).where(User.id == target_user_id))
+                target_user = result.scalar_one_or_none()
+                if not target_user:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Target user not found"
+                    )
+            except ValueError:
+                # Try with firebase_uid
+                result = await db.execute(select(User).where(User.firebase_uid == user_id))
+                target_user = result.scalar_one_or_none()
+                if not target_user:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Target user not found"
+                    )
+                target_user_id = target_user.id
+                
         # Create a secure, unique filename
         file_extension = os.path.splitext(file.filename)[1]
         unique_filename = f"{uuid.uuid4()}{file_extension}"
@@ -523,7 +578,7 @@ async def upload_verification_document(
         # Create the database record
         db_document = await create_verification_document(
             db=db,
-            user_id=current_user.id,
+            user_id=target_user_id,
             document_type=document_type,
             document_url=document_url
         )
@@ -568,8 +623,19 @@ async def set_my_availability_rules(
     logger.debug(f"Received availability rules: {rules.availabilityRules}")
     logger.debug(f"Received date overrides: {rules.dateOverrides}")
     
-    # Process and save the availability rules
-    return await set_availability_rules(db=db, user_id=current_user_id, rules=rules.availabilityRules, dateOverrides=rules.dateOverrides)
+    try:
+        # Process and save the availability rules
+        return await set_availability_rules(db=db, user_id=current_user_id, rules=rules.availabilityRules, dateOverrides=rules.dateOverrides)
+    except HTTPException as e:
+        # Re-raise FastAPI HTTPException to maintain the status code and error message
+        raise e
+    except Exception as e:
+        # Log the error and return a 500 error
+        logger.error(f"Error setting availability rules: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to set availability rules: {str(e)}"
+        )
 
 @router.get(
     "/users/{user_id}/availability-rules",
@@ -582,27 +648,32 @@ async def get_user_availability_rules(
 ):
     return await get_availability_rules_for_user(db=db, user_id=user_id)
 
-
-@router.get("/admin/analytics/users", response_model=UserAnalyticsResponse)
-async def get_user_analytics_endpoint(
-    start_date: Optional[str] = Query(None, description="Start date in YYYY-MM-DD format"),
-    end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
-    user_type: str = Query("all", description="User type filter: all, expert, client"),
+# In routes.py
+@router.get(
+    "/users/{user_id}/availability-slots",
+    response_model=List[AvailabilitySlotResponse]
+)
+async def get_user_availability_slots(
+    user_id: UUID4,
+    start_date: date,
+    end_date: date,
     db: AsyncSession = Depends(get_async_db)
 ):
-    """Get cumulative user analytics data for admin dashboard."""
-    return await get_user_analytics(db=db, start_date=start_date, end_date=end_date, user_type=user_type)
-
-
-@router.get("/admin/analytics/daily-registrations", response_model=UserAnalyticsResponse)
-async def get_daily_registrations_endpoint(
-    start_date: Optional[str] = Query(None, description="Start date in YYYY-MM-DD format"),
-    end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
-    user_type: str = Query("all", description="User type filter: all, expert, client"),
-    db: AsyncSession = Depends(get_async_db)
-):
-    """Get daily registration analytics data for admin dashboard."""
-    return await get_daily_registrations(db=db, start_date=start_date, end_date=end_date, user_type=user_type)
+    """Get available time slots for a user within a date range"""
+    # First, ensure slots exist by generating them
+    await generate_availability_slots(db, user_id, start_date, end_date)
+    
+    # Then fetch all available slots
+    result = await db.execute(
+        select(AvailabilitySlot).where(
+            AvailabilitySlot.user_id == user_id,
+            AvailabilitySlot.date >= start_date,
+            AvailabilitySlot.date <= end_date,
+            AvailabilitySlot.is_booked == False
+        ).order_by(AvailabilitySlot.date, AvailabilitySlot.start_time)
+    )
+    
+    return result.scalars().all()
 
 
 # Admin User Verification Endpoints
