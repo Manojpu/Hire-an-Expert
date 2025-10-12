@@ -71,6 +71,7 @@ class Gig(Base):
     expertise_areas = Column(ARRAY(String))  # List of expertise areas
     experience_years = Column(Integer)
     work_experience = Column(Text)  # New field for work experience details
+    certification = Column(ARRAY(String))  # List of certification URLs
     
     # System fields
     status = Column(Enum(GigStatus, name="gigstatus"), default=GigStatus.DRAFT)

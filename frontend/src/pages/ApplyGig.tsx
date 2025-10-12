@@ -4,56 +4,14 @@ import ProgressStepper from "@/components/expert/ProgressStepper";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import ProfileSettings from "@/components/dashboard/ProfileSettings";
 import { ExpertApplicationForm } from "@/types/expert";
-import { AvailabilityRule } from "@/types/availability";
 import AvailabilityCalendar from "@/components/expert/AvailabilityCalendar";
 import {
-  validateExpertApplication,
   convertApplicationToExpert,
   syncExpertData,
 } from "@/utils/expertUtils";
 import { convertFormToGigData, gigServiceAPI } from "@/services/gigService";
-import { submitAvailabilityRules } from "@/services/availabilityService";
-
-// TODO: Replace with your actual user service URL
-const USER_SERVICE_URL =
-  import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:8001";
-
-// Upload a verification document to the user service
-async function uploadVerificationDocument(
-  file: File,
-  documentType: string,
-  token: string,
-  userId: string
-) {
-  const formData = new FormData();
-  formData.append("file", file);
-  // Map to backend enum
-  let backendDocType = "OTHER";
-  if (documentType === "government_id") backendDocType = "ID_PROOF";
-  if (documentType === "professional_license")
-    backendDocType = "PROFESSIONAL_LICENSE";
-  formData.append("document_type", backendDocType);
-
-  const response = await fetch(
-    `${USER_SERVICE_URL}/users/documents?user_id=${userId}`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData,
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("Document upload failed:", response.status, errorText);
-    throw new Error(`Failed to upload document: ${errorText}`);
-  }
-  return response.json();
-}
+import { userServiceAPI } from "@/services/userService";
 import { steps } from "@/components/expert/ProgressStepper";
 
 const ApplyGig: React.FC = () => {
@@ -145,27 +103,21 @@ const ApplyGig: React.FC = () => {
         alert("You must be logged in to submit an application.");
         return;
       }
-      if (!user.id) {
-        alert("Could not determine your user ID. Please try again later.");
-        return;
-      }
       const token = await user.getIdToken();
 
       if (filteredForm.govId) {
-        const govRes = await uploadVerificationDocument(
+        const govRes = await userServiceAPI.uploadVerificationDocument(
           filteredForm.govId as File,
           "government_id",
-          token,
-          user.id
+          token
         );
         governmentIdUrl = govRes.url || govRes.file_url || "";
       }
       if (filteredForm.license) {
-        const licRes = await uploadVerificationDocument(
+        const licRes = await userServiceAPI.uploadVerificationDocument(
           filteredForm.license as File,
           "professional_license",
-          token,
-          user.id
+          token
         );
         licenseUrl = licRes.url || licRes.file_url || "";
       }
@@ -173,9 +125,18 @@ const ApplyGig: React.FC = () => {
       // 2. Prepare gig data for gig service
       const gigData = convertFormToGigData({
         ...filteredForm,
-        government_id_url: governmentIdUrl,
-        professional_license_url: licenseUrl,
       });
+
+      // Add qualification files to gigData for upload
+      if (
+        filteredForm.qualificationDocs &&
+        filteredForm.qualificationDocs.length > 0
+      ) {
+        // Convert FileList to array of File objects
+        const files = Array.from(filteredForm.qualificationDocs);
+        // @ts-ignore - we need to use Files directly for upload, but the type expects Certificate objects
+        gigData.certifications = files;
+      }
 
       // 3. Submit to Gig Service
       const createdGig = await gigServiceAPI.create(gigData);
@@ -283,7 +244,12 @@ const ApplyGig: React.FC = () => {
                       onChange={(rules) =>
                         handleChange("availabilityRules", rules)
                       }
+                      submitImmediately={true}
                     />
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Your availability is automatically saved as you add or
+                      remove time slots.
+                    </p>
                   </div>
                 </div>
               </div>

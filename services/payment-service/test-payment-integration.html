@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stripe Payment Integration Test</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #5469d4;
+            color: #ffffff;
+            border-radius: 4px;
+            border: 0;
+            padding: 12px 16px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: block;
+            width: 100%;
+            margin-top: 20px;
+        }
+        button:hover {
+            background-color: #4a5fc1;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+            display: none;
+        }
+        #card-element {
+            background-color: white;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .StripeElement--focus {
+            box-shadow: 0 1px 3px 0 #cfd7df;
+        }
+        .StripeElement--invalid {
+            border-color: #fa755a;
+        }
+        .error {
+            color: #fa755a;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Stripe Payment Integration</h1>
+    
+    <div class="form-group">
+        <label for="payment-type">Payment Method:</label>
+        <select id="payment-type">
+            <option value="checkout">Stripe Checkout</option>
+            <option value="elements">Stripe Elements</option>
+        </select>
+    </div>
+
+    <div id="checkout-form" class="form-group">
+        <label for="booking-id">Booking ID:</label>
+        <input type="text" id="booking-id" value="test-booking-123">
+        
+        <label for="booking-price">Price (LKR):</label>
+        <input type="number" id="booking-price" value="1000">
+        
+        <label for="gig-title">Gig Title:</label>
+        <input type="text" id="gig-title" value="Test Consultation">
+        
+        <button id="checkout-button">Pay with Stripe Checkout</button>
+    </div>
+    
+    <div id="elements-form" style="display: none;" class="form-group">
+        <label for="elements-booking-id">Booking ID:</label>
+        <input type="text" id="elements-booking-id" value="test-booking-123">
+        
+        <label for="elements-amount">Amount (LKR):</label>
+        <input type="number" id="elements-amount" value="1000">
+        
+        <label for="elements-gig-title">Gig Title:</label>
+        <input type="text" id="elements-gig-title" value="Test Consultation">
+        
+        <label for="card-element">Credit or debit card:</label>
+        <div id="card-element"></div>
+        <div id="card-errors" class="error" role="alert"></div>
+        
+        <button id="elements-submit-button">Pay Now</button>
+    </div>
+    
+    <div id="result" class="result">
+        <h3>Result:</h3>
+        <pre id="result-content"></pre>
+    </div>
+
+    <script>
+        // Configuration
+        const paymentServiceUrl = 'http://localhost:8004';
+        const stripePublicKey = 'pk_test_51RtBSuC1Izya10mhxF5BJyutYn6OzIwcdICvGhvlYU4LrtFrX4ZgamJ1qjtBDzlJQ0dJzz6ILDQnkHlTQJlGJ2Wy009bTLhC06';
+        const stripe = Stripe(stripePublicKey);
+
+        // DOM elements
+        const paymentTypeSelect = document.getElementById('payment-type');
+        const checkoutForm = document.getElementById('checkout-form');
+        const elementsForm = document.getElementById('elements-form');
+        const checkoutButton = document.getElementById('checkout-button');
+        const elementsSubmitButton = document.getElementById('elements-submit-button');
+        const resultDiv = document.getElementById('result');
+        const resultContent = document.getElementById('result-content');
+
+        // Handle payment type selection
+        paymentTypeSelect.addEventListener('change', function() {
+            if (this.value === 'checkout') {
+                checkoutForm.style.display = 'block';
+                elementsForm.style.display = 'none';
+            } else {
+                checkoutForm.style.display = 'none';
+                elementsForm.style.display = 'block';
+                initializeStripeElements();
+            }
+        });
+
+        // Stripe Checkout integration
+        checkoutButton.addEventListener('click', async function() {
+            const bookingId = document.getElementById('booking-id').value;
+            const bookingPrice = document.getElementById('booking-price').value;
+            const gigTitle = document.getElementById('gig-title').value;
+
+            try {
+                const response = await fetch(`${paymentServiceUrl}/payments/create-checkout-session`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        booking_id: bookingId,
+                        booking_price: parseFloat(bookingPrice),
+                        gig_title: gigTitle
+                    }),
+                });
+
+                const data = await response.json();
+                showResult(data);
+
+                // Redirect to Stripe Checkout
+                if (data.url) {
+                    window.location.href = data.url;
+                }
+            } catch (error) {
+                showResult({ error: error.message });
+            }
+        });
+
+        // Stripe Elements integration
+        let card;
+        function initializeStripeElements() {
+            if (card) return; // Only initialize once
+            
+            const elements = stripe.elements();
+            card = elements.create('card');
+            card.mount('#card-element');
+
+            card.addEventListener('change', function(event) {
+                const displayError = document.getElementById('card-errors');
+                if (event.error) {
+                    displayError.textContent = event.error.message;
+                } else {
+                    displayError.textContent = '';
+                }
+            });
+        }
+
+        elementsSubmitButton.addEventListener('click', async function() {
+            const bookingId = document.getElementById('elements-booking-id').value;
+            const amount = document.getElementById('elements-amount').value;
+            const gigTitle = document.getElementById('elements-gig-title').value;
+
+            try {
+                // 1. Create a payment intent on the server
+                const response = await fetch(`${paymentServiceUrl}/payments/create-payment-intent`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        booking_id: bookingId,
+                        amount: parseFloat(amount),
+                        gig_title: gigTitle
+                    }),
+                });
+
+                const data = await response.json();
+                showResult({ step: 'Created payment intent', data });
+
+                // 2. Confirm the payment with the card element
+                const result = await stripe.confirmCardPayment(data.clientSecret, {
+                    payment_method: {
+                        card: card,
+                        billing_details: {
+                            name: 'Test User',
+                        },
+                    },
+                });
+
+                if (result.error) {
+                    // Show error to your customer
+                    showResult({ step: 'Payment confirmation', error: result.error.message });
+                } else {
+                    if (result.paymentIntent.status === 'succeeded') {
+                        // Payment succeeded
+                        showResult({
+                            step: 'Payment succeeded',
+                            paymentIntentId: result.paymentIntent.id,
+                            status: result.paymentIntent.status,
+                        });
+                    }
+                }
+            } catch (error) {
+                showResult({ error: error.message });
+            }
+        });
+
+        // Helper function to display results
+        function showResult(data) {
+            resultDiv.style.display = 'block';
+            resultContent.textContent = JSON.stringify(data, null, 2);
+        }
+
+        // Initialize based on default selection
+        if (paymentTypeSelect.value === 'elements') {
+            elementsForm.style.display = 'block';
+            checkoutForm.style.display = 'none';
+            initializeStripeElements();
+        }
+    </script>
+</body>
+</html>
