@@ -51,7 +51,7 @@ export interface ExpertUser {
   id: string;
   name: string;
   email: string;
-  role: 'user' | 'expert' | 'admin';
+  role: 'client' | 'expert' | 'admin';
   profile_image_url?: string;
 }
 

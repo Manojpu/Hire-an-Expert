@@ -389,3 +389,198 @@ async def delete_certificate(
     except Exception as e:
         logger.error(f"Error deleting certificate: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to delete certificate: {str(e)}")
+
+
+# Admin endpoints for gig verification
+@router.get("/admin/pending", response_model=List[schemas.Gig])
+def get_pending_gigs_for_admin(
+        skip: int = Query(0, ge=0),
+        limit: int = Query(100, ge=1, le=1000),
+        db: Session = Depends(session.get_db)
+):
+    """
+    Get all gigs with pending status for admin verification.
+    """
+    logger.info(f"Admin fetching pending gigs: skip={skip}, limit={limit}")
+    try:
+        pending_gigs = crud.get_pending_gigs(db=db, skip=skip, limit=limit)
+        logger.info(f"Retrieved {len(pending_gigs)} pending gigs")
+        return pending_gigs
+    except Exception as e:
+        logger.error(f"Error getting pending gigs: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get pending gigs: {str(e)}")
+
+
+@router.get("/admin/{gig_id}", response_model=schemas.Gig)
+def get_gig_for_admin(
+        gig_id: str,
+        db: Session = Depends(session.get_db)
+):
+    """
+    Get specific gig details for admin verification.
+    Note: This is redundant with the pending endpoint but kept for API compatibility.
+    """
+    logger.info(f"Admin fetching gig details: {gig_id}")
+    try:
+        gig = crud.get_gig(db=db, gig_id=gig_id)
+        if not gig:
+            raise HTTPException(status_code=404, detail="Gig not found")
+        return gig
+    except Exception as e:
+        logger.error(f"Error getting gig details: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get gig details: {str(e)}")
+
+
+@router.get("/admin/{gig_id}/certificates")
+def get_gig_certificates_for_admin(
+        gig_id: str,
+        db: Session = Depends(session.get_db)
+):
+    """
+    Get certificates for a specific gig for admin verification.
+    """
+    logger.info(f"Admin fetching certificates for gig: {gig_id}")
+    try:
+        # First check if gig exists
+        gig = crud.get_gig(db=db, gig_id=gig_id)
+        if not gig:
+            raise HTTPException(status_code=404, detail="Gig not found")
+        
+        # Get certifications for this gig
+        certifications = crud.get_gig_certifications(db=db, gig_id=gig_id)
+        
+        # Convert to response format
+        certificates = []
+        for cert in certifications:
+            certificates.append({
+                "id": str(cert.id),
+                "gig_id": cert.gig_id,
+                "url": cert.url,
+                "thumbnail_url": cert.thumbnail_url,
+                "uploaded_at": cert.uploaded_at.isoformat() if cert.uploaded_at else None
+            })
+        
+        logger.info(f"Retrieved {len(certificates)} certificates for gig: {gig_id}")
+        return certificates
+    except Exception as e:
+        logger.error(f"Error getting gig certificates: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get gig certificates: {str(e)}")
+
+
+@router.get("/admin/categories/{category_id}")
+def get_category_for_admin(
+        category_id: int,
+        db: Session = Depends(session.get_db)
+):
+    """
+    Get category details for admin verification.
+    """
+    logger.info(f"Admin fetching category: {category_id}")
+    try:
+        category = crud.get_category(db=db, category_id=str(category_id))
+        if not category:
+            raise HTTPException(status_code=404, detail="Category not found")
+        return {"id": category.id, "name": category.name, "description": category.description}
+    except Exception as e:
+        logger.error(f"Error getting category: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get category: {str(e)}")
+
+
+@router.post("/admin/{gig_id}/approve")
+def approve_gig_for_admin(
+        gig_id: str,
+        db: Session = Depends(session.get_db)
+):
+    """
+    Approve a gig (change status to approved).
+    """
+    logger.info(f"Admin approving gig: {gig_id}")
+    try:
+        gig = crud.get_gig(db=db, gig_id=gig_id)
+        if not gig:
+            raise HTTPException(status_code=404, detail="Gig not found")
+        
+        # Create a status update object
+        from app.db.schemas import GigStatusUpdate
+        from app.db.models import GigStatus
+        
+        status_update = GigStatusUpdate(status=GigStatus.ACTIVE)
+        updated_gig = crud.update_gig_status(db=db, gig_id=gig_id, status_update=status_update)
+        
+        if not updated_gig:
+            raise HTTPException(status_code=500, detail="Failed to update gig status")
+            
+        logger.info(f"Gig {gig_id} approved and activated successfully")
+        return {"message": "Gig approved and activated successfully", "gig_id": gig_id}
+    except Exception as e:
+        logger.error(f"Error approving gig: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to approve gig: {str(e)}")
+
+
+@router.post("/admin/{gig_id}/reject")
+def reject_gig_for_admin(
+        gig_id: str,
+        db: Session = Depends(session.get_db)
+):
+    """
+    Reject a gig (change status to rejected).
+    """
+    logger.info(f"Admin rejecting gig: {gig_id}")
+    try:
+        gig = crud.get_gig(db=db, gig_id=gig_id)
+        if not gig:
+            raise HTTPException(status_code=404, detail="Gig not found")
+        
+        # Create a status update object
+        from app.db.schemas import GigStatusUpdate
+        from app.db.models import GigStatus
+        
+        status_update = GigStatusUpdate(status=GigStatus.REJECTED)
+        updated_gig = crud.update_gig_status(db=db, gig_id=gig_id, status_update=status_update)
+        
+        if not updated_gig:
+            raise HTTPException(status_code=500, detail="Failed to update gig status")
+            
+        logger.info(f"Gig {gig_id} rejected successfully")
+        return {"message": "Gig rejected successfully", "gig_id": gig_id}
+    except Exception as e:
+        logger.error(f"Error rejecting gig: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to reject gig: {str(e)}")
+
+
+@router.get("/admin/users/{user_id}")
+async def get_user_details_for_admin(
+        user_id: str,
+        db: Session = Depends(session.get_db)
+):
+    """
+    Get user details for admin verification by calling the user service.
+    """
+    logger.info(f"Admin fetching user details from user service: {user_id}")
+    try:
+        import httpx
+        
+        # Call the user service directly
+        user_service_url = "http://localhost:8006"  # User service URL
+        
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(f"{user_service_url}/admin/users/{user_id}")
+                
+                if response.status_code == 200:
+                    user_data = response.json()
+                    logger.info(f"Successfully retrieved user details for: {user_id}")
+                    return user_data
+                elif response.status_code == 404:
+                    raise HTTPException(status_code=404, detail="User not found")
+                else:
+                    logger.error(f"User service returned status {response.status_code}: {response.text}")
+                    raise HTTPException(status_code=500, detail=f"User service error: {response.status_code}")
+                    
+            except httpx.RequestError as e:
+                logger.error(f"Failed to connect to user service: {e}")
+                raise HTTPException(status_code=503, detail="User service unavailable")
+                
+    except Exception as e:
+        logger.error(f"Error getting user details: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get user details: {str(e)}")

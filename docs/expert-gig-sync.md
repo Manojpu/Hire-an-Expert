@@ -202,10 +202,11 @@ const myGig = await fetch("/api/gig-service/my/gig");
 
 1. **Draft** - Form being filled
 2. **Pending** - Submitted, awaiting admin approval
-3. **Approved** - Admin approved, ready to activate
-4. **Active** - Live and visible to clients
-5. **Inactive** - Temporarily disabled
-6. **Rejected** - Admin rejected with feedback
+3. **Active** - Admin approved and live, visible to clients
+4. **Inactive** - Temporarily disabled
+5. **Rejected** - Admin rejected with feedback
+
+*Note: When an admin approves a gig, it automatically transitions from PENDING to ACTIVE, making it immediately visible to clients.*
 
 ## Integration Benefits
 
