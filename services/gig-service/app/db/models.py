@@ -8,12 +8,10 @@ import enum
 Base = declarative_base()
 
 class GigStatus(str, enum.Enum):
-    DRAFT = "draft"
-    PENDING = "pending" 
-    APPROVED = "approved"
-    REJECTED = "rejected"
     ACTIVE = "active"
-    INACTIVE = "inactive"
+    PENDING = "pending" 
+    HOLD = "hold"
+    REJECT = "reject"
 
 class Category(Base):
     """
@@ -74,7 +72,7 @@ class Gig(Base):
     certification = Column(ARRAY(String))  # List of certification URLs
     
     # System fields
-    status = Column(Enum(GigStatus, name="gigstatus"), default=GigStatus.DRAFT)
+    status = Column(Enum(GigStatus, name="gigstatus"), default=GigStatus.PENDING)
 
     # Relationships
     category = relationship("Category", back_populates="gigs")

@@ -219,3 +219,23 @@ class AvailabilitySlotResponse(AvailabilitySlotBase):
     
     class Config:
         from_attributes = True
+
+
+# Analytics schemas
+class DailyUserCount(BaseModel):
+    """Schema for daily user count analytics."""
+    date: str
+    count: int
+
+
+class UserAnalyticsResponse(BaseModel):
+    """Response schema for user analytics."""
+    data: List[DailyUserCount]
+    total_count: int
+
+
+class UserAnalyticsRequest(BaseModel):
+    """Request schema for user analytics filters."""
+    user_type: Optional[str] = None  # 'expert', 'client', etc.
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
