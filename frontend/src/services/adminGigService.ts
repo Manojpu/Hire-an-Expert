@@ -131,9 +131,9 @@ class AdminGigService {
         return { success: false, error: certificatesResponse.error };
       }
 
-      // Check if user needs to be promoted from user to expert
+      // Check if user needs to be promoted from client to expert
       let verificationDocuments: VerificationDocument[] | undefined;
-      if (expertResponse.data.role === 'user') {
+      if (expertResponse.data.role === 'client') {
         const verificationDocsResponse = await this.getUserVerificationDocuments(gig.expert_id);
         if (verificationDocsResponse.success) {
           verificationDocuments = verificationDocsResponse.data;
@@ -206,8 +206,8 @@ class AdminGigService {
 
       // If user needs to be promoted to expert, do that
       const gigDetailsResponse = await this.getGigVerificationDetails(action.gig_id);
-      if (gigDetailsResponse.success && gigDetailsResponse.data?.expert.role === 'user') {
-        await this.promoteUserToExpert(gigDetailsResponse.data.expert.id);
+      if (gigDetailsResponse.success && gigDetailsResponse.data?.expert.role === 'client') {
+        await this.verifyUserAsExpert(gigDetailsResponse.data.expert.id);
       }
 
       return updateResponse;
@@ -245,6 +245,14 @@ class AdminGigService {
   // Check if all documents are verified (client-side helper)
   areAllDocumentsVerified(documents: (Certificate | VerificationDocument)[]): boolean {
     return documents.length > 0 && documents.every(doc => doc.verified === true);
+  }
+
+  // Verify user as expert (CLIENT → EXPERT workflow)
+  async verifyUserAsExpert(userId: string): Promise<ApiResponse<ExpertUser>> {
+    const url = `${API_GATEWAY_URL}${USER_SERVICE_PATH}/admin/users/${userId}/verify-as-expert`;
+    return this.makeRequest<ExpertUser>(url, {
+      method: 'PATCH'
+    });
   }
 }
 

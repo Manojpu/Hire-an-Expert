@@ -285,7 +285,10 @@ const AdminDashboard = () => {
               <h3 className="text-lg font-semibold text-gray-900">Gig Management</h3>
             </div>
             <p className="text-gray-600 mb-4">Review and manage expert gigs</p>
-            <Button className="w-full bg-green-600 hover:bg-green-700">
+            <Button 
+              className="w-full bg-green-600 hover:bg-green-700"
+              onClick={() => navigate('/admin-requests')}
+            >
               Manage Gigs
             </Button>
           </div>
