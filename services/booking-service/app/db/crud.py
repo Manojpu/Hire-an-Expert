@@ -1,10 +1,30 @@
 from sqlalchemy.orm import Session
 from app.db.schemas import BookingCreate, BookingUpdate
-from app.db.models import Booking
+from app.db.models import Booking, BookingStatus
 import uuid
+from datetime import timedelta
+
+def is_slot_available(db: Session, gig_id: uuid.UUID, scheduled_time) -> bool:
+    """Check if a time slot is available (not already booked)."""
+    # Define the time slot duration (1 hour)
+    slot_end_time = scheduled_time + timedelta(hours=1)
+    
+    # Check for any overlapping bookings
+    existing_booking = db.query(Booking).filter(
+        Booking.gig_id == gig_id,
+        Booking.scheduled_time < slot_end_time,
+        scheduled_time < (Booking.scheduled_time + timedelta(hours=1)),
+        Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED])
+    ).first()
+    
+    return existing_booking is None
 
 def create_booking(db: Session, booking: BookingCreate, user_id: str) -> Booking:
     """Create a new booking."""
+    # First check if the slot is available
+    if not is_slot_available(db, booking.gig_id, booking.scheduled_time):
+        return None
+        
     db_booking = Booking(
         gig_id=booking.gig_id,
         user_id=user_id,
@@ -120,3 +140,24 @@ def get_booking_by_status(db: Session, status: str):
     """Retrieve all bookings with a specific status."""
     return db.query(Booking).filter(Booking.status == status).all()
 
+def get_booked_slots_for_date(db: Session, gig_id: uuid.UUID, date_str: str):
+    """Get booked slots for a specific date."""
+    from datetime import datetime
+    from sqlalchemy import cast, Date, func
+    
+    try:
+        # Parse the date string into a date object
+        target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        
+        # Query bookings for this gig on the specified date that are pending or confirmed
+        bookings = db.query(Booking).filter(
+            Booking.gig_id == gig_id,
+            cast(Booking.scheduled_time, Date) == target_date,
+            Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED])
+        ).all()
+        
+        return bookings
+    except Exception as e:
+        import logging
+        logging.error(f"Error getting booked slots: {str(e)}")
+        raise
