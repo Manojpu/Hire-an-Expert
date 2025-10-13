@@ -4,7 +4,6 @@
 
 # Change to the script's directory
 cd "$(dirname "$0")"
-cd ..
 
 # Check if we need to install test dependencies
 if [ "$1" == "--install" ] || [ "$1" == "-i" ]; then
