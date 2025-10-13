@@ -86,6 +86,7 @@ const BookConsultation = () => {
   const [bookingComplete, setBookingComplete] = useState(false);
   const [bookingError, setBookingError] = useState("");
   const [bookingId, setBookingId] = useState<string | null>(null);
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
 
   // Stripe payment states
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -161,7 +162,44 @@ const BookConsultation = () => {
     fetchExpertAvailability();
   }, [expertId]);
 
-  // Generate time slots when date changes
+  // Fetch booked slots when date changes
+  const fetchBookedSlots = async (date: Date) => {
+    if (!gigId) return;
+
+    try {
+      const formattedDate = format(date, "yyyy-MM-dd");
+      const response = await fetch(
+        `http://localhost:8003/bookings/gigs/${gigId}/available-slots?date=${formattedDate}`,
+        {
+          headers: {
+            Authorization: `Bearer ${await user?.getIdToken()}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch booked slots: ${response.status}`);
+      }
+
+      const bookedTimes = await response.json();
+      setBookedSlots(bookedTimes);
+    } catch (err) {
+      console.error("Error fetching booked slots:", err);
+      toast.error(
+        "Failed to check slot availability. Some slots may not be available."
+      );
+    }
+  };
+
+  // When date changes, fetch booked slots
+  useEffect(() => {
+    const selectedDate = form.watch("date");
+    if (selectedDate) {
+      fetchBookedSlots(selectedDate);
+    }
+  }, [form.watch("date"), gigId, user]);
+
+  // Generate time slots when date changes or booked slots update
   useEffect(() => {
     const selectedDate = form.watch("date");
     if (!selectedDate || !availabilityRules.length) return;
@@ -184,6 +222,21 @@ const BookConsultation = () => {
       for (let hour = startHour; hour < endHour; hour++) {
         const startTime = `${hour.toString().padStart(2, "0")}:00`;
         const endTime = `${(hour + 1).toString().padStart(2, "0")}:00`;
+
+        // Create ISO datetime string for this slot to check against booked slots
+        const bookingDate = format(selectedDate, "yyyy-MM-dd");
+        const slotTimeIso = `${bookingDate}T${startTime}:00Z`;
+
+        // Skip this slot if it's already booked
+        if (
+          bookedSlots.some((bookedTime) => {
+            const bookedDateTime = new Date(bookedTime);
+            const slotDateTime = new Date(slotTimeIso);
+            return bookedDateTime.getTime() === slotDateTime.getTime();
+          })
+        ) {
+          continue;
+        }
 
         // Format for display (e.g., "9:00 AM - 10:00 AM")
         const startDisplay =
@@ -208,7 +261,7 @@ const BookConsultation = () => {
     });
 
     setAvailableTimeSlots(slots);
-  }, [form.watch("date"), availabilityRules]);
+  }, [form.watch("date"), availabilityRules, bookedSlots]);
 
   // Initialize the payment intent when moving to payment step
   const initializePayment = async (bookingId: string) => {
@@ -337,11 +390,27 @@ const BookConsultation = () => {
           },
           body: JSON.stringify(bookingPayload),
         });
+
         if (!response.ok) {
           const errorData = await response.json();
+
+          // Special handling for the case where the slot is already booked
+          if (
+            response.status === 400 &&
+            errorData.detail?.includes("already booked")
+          ) {
+            toast.error(
+              "This time slot has just been booked by someone else. Please select another time."
+            );
+
+            // Go back to step 1 and refresh available slots
+            setBookingStep(1);
+            fetchBookedSlots(values.date);
+            return;
+          }
+
           throw new Error(errorData.detail || "Failed to create booking");
         }
-
         const bookingResult = await response.json();
         setBookingId(bookingResult.id);
 
