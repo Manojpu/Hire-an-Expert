@@ -8,10 +8,10 @@ import enum
 Base = declarative_base()
 
 class GigStatus(str, enum.Enum):
+    PENDING = "pending"
     ACTIVE = "active"
-    PENDING = "pending" 
     HOLD = "hold"
-    REJECT = "reject"
+    REJECTED = "rejected"
 
 class Category(Base):
     """

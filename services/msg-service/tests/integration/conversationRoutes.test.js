@@ -4,6 +4,15 @@ const app = require('../../app');
 const Conversation = require('../../models/conversationModel');
 
 describe('Conversation Routes Integration Tests', () => {
+  beforeAll(async () => {
+    // Wait for database connection to be established
+    if (mongoose.connection.readyState !== 1) {
+      await new Promise((resolve) => {
+        mongoose.connection.once('connected', resolve);
+      });
+    }
+  });
+
   describe('GET /api/conversations/:userId', () => {
     test('should retrieve conversations for a user', async () => {
       const userId = 'user123';
