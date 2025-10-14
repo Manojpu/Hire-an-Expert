@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     # CORS settings
     CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:3000")
     
+    # RabbitMQ settings
+    RABBITMQ_HOST: str = os.getenv("RABBITMQ_HOST", "localhost")
+    RABBITMQ_PORT: int = int(os.getenv("RABBITMQ_PORT", "5672"))
+    RABBITMQ_USER: str = os.getenv("RABBITMQ_USER", "guest")
+    RABBITMQ_PASS: str = os.getenv("RABBITMQ_PASS", "guest")
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
