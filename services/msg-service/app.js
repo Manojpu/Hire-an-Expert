@@ -4,7 +4,11 @@ const dotenv = require("dotenv");
 const connectDB = require("./config/db");
 
 dotenv.config();
-connectDB();
+
+// Only connect to DB if not in test environment (tests handle their own DB connection)
+if (process.env.NODE_ENV !== 'test') {
+  connectDB();
+}
 
 const app = express();
 
