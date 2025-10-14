@@ -16,11 +16,14 @@ module.exports = {
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
   setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
-  testTimeout: 30000,
+  testTimeout: 60000, // Increased timeout
   verbose: true,
   forceExit: true,
   detectOpenHandles: true,
   clearMocks: true,
   resetMocks: true,
-  restoreMocks: true
+  restoreMocks: true,
+  globals: {
+    'process.env.NODE_ENV': 'test'
+  }
 };

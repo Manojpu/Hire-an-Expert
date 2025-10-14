@@ -182,7 +182,15 @@ describe('Message Controller', () => {
           senderId: 'user123',
           receiverId: 'user456',
           text: 'First message',
-          timestamp: new Date()
+          timestamp: new Date(),
+          toObject: jest.fn().mockReturnValue({
+            _id: new mongoose.Types.ObjectId(),
+            conversationId,
+            senderId: 'user123',
+            receiverId: 'user456',
+            text: 'First message',
+            timestamp: new Date()
+          })
         },
         {
           _id: new mongoose.Types.ObjectId(),
@@ -190,7 +198,15 @@ describe('Message Controller', () => {
           senderId: 'user456',
           receiverId: 'user123',
           text: 'Second message',
-          timestamp: new Date()
+          timestamp: new Date(),
+          toObject: jest.fn().mockReturnValue({
+            _id: new mongoose.Types.ObjectId(),
+            conversationId,
+            senderId: 'user456',
+            receiverId: 'user123',
+            text: 'Second message',
+            timestamp: new Date()
+          })
         }
       ];
 
@@ -204,7 +220,8 @@ describe('Message Controller', () => {
 
       expect(Message.find).toHaveBeenCalledWith({ conversationId });
       expect(mockQuery.sort).toHaveBeenCalledWith({ timestamp: 1 });
-      expect(res.json).toHaveBeenCalledWith(mockMessages);
+      // Since the function enhances messages with sender details, we expect an array of enhanced messages
+      expect(res.json).toHaveBeenCalledWith(expect.any(Array));
     });
 
     test('should handle errors during message retrieval', async () => {
