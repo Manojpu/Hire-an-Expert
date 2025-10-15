@@ -29,7 +29,8 @@ def send_email(to_email: str, subject: str, html_content: str) -> bool:
 
     if not settings.email_enabled:
         logger.info("Email delivery disabled. Skipping send to %s", to_email)
-        return False
+        # Treat disabled delivery as a soft success so upstream handlers are not marked as failed.
+        return True
 
     sender_address = _resolve_sender_address()
     if not sender_address:
