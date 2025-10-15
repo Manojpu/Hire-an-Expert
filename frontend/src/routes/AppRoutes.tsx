@@ -29,6 +29,7 @@ const ExpertProfile = lazy(() => import("@/pages/ExpertProfile"));
 const GigView = lazy(() => import("@/pages/GigView"));
 const BookConsultation = lazy(() => import("@/pages/BookConsultation"));
 const PaymentSuccess = lazy(() => import("@/pages/PaymentSuccess"));
+const HowItWorksPage = lazy(() => import("@/pages/HowItWorks"));
 
 const ProtectedRoute = ({
   children,
@@ -68,15 +69,15 @@ const AppRoutes = () => (
       {/* Standalone pages (no header/footer) */}
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<SignUp />} />
-      
+
       {/* Smart dashboard redirect route */}
-      <Route 
-        path="/dashboard" 
+      <Route
+        path="/dashboard"
         element={
           <ProtectedRoute>
             <DashboardRedirect />
           </ProtectedRoute>
-        } 
+        }
       />
 
       {/* Messages page standalone (no header/footer) */}
@@ -90,37 +91,52 @@ const AppRoutes = () => (
       />
 
       {/* Admin routes with AdminLayout */}
-      <Route path="/admin-dashboard" element={
-        <ProtectedRoute role="admin">
-          <AdminLayout>
-            <AdminDashboard />
-          </AdminLayout>
-        </ProtectedRoute>
-      } />
-      <Route path="/admin-requests" element={
-        <ProtectedRoute role="admin">
-          <AdminLayout>
-            <AdminRequests />
-          </AdminLayout>
-        </ProtectedRoute>
-      } />
-      <Route path="/admin-payments" element={
-        <ProtectedRoute role="admin">
-          <AdminLayout>
-            <AdminPayments />
-          </AdminLayout>
-        </ProtectedRoute>
-      } />
-      <Route path="/admin-rag" element={
-        <ProtectedRoute role="admin">
-          <AdminLayout>
-            <AdminRAGSystem />
-          </AdminLayout>
-        </ProtectedRoute>
-      } />
+      <Route
+        path="/admin-dashboard"
+        element={
+          <ProtectedRoute role="admin">
+            <AdminLayout>
+              <AdminDashboard />
+            </AdminLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin-requests"
+        element={
+          <ProtectedRoute role="admin">
+            <AdminLayout>
+              <AdminRequests />
+            </AdminLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin-payments"
+        element={
+          <ProtectedRoute role="admin">
+            <AdminLayout>
+              <AdminPayments />
+            </AdminLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin-rag"
+        element={
+          <ProtectedRoute role="admin">
+            <AdminLayout>
+              <AdminRAGSystem />
+            </AdminLayout>
+          </ProtectedRoute>
+        }
+      />
 
       {/* Legacy admin route - redirect to new admin dashboard */}
-      <Route path="/admin" element={<Navigate to="/admin-dashboard" replace />} />
+      <Route
+        path="/admin"
+        element={<Navigate to="/admin-dashboard" replace />}
+      />
 
       {/* Main layout with footer */}
       <Route path="/" element={<MainLayout />}>
@@ -130,6 +146,7 @@ const AppRoutes = () => (
         <Route path="gig/:id" element={<GigView />} />
         <Route path="gig/:id/book" element={<BookConsultation />} />
         <Route path="payment-success" element={<PaymentSuccess />} />
+        <Route path="how-it-works" element={<HowItWorksPage />} />
         <Route path="expert/:slug" element={<Expert />} />
         <Route path="book/:expertId" element={<Book />} />
         <Route
