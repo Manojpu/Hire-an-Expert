@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterable, Optional
 
 from clients.user_service_client import get_user_by_id
 from config import settings
@@ -28,6 +28,15 @@ def _build_booking_link(booking_id: Optional[str]) -> Optional[str]:
         return None
 
     return f"{settings.frontend_base_url.rstrip('/')}/bookings/{booking_id}"
+
+
+def _build_dashboard_link(path: str = "") -> Optional[str]:
+    if not settings.frontend_base_url:
+        return None
+
+    cleaned = path.lstrip("/")
+    base = settings.frontend_base_url.rstrip("/")
+    return f"{base}/{cleaned}" if cleaned else base
 
 
 def _user_display_name(user: Optional[Dict[str, Any]], fallback: str) -> str:
@@ -217,5 +226,50 @@ def send_welcome_message(data: Dict[str, Any]) -> bool:
         f"<p>Welcome to Hire an Expert! Your {user_type} account is ready.</p>"
         "<p>You can now manage your bookings and profile from your dashboard.</p>"
     )
+
+    return _send_email_to_user(user, subject, body)
+
+
+def send_expert_approval_notification(data: Dict[str, Any]) -> bool:
+    user = _fetch_user(data.get("user_id"), "expert")
+    if not user:
+        return False
+
+    approver = data.get("approved_by") or "The Hire an Expert team"
+    specializations: Optional[Iterable[str]] = data.get("specializations")
+    if specializations is None:
+        profiles = user.get("expert_profiles") or []
+        specializations = [profile.get("specialization") for profile in profiles if profile.get("specialization")]
+
+    dashboard_link = _build_dashboard_link("dashboard")
+
+    subject = "Congratulations! Your expert profile is live"
+
+    body_lines = [
+        f"<p>Hi {_user_display_name(user, 'there')},</p>",
+        "<p>Your expert application has been approved and your profile is now visible to clients.</p>",
+    ]
+
+    if specializations:
+        specs = ", ".join(sorted({spec for spec in specializations if spec}))
+        if specs:
+            body_lines.append(f"<p>Featured specializations: <strong>{specs}</strong></p>")
+
+    body_lines.append(
+        "<p>Keep your availability up to date so clients can book time with you right away.</p>"
+    )
+
+    if dashboard_link:
+        body_lines.append(
+            f"<p><a href='{dashboard_link}'>Open your expert dashboard</a> to review your profile and manage bookings.</p>"
+        )
+
+    if data.get("message"):
+        body_lines.append(f"<p>{data['message']}</p>")
+
+    body_lines.append(f"<p>Approved by: {approver}</p>")
+    body_lines.append("<p>We are excited to see the impact you will make on the platform.</p>")
+
+    body = "\n".join(body_lines)
 
     return _send_email_to_user(user, subject, body)

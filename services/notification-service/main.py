@@ -3,7 +3,10 @@ import threading
 import uvicorn
 from consumer import HANDLERS, start_consuming
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
+from pydantic import BaseModel
+
+from notification_sender import send_expert_approval_notification
 
 
 logging.basicConfig(
@@ -82,6 +85,24 @@ async def test_notification(notification_type: str, data: Dict[str, Any]):
     except Exception as e:
         logger.error(f"Error in test notification: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class ExpertApprovalRequest(BaseModel):
+    user_id: str
+    specializations: Optional[List[str]] = None
+    approved_by: Optional[str] = None
+    message: Optional[str] = None
+
+
+@app.post("/notifications/expert-approved", status_code=202)
+async def send_expert_approved_notification(payload: ExpertApprovalRequest):
+    """Trigger an email to a user whose expert application was approved."""
+
+    success = send_expert_approval_notification(payload.model_dump())
+    if not success:
+        raise HTTPException(status_code=502, detail="Failed to send expert approval notification")
+
+    return {"success": True}
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
