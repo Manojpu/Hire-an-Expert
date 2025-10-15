@@ -19,7 +19,8 @@ EVENT_REQUIRED_FIELDS = {
     "booking.cancelled": {"booking_id", "client_id", "expert_id"},
     "booking.reminder.24hr": {"booking_id", "client_id", "expert_id", "booking_time"},
     "payment.successful": {"booking_id", "client_id", "payment_id"},
-    "user.welcome": {"user_id"}
+    "user.welcome": {"user_id"},
+    "user.expert.approved": {"user_id"}
 }
 
 def validate_message_fields(routing_key: str, message: Dict[str, Any]) -> bool:

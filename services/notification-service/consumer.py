@@ -13,6 +13,7 @@ from notification_sender import (
     send_booking_request_to_expert,
     send_payment_confirmation,
     send_welcome_message,
+    send_expert_approval_notification,
 )
 
 
@@ -34,6 +35,7 @@ HANDLERS = {
     "booking.reminder.24hr": send_booking_reminder,
     "payment.successful": send_payment_confirmation,
     "user.welcome": send_welcome_message,
+    "user.expert.approved": send_expert_approval_notification,
 }
 
 
