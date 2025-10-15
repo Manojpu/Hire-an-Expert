@@ -354,6 +354,7 @@ const BookConsultation = () => {
 
       // Move to payment step
       if (bookingStep === 1) {
+        setPaymentLoading(true);
         setBookingStep(2);
 
         // Create booking
@@ -405,6 +406,7 @@ const BookConsultation = () => {
 
             // Go back to step 1 and refresh available slots
             setBookingStep(1);
+            setPaymentLoading(false);
             fetchBookedSlots(values.date);
             return;
           }
@@ -423,6 +425,8 @@ const BookConsultation = () => {
       console.error("Booking error:", error);
       toast.error(error.message || "Failed to book consultation");
       setBookingError(error.message || "Failed to book consultation");
+      setPaymentLoading(false);
+      setBookingStep(1);
     }
   };
 
