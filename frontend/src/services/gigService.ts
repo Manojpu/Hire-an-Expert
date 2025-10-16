@@ -117,6 +117,18 @@ interface Certificate {
 }
 
 export interface ExpertGigCreateData {
+  // Basic Information (optional in current API but used by UI/mocks)
+  name?: string;
+  title?: string;
+  bio?: string;
+  profile_image_url?: string;
+  banner_image_url?: string;
+  languages?: string[];
+  availability_preferences?: string;
+  education?: string;
+  government_id_url?: string | null;
+  professional_license_url?: string | null;
+
   // Expertise & Services (Step 1)
   category_id: number | string;
   service_description?: string;
@@ -241,6 +253,8 @@ export const gigServiceAPI: GigServiceAPI = {
 
     return response.json();
   },
+
+  // getGigStats implemented later in this object (keep only one definition)
 
   async getByExpert(expertId: string): Promise<ExpertGig> {
     const response = await fetch(`${GIG_SERVICE_URL}/gigs/expert/${expertId}`);
