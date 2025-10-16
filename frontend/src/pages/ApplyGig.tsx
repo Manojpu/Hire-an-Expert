@@ -12,7 +12,7 @@ import {
 } from "@/utils/expertUtils";
 import { convertFormToGigData, gigServiceAPI } from "@/services/gigService";
 import { userServiceAPI } from "@/services/userService";
-import { steps } from "@/components/expert/ProgressStepper";
+import { DEFAULT_STEPS } from "@/components/expert/ProgressStepper";
 
 const ApplyGig: React.FC = () => {
   const { user } = useAuth();
@@ -48,7 +48,46 @@ const ApplyGig: React.FC = () => {
     fetchCategories();
   }, []);
 
-  const next = () => setStep((s) => Math.min(steps.length - 1, s + 1));
+  const includeVerificationStep = !user?.isExpert;
+  const stepOrder = React.useMemo(
+    () =>
+      includeVerificationStep
+        ? ["services", "qualifications", "verification", "review"]
+        : ["services", "qualifications", "review"],
+    [includeVerificationStep]
+  );
+
+  const stepLabels = React.useMemo(
+    () =>
+      stepOrder.map((key) => {
+        switch (key) {
+          case "services":
+            return DEFAULT_STEPS[0];
+          case "qualifications":
+            return DEFAULT_STEPS[1];
+          case "verification":
+            return DEFAULT_STEPS[2];
+          case "review":
+          default:
+            return DEFAULT_STEPS[3];
+        }
+      }),
+    [stepOrder]
+  );
+
+  React.useEffect(() => {
+    setStep((prev) => Math.min(prev, stepOrder.length - 1));
+  }, [stepOrder]);
+
+  React.useEffect(() => {
+    if (!includeVerificationStep) {
+      setForm((prev) => ({ ...prev, bgConsent: true }));
+    }
+  }, [includeVerificationStep]);
+
+  const currentStepKey = stepOrder[step] ?? stepOrder[0];
+
+  const next = () => setStep((s) => Math.min(stepOrder.length - 1, s + 1));
   const prev = () => setStep((s) => Math.max(0, s - 1));
 
   const handleChange = (
@@ -58,7 +97,7 @@ const ApplyGig: React.FC = () => {
 
   const handleSubmit = async () => {
     // Only validate and send the required fields for gig application
-    const requiredFields = [
+    const requiredFields: (keyof ExpertApplicationForm)[] = [
       "category_id",
       "serviceDesc",
       "rate",
@@ -67,12 +106,12 @@ const ApplyGig: React.FC = () => {
       "qualificationDocs",
       "experience_years",
       "experience",
-      "govId",
-      "license",
       "references",
-      "bgConsent",
       "tos",
     ];
+    if (includeVerificationStep) {
+      requiredFields.push("govId", "license", "bgConsent");
+    }
     const filteredForm: Partial<ExpertApplicationForm> = {};
     requiredFields.forEach((key) => {
       // @ts-ignore
@@ -85,7 +124,7 @@ const ApplyGig: React.FC = () => {
       errors.push("Category selection is required");
     if (!filteredForm.rate || Number(filteredForm.rate) <= 0)
       errors.push("Valid hourly rate is required");
-    if (!filteredForm.bgConsent)
+    if (includeVerificationStep && !filteredForm.bgConsent)
       errors.push("Background check consent is required");
     if (!filteredForm.tos)
       errors.push("Terms of service acceptance is required");
@@ -167,12 +206,18 @@ const ApplyGig: React.FC = () => {
     <div className="container mx-auto py-8">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-3 mb-4">
-          <ProgressStepper current={step} />
+          <ProgressStepper current={step} steps={stepLabels} />
+          {!includeVerificationStep && (
+            <div className="mt-4 rounded-md bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-900">
+              Your profile is already verified, so verification documents are
+              skipped for this application.
+            </div>
+          )}
         </div>
 
         <div className="lg:col-span-2">
           <div className="bg-white border border-border rounded-lg p-6 shadow-sm">
-            {step === 0 && (
+            {currentStepKey === "services" && (
               <div>
                 <h2 className="text-xl font-semibold mb-4">
                   Expertise & Services
@@ -255,7 +300,7 @@ const ApplyGig: React.FC = () => {
               </div>
             )}
 
-            {step === 1 && (
+            {currentStepKey === "qualifications" && (
               <div>
                 <h2 className="text-xl font-semibold mb-4">Qualifications</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -310,7 +355,7 @@ const ApplyGig: React.FC = () => {
               </div>
             )}
 
-            {step === 2 && (
+            {currentStepKey === "verification" && (
               <div>
                 <h2 className="text-xl font-semibold mb-4">
                   Verification Documents
@@ -364,7 +409,7 @@ const ApplyGig: React.FC = () => {
               </div>
             )}
 
-            {step === 3 && (
+            {currentStepKey === "review" && (
               <div>
                 <h2 className="text-xl font-semibold mb-4">Review & Submit</h2>
                 <div className="space-y-3">
@@ -394,8 +439,10 @@ const ApplyGig: React.FC = () => {
                 )}
               </div>
               <div className="flex gap-2">
-                {step < 3 && <Button onClick={next}>Next</Button>}
-                {step === 3 && (
+                {step < stepOrder.length - 1 && (
+                  <Button onClick={next}>Next</Button>
+                )}
+                {step === stepOrder.length - 1 && (
                   <Button onClick={handleSubmit}>Submit Application</Button>
                 )}
               </div>
@@ -411,7 +458,9 @@ const ApplyGig: React.FC = () => {
               <div className="mb-2">
                 Estimated review time: 2-3 business days
               </div>
-              <div className="mb-2">Progress: {step + 1}/4</div>
+              <div className="mb-2">
+                Progress: {step + 1}/{stepOrder.length}
+              </div>
               <div className="mb-2">Admin feedback: None</div>
             </div>
           </div>
