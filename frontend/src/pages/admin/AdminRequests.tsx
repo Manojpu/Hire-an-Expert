@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Users, UserCheck, Clock, Search, Filter, ChevronRight, Eye } from 'lucide-react';
+import { FileText, Users, UserCheck, Clock, Search, Filter, ChevronRight, Eye, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GigVerificationTableRow } from '@/types/gigVerification';
 import adminGigService from '@/services/adminGigService';
 import GigVerificationModal from '@/components/admin/GigVerificationModal';
+import { useNavigate } from 'react-router-dom';
 
 const AdminRequests = () => {
+  const navigate = useNavigate();
   const [gigs, setGigs] = useState<GigVerificationTableRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +57,11 @@ const AdminRequests = () => {
 
   const handleViewDetails = (gigId: string) => {
     setSelectedGigId(gigId);
+  };
+
+  const handleViewProfile = (expertId: string) => {
+    console.log('Navigating to expert profile with ID:', expertId);
+    navigate(`/admin-expert-profile/${expertId}`);
   };
 
   const pendingCount = gigs.filter(g => g.status === 'PENDING').length;
@@ -235,16 +242,26 @@ const AdminRequests = () => {
                         </span>
                       </td>
                       <td className="py-4 px-6">
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          className="flex items-center gap-2 hover:bg-blue-50 hover:border-blue-300"
-                          onClick={() => handleViewDetails(gig.gig_id)}
-                        >
-                          <Eye className="h-4 w-4" />
-                          Review Details
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="flex items-center gap-2 hover:bg-blue-50 hover:border-blue-300"
+                            onClick={() => handleViewDetails(gig.gig_id)}
+                          >
+                            <Eye className="h-4 w-4" />
+                            Review Gig
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="flex items-center gap-2 hover:bg-green-50 hover:border-green-300"
+                            onClick={() => handleViewProfile(gig.expert_id)}
+                          >
+                            <User className="h-4 w-4" />
+                            View Profile
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}

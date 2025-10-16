@@ -82,6 +82,7 @@ class AdminGigService {
 
         tableData.push({
           gig_id: gig.id,
+          expert_id: gig.expert_id,
           expert_name: expertResponse.data!.name,
           category_name: categoryName,
           hourly_rate: gig.hourly_rate,
