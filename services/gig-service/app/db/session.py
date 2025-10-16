@@ -75,8 +75,9 @@ def get_current_user_id(token: HTTPBearer = Depends(security)):
         # Check if Firebase is initialized
         if not firebase_admin._apps:
             logger.warning("⚠️ Firebase not initialized - using development mode")
-            # In development, use a mock user ID
-            return "dev-user-123"
+            # In development, return empty list (no gigs) to avoid confusion
+            # This forces users to have proper authentication setup
+            return "no-auth-user"
         
         # Verify the token with Firebase
         decoded_token = auth.verify_id_token(token_value)
@@ -111,7 +112,7 @@ def get_current_user_id(token: HTTPBearer = Depends(security)):
         # In development mode, allow dev tokens
         if token_value == "dev-mock-token":
             logger.info("Development token accepted")
-            return "dev-user-123"
+            return "no-auth-user"
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication token"

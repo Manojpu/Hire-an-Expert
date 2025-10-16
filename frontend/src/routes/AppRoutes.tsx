@@ -16,6 +16,7 @@ const Chat = lazy(() => import("@/pages/Chat"));
 const Messages = lazy(() => import("@/pages/MessagesPage"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const ExpertDashboard = lazy(() => import("@/pages/expert/ExpertDashboard"));
+const OverallExpertProfile = lazy(() => import("@/components/dashboard/OverallExpertProfile"));
 const AdminDashboard = lazy(() => import("@/pages/admin/AdminDashboard"));
 const AdminRequests = lazy(() => import("@/pages/admin/AdminRequests"));
 const AdminPayments = lazy(() => import("@/pages/admin/AdminPayments"));
@@ -28,6 +29,7 @@ const ClientDashboard = lazy(() => import("@/pages/ClientDashboard"));
 const ExpertProfile = lazy(() => import("@/pages/ExpertProfile"));
 const GigView = lazy(() => import("@/pages/GigView"));
 const BookConsultation = lazy(() => import("@/pages/BookConsultation"));
+const BookingServiceTest = lazy(() => import("@/components/test/BookingServiceTest"));
 
 const ProtectedRoute = ({
   children,
@@ -117,6 +119,24 @@ const AppRoutes = () => (
           </AdminLayout>
         </ProtectedRoute>
       } />
+      
+      {/* Admin Expert Profile View */}
+      <Route path="/admin-expert-profile/:expertId" element={
+        <ProtectedRoute role="admin">
+          <AdminLayout>
+            <OverallExpertProfile />
+          </AdminLayout>
+        </ProtectedRoute>
+      } />
+
+      {/* Expert Profile View (standalone) */}
+      <Route path="/expert-profile" element={
+        <ProtectedRoute>
+          <DashboardLayout>
+            <OverallExpertProfile />
+          </DashboardLayout>
+        </ProtectedRoute>
+      } />
 
       {/* Legacy admin route - redirect to new admin dashboard */}
       <Route path="/admin" element={<Navigate to="/admin-dashboard" replace />} />
@@ -173,6 +193,7 @@ const AppRoutes = () => (
           }
         />
         <Route path="experts" element={<Experts />} />
+        <Route path="test-booking-service" element={<BookingServiceTest />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
