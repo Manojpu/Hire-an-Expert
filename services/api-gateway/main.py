@@ -46,6 +46,7 @@ class Config:
     MESSAGE_SERVICE_URL = os.getenv("MESSAGE_SERVICE_URL", "http://localhost:8005")
     USER_SERVICE_V2_URL = os.getenv("USER_SERVICE_V2_URL", "http://localhost:8006")
     REVIEW_SERVICE_URL = os.getenv("REVIEW_SERVICE_URL", "http://localhost:8007")
+    ADMIN_SERVICE_URL = os.getenv("ADMIN_SERVICE_URL", "http://localhost:8009")
     
     REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "30"))
 
@@ -63,6 +64,7 @@ services = {
     "message": config.MESSAGE_SERVICE_URL,
     "user_v2": config.USER_SERVICE_V2_URL,
     "review": config.REVIEW_SERVICE_URL,
+    "admin": config.ADMIN_SERVICE_URL,
 }
 
 # Store startup time
@@ -217,6 +219,51 @@ async def proxy_conversations(request):
     path = request.path_params.get("path", "")
     return await proxy_request(request, services["message"], f"/api/conversations/{path}")
 
+async def proxy_rag(request):
+    """Proxy for RAG/AI Chat endpoints - admin service"""
+    path = request.path_params.get("path", "")
+    return await proxy_request(request, services["admin"], f"/api/rag/{path}", auth_required=False)
+
+async def rag_health_check(request):
+    """Check RAG system health through admin service"""
+    try:
+        response = await client.get(
+            f"{services['admin']}/health",
+            timeout=5
+        )
+        
+        if response.status_code == 200:
+            admin_health = response.json()
+            return JSONResponse({
+                "status": "healthy",
+                "service": "rag-system",
+                "admin_service": admin_health,
+                "timestamp": datetime.utcnow().isoformat()
+            })
+        else:
+            return JSONResponse({
+                "status": "unhealthy",
+                "service": "rag-system",
+                "error": f"Admin service returned status {response.status_code}",
+                "timestamp": datetime.utcnow().isoformat()
+            }, status_code=503)
+            
+    except httpx.TimeoutException:
+        return JSONResponse({
+            "status": "unhealthy",
+            "service": "rag-system",
+            "error": "Admin service timeout",
+            "timestamp": datetime.utcnow().isoformat()
+        }, status_code=503)
+    except Exception as e:
+        logger.error(f"RAG health check error: {e}")
+        return JSONResponse({
+            "status": "unhealthy",
+            "service": "rag-system",
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat()
+        }, status_code=503)
+
 async def proxy_reviews(request):
     path = request.path_params.get("path", "")
     return await proxy_request(request, services["review"], f"/reviews/{path}")
@@ -250,6 +297,7 @@ class LoggingMiddleware:
 # Routes
 routes = [
     Route("/health", health_check, methods=["GET"]),
+    Route("/api/rag/health", rag_health_check, methods=["GET"]),
     Route("/api/auth/{path:path}", proxy_auth, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/user-v2/admin/{path:path}", proxy_user_v2_admin, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/user-v2/{path:path}", proxy_user_v2, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
@@ -260,6 +308,7 @@ routes = [
     Route("/api/message/{path:path}", proxy_messages, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/conversations/{path:path}", proxy_conversations, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/reviews/{path:path}", proxy_reviews, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
+    Route("/api/rag/{path:path}", proxy_rag, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/{path:path}", catch_all, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
 ]
 
