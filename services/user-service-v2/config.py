@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     secret_key: str = "your-secret-key-here"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
+
+    # Cloudinary
+    cloudinary_cloud_name: Optional[str] = None
+    cloudinary_api_key: Optional[str] = None
+    cloudinary_api_secret: Optional[str] = None
+    cloudinary_base_folder: str = "user-service"
     
     class Config:
         env_file = ".env"
