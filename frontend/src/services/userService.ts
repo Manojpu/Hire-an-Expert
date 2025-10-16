@@ -21,8 +21,8 @@ export interface ExpertData {
   updated_at: string;
   is_expert: boolean;
   expert_id?: string;
-  expert_profiles: ExpertProfile[];
-  verification_documents: VerificationDocument[];
+  expert_profiles?: ExpertProfile[];
+  verification_documents?: VerificationDocument[];
 }
 
 export interface ExpertProfile {
@@ -128,6 +128,34 @@ export const userServiceAPI = {
       return userData;
     } catch (error) {
       console.error("❌ Error fetching user profile:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get user by Firebase UID (for viewing other experts' profiles)
+   */
+  async getUserByFirebaseUid(firebaseUid: string): Promise<ExpertData> {
+    try {
+      console.log("🔄 Fetching user by Firebase UID:", firebaseUid);
+      
+      const response = await fetch(`${USER_SERVICE_URL}/users/firebase/${firebaseUid}`, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ Failed to fetch user by Firebase UID:", response.status, errorText);
+        throw new Error(`Failed to fetch user: ${response.status}`);
+      }
+
+      const userData = await response.json();
+      console.log("✅ Successfully fetched user by Firebase UID:", userData);
+      return userData;
+    } catch (error) {
+      console.error("❌ Error fetching user by Firebase UID:", error);
       throw error;
     }
   },
