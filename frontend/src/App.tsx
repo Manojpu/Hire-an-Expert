@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import AppRoutes from "@/routes/AppRoutes";
 import { AuthProvider } from "./context/auth/AuthContext";
+import FloatingAIChat from "@/components/FloatingAIChat/FloatingAIChat";
 
 
 const queryClient = new QueryClient();
@@ -17,6 +18,7 @@ const App = () => (
       <AuthProvider>
         <BrowserRouter>
           <AppRoutes />
+          <FloatingAIChat />
         </BrowserRouter>
       </AuthProvider>
     </TooltipProvider>

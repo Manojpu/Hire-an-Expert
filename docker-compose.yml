@@ -18,6 +18,7 @@ services:
       - MESSAGE_SERVICE_URL=http://message-service:8005
       - USER_SERVICE_URL=http://user-service:8006
       - REVIEW_SERVICE_URL=http://review-service:8007
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8008
       - FRONTEND_URL=http://localhost:3000
     depends_on:
       - auth-service
@@ -69,8 +70,13 @@ services:
     environment:
       - PORT=8003
       - DATABASE_URL=postgresql://postgres:password@booking-db:5432/booking_db
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASS=guest
     depends_on:
       - booking-db
+      - rabbitmq
     networks:
       - microservices-network
 
@@ -206,12 +212,41 @@ services:
     networks:
       - microservices-network
 
+  # Notification Service
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: Dockerfile
+    ports:
+      - "8008:8000"
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASS=guest
+    depends_on:
+      - rabbitmq
+    networks:
+      - microservices-network
+
+  # RabbitMQ for messaging
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672" # RabbitMQ default port
+      - "15672:15672" # RabbitMQ management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - microservices-network
+
 volumes:
   gig_db_data:
   booking_db_data:
   message_db_data:
   review_db_data:
   redis_data:
+  rabbitmq_data:
 
 networks:
   microservices-network:

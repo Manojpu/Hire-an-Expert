@@ -1,4 +1,4 @@
-from sqlalchemy import TIMESTAMP, Boolean, Column, Integer, String, Text, DateTime, Enum, ForeignKey, UniqueConstraint
+from sqlalchemy import TIMESTAMP, Boolean, Column, Integer, String, Text, DateTime, Enum, ForeignKey, UniqueConstraint, Date, Time
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -118,8 +118,25 @@ class DateOverride(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
-    
-    # The specific date the user is unavailable
-    unavailable_date = Column(DateTime(timezone=True), nullable=False)
+    unavailable_date = Column(Date, nullable=False)
     
     user = relationship("User")
+    
+class AvailabilitySlot(Base):
+    """Stores specific time slots when an expert is available for booking."""
+    __tablename__ = "availability_slots"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    date = Column(Date, nullable=False)
+    start_time = Column(Time, nullable=False)
+    end_time = Column(Time, nullable=False)
+    is_booked = Column(Boolean, default=False)
+    booking_id = Column(UUID(as_uuid=True), nullable=True)  # Optional reference to a booking
+    
+    user = relationship("User")
+    
+    __table_args__ = (
+        # Ensure we don't create overlapping slots
+        UniqueConstraint('user_id', 'date', 'start_time', 'end_time', name='unique_slot'),
+    )

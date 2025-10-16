@@ -5,6 +5,15 @@ const Message = require('../../models/messageModel');
 const Conversation = require('../../models/conversationModel');
 
 describe('Message Routes Integration Tests', () => {
+  beforeAll(async () => {
+    // Wait for database connection to be established
+    if (mongoose.connection.readyState !== 1) {
+      await new Promise((resolve) => {
+        mongoose.connection.once('connected', resolve);
+      });
+    }
+  });
+
   describe('POST /api/message', () => {
     test('should create a new message and conversation', async () => {
       const messageData = {

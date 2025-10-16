@@ -66,6 +66,70 @@ class BookingService {
       headers: {
         ...defaultHeaders,
         ...options.headers,
+import { toast } from "sonner";
+import { getAuth, getIdToken } from "firebase/auth";
+import { auth } from "../firebase/firebase"; // Import the Firebase auth instance directly
+
+const API_URL = "http://localhost:8003/bookings"; // Assuming booking service is on port 8003
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second
+
+async function fetchWithRetry(
+  url: string,
+  options?: RequestInit,
+  retries = MAX_RETRIES
+): Promise<Response> {
+  try {
+    const response = await fetch(url, options);
+    return response;
+  } catch (error) {
+    if (retries > 0) {
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+      return fetchWithRetry(url, options, retries - 1);
+    }
+    throw error;
+  }
+}
+
+// Type definitions from your lib/bookings.ts, but aligned with backend format
+export interface GigDetails {
+  id: string;
+  service_description: string;
+  thumbnail_url?: string;
+  hourly_rate: number;
+  currency: string;
+}
+
+export interface Booking {
+  id: string;
+  user_id: string; // matches backend format
+  gig_id: string; // matches backend format
+  status: "pending" | "confirmed" | "completed" | "cancelled";
+  scheduled_time: string; // ISO format from backend
+  created_at: string;
+  gig_details?: GigDetails; // The gig details from the enhanced response
+}
+
+// Get all bookings for the current user
+export async function getUserBookings() {
+  try {
+    // We're using the imported auth instance directly from firebase.js
+    const currentUser = auth.currentUser;
+
+    if (!currentUser) {
+      console.error("User not authenticated");
+      throw new Error("Authentication required");
+    }
+
+    // Get the token directly from Firebase
+    const token = await getIdToken(currentUser);
+
+    const response = await fetchWithRetry(`${API_URL}/by-current-user`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
     });
 

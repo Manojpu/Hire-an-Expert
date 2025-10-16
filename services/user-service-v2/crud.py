@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 import uuid
 from uuid import UUID as UUID4
-from models import User, UserRole, ExpertProfile, Preference, VerificationDocument, DocumentType, AvailabilityRule, DateOverride
+from datetime import datetime, date, time, timedelta
+from models import User, UserRole, ExpertProfile, Preference, VerificationDocument, DocumentType, AvailabilityRule, DateOverride, AvailabilitySlot
 from schemas import (
     AvailabilityRuleCreate, DateOverrideCreate, UserCreate, UserUpdate, PreferenceCreate, PreferenceUpdate, 
     ProvisionIn, ExpertProfileIn, UserOut, ExpertProfileOut, 
@@ -330,11 +331,56 @@ async def get_all_expert_profiles(db: AsyncSession, verified_only: bool = False)
     result = await db.execute(query)
     return result.scalars().all()
 
+def _check_for_duplicate_time_slots(rules: List[AvailabilityRuleCreate]) -> Optional[str]:
+    """
+    Check for duplicate or overlapping time slots within the list of rules.
+    Returns an error message if duplicates/overlaps found, None otherwise.
+    """
+    # Group rules by day of the week for easier comparison
+    day_rules = {}
+    for i, rule in enumerate(rules):
+        day = rule.day_of_week
+        if day not in day_rules:
+            day_rules[day] = []
+        day_rules[day].append((i, rule))
+    
+    # Check for duplicates/overlaps within each day
+    for day, day_rule_list in day_rules.items():
+        for i, (idx1, rule1) in enumerate(day_rule_list):
+            # Convert times to minutes for easier comparison
+            start1_h, start1_m = map(int, rule1.start_time_utc.split(':'))
+            end1_h, end1_m = map(int, rule1.end_time_utc.split(':'))
+            start1_mins = start1_h * 60 + start1_m
+            end1_mins = end1_h * 60 + end1_m
+            
+            for j, (idx2, rule2) in enumerate(day_rule_list[i+1:], i+1):
+                # Convert times to minutes
+                start2_h, start2_m = map(int, rule2.start_time_utc.split(':'))
+                end2_h, end2_m = map(int, rule2.end_time_utc.split(':'))
+                start2_mins = start2_h * 60 + start2_m
+                end2_mins = end2_h * 60 + end2_m
+                
+                # Check for exact duplicates
+                if start1_mins == start2_mins and end1_mins == end2_mins:
+                    return f"Duplicate time slot found: {rule1.start_time_utc}-{rule1.end_time_utc} on day {day}"
+                
+                # Check for overlaps
+                if (start1_mins < end2_mins and end1_mins > start2_mins):
+                    return f"Overlapping time slots found: {rule1.start_time_utc}-{rule1.end_time_utc} and {rule2.start_time_utc}-{rule2.end_time_utc} on day {day}"
+    
+    return None
+
 async def set_availability_rules(db: AsyncSession, user_id: UUID4, rules: List[AvailabilityRuleCreate], dateOverrides: List[DateOverrideCreate] = None) -> List[AvailabilityRule]:
     """
     Deletes old rules and date overrides, and creates a new set of availability rules for a user.
     Also handles date overrides for unavailable dates.
+    Checks for duplicates and overlapping time slots before saving.
     """
+    # Check for duplicate or overlapping time slots
+    error_message = _check_for_duplicate_time_slots(rules)
+    if error_message:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=error_message)
     
     # Delete all existing rules for this user first
     await db.execute(delete(AvailabilityRule).where(AvailabilityRule.user_id == user_id))
@@ -382,6 +428,13 @@ async def set_availability_rules(db: AsyncSession, user_id: UUID4, rules: List[A
         db.add_all(db_date_overrides)
     
     await db.commit()
+    # Generate slots for the next 30 days
+    from datetime import date, timedelta
+    today = date.today()
+    end_date = today + timedelta(days=30)
+    
+    await generate_availability_slots(db, user_id, today, end_date)
+
     return db_rules
 
 async def get_availability_rules_for_user(db: AsyncSession, user_id: UUID4) -> List[AvailabilityRule]:
@@ -392,197 +445,207 @@ async def get_availability_rules_for_user(db: AsyncSession, user_id: UUID4) -> L
     return result.scalars().all()
 
 
-# Analytics CRUD operations
-async def get_user_analytics(db: AsyncSession, start_date: Optional[str] = None, end_date: Optional[str] = None, user_type: str = "all"):
-    """Get cumulative user count analytics by date."""
-    from sqlalchemy import func, text
-    from datetime import datetime, timedelta, date
+async def generate_availability_slots(
+    db: AsyncSession, 
+    user_id: UUID4, 
+    start_date: date, 
+    end_date: date, 
+    slot_duration_minutes: int = 60
+) -> List[AvailabilitySlot]:
+    """
+    Generate availability slots based on rules and date overrides for a specific date range.
     
-    # Base query to get all users with their creation dates
-    base_query = select(
-        func.date(User.created_at).label('date'),
-        User.id
+    Args:
+        db: Database session
+        user_id: User ID to generate slots for
+        start_date: First date to generate slots for
+        end_date: Last date to generate slots for
+        slot_duration_minutes: Duration of each slot in minutes
+    
+    Returns:
+        List of created availability slots
+    """
+    # Get the user's availability rules
+    rules_result = await db.execute(
+        select(AvailabilityRule).where(AvailabilityRule.user_id == user_id)
+    )
+    availability_rules = rules_result.scalars().all()
+    
+    # Get date overrides (days when the user is not available)
+    overrides_result = await db.execute(
+        select(DateOverride).where(DateOverride.user_id == user_id)
+    )
+    unavailable_dates = [override.unavailable_date for override in overrides_result.scalars().all()]
+    
+    # Delete existing slots in the date range to avoid duplicates
+    await db.execute(
+        delete(AvailabilitySlot).where(
+            AvailabilitySlot.user_id == user_id,
+            AvailabilitySlot.date >= start_date,
+            AvailabilitySlot.date <= end_date,
+            AvailabilitySlot.is_booked == False  # Don't delete already booked slots
+        )
     )
     
-    # Add user type filter
-    if user_type == "expert":
-        base_query = base_query.where(User.role == UserRole.EXPERT)
-    elif user_type == "client":
-        base_query = base_query.where(User.role == UserRole.CLIENT)
+    # Generate slots based on rules
+    current_date = start_date
+    slots = []
     
-    # Don't filter by date in the base query - we need all historical data for cumulative counts
-    base_query = base_query.order_by(func.date(User.created_at))
+    while current_date <= end_date:
+        # Skip if this date is in the unavailable dates list
+        if current_date in unavailable_dates:
+            current_date += timedelta(days=1)
+            continue
+        
+        # Find rules applicable for this day of the week (0=Monday, 6=Sunday)
+        day_of_week = current_date.weekday()
+        applicable_rules = [rule for rule in availability_rules if rule.day_of_week == day_of_week]
+        
+        for rule in applicable_rules:
+            # Parse start and end times
+            start_time_parts = [int(part) for part in rule.start_time_utc.split(':')]
+            end_time_parts = [int(part) for part in rule.end_time_utc.split(':')]
+            
+            start_datetime = datetime.combine(
+                current_date, 
+                time(hour=start_time_parts[0], minute=start_time_parts[1])
+            )
+            end_datetime = datetime.combine(
+                current_date, 
+                time(hour=end_time_parts[0], minute=end_time_parts[1])
+            )
+            
+            # Generate slots of the specified duration
+            slot_start = start_datetime
+            while slot_start < end_datetime:
+                slot_end = min(slot_start + timedelta(minutes=slot_duration_minutes), end_datetime)
+                
+                # Only create the slot if it's at least half the intended duration
+                if (slot_end - slot_start).total_seconds() >= slot_duration_minutes * 30:
+                    slots.append(AvailabilitySlot(
+                        user_id=user_id,
+                        date=current_date,
+                        start_time=slot_start.time(),
+                        end_time=slot_end.time(),
+                        is_booked=False
+                    ))
+                
+                slot_start = slot_end
+        
+        current_date += timedelta(days=1)
     
-    result = await db.execute(base_query)
-    all_users = result.fetchall()
+    # Save all slots to the database
+    db.add_all(slots)
+    await db.commit()
     
-    # Group users by date and calculate cumulative counts
-    daily_counts = {}
-    cumulative_count = 0
+    # Return the created slots
+    return slots
+
+
+async def get_user_analytics_data(
+    db: AsyncSession, 
+    user_type: Optional[str] = None, 
+    start_date: Optional[str] = None, 
+    end_date: Optional[str] = None
+):
+    """
+    Get user analytics data for admin dashboard.
+    Returns daily user counts within the specified date range.
+    """
+    from sqlalchemy import func
+    from schemas import UserAnalyticsResponse, DailyUserCount
+    from datetime import datetime, timedelta
     
-    for user in all_users:
-        user_date = str(user.date)
-        if user_date not in daily_counts:
-            daily_counts[user_date] = 0
-        daily_counts[user_date] += 1
-    
-    # Generate cumulative data for all dates
-    cumulative_data = []
-    sorted_dates = sorted(daily_counts.keys())
-    
-    for date_str in sorted_dates:
-        cumulative_count += daily_counts[date_str]
-        cumulative_data.append({
-            "date": date_str,
-            "count": cumulative_count
-        })
-    
-    # If no data, return empty
-    if not cumulative_data:
-        return {
-            "data": [],
-            "total_count": 0,
-            "user_type": user_type
-        }
-    
-    # If no date filters, return all data
-    if not start_date and not end_date:
-        return {
-            "data": cumulative_data,
-            "total_count": cumulative_data[-1]["count"],
-            "user_type": user_type
-        }
-    
-    # Filter and fill the requested date range
     try:
-        start_dt = datetime.strptime(start_date, '%Y-%m-%d').date() if start_date else None
-        end_dt = datetime.strptime(end_date, '%Y-%m-%d').date() if end_date else None
+        # Parse dates
+        if start_date:
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        else:
+            # Default to 30 days ago
+            start_dt = datetime.now() - timedelta(days=30)
         
-        # Create a dictionary for quick lookup
-        data_dict = {datetime.strptime(dp["date"], '%Y-%m-%d').date(): dp["count"] for dp in cumulative_data}
+        if end_date:
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        else:
+            # Default to today
+            end_dt = datetime.now()
         
-        # Get date range bounds
-        all_dates = sorted(data_dict.keys())
-        first_data_date = all_dates[0]
-        last_data_date = all_dates[-1]
+        # Build the query for daily counts
+        query = select(
+            func.date(User.created_at).label('date'),
+            func.count(User.id).label('count')
+        ).where(
+            User.created_at >= start_dt,
+            User.created_at <= end_dt
+        )
         
-        # Determine the actual range to show
-        range_start = start_dt if start_dt and start_dt >= first_data_date else first_data_date
-        range_end = end_dt if end_dt else last_data_date
+        # Add user type filter if specified (but not for 'all')
+        if user_type and user_type != 'all':
+            if user_type == 'expert':
+                query = query.where(User.role == 'expert')
+            elif user_type == 'client':
+                query = query.where(User.role == 'client')
         
-        # If start date is before any data, start from first data date
-        if start_dt and start_dt < first_data_date:
-            range_start = first_data_date
+        query = query.group_by(
+            func.date(User.created_at)
+        ).order_by(
+            func.date(User.created_at)
+        )
         
-        filtered_data = []
-        current_date = range_start
+        result = await db.execute(query)
+        daily_data = result.all()
         
-        while current_date <= range_end:
-            if current_date in data_dict:
-                # Use actual data point
-                count = data_dict[current_date]
-            elif current_date <= last_data_date:
-                # Use cumulative count from previous date
-                count = filtered_data[-1]["count"] if filtered_data else 0
-            else:
-                # After last data date, maintain the final count
-                count = data_dict[last_data_date]
+        # Create a dictionary of existing data for easy lookup
+        data_dict = {row.date.strftime('%Y-%m-%d'): row.count for row in daily_data}
+        
+        # Get cumulative count up to start_date
+        cumulative_base_query = select(func.count(User.id)).where(
+            User.created_at < start_dt
+        )
+        
+        # Add user type filter for cumulative base
+        if user_type and user_type != 'all':
+            if user_type == 'expert':
+                cumulative_base_query = cumulative_base_query.where(User.role == 'expert')
+            elif user_type == 'client':
+                cumulative_base_query = cumulative_base_query.where(User.role == 'client')
+        
+        cumulative_base_result = await db.execute(cumulative_base_query)
+        cumulative_count = cumulative_base_result.scalar() or 0
+        
+        # Generate all dates in the range and calculate cumulative counts
+        daily_counts = []
+        current_date = start_dt.date()
+        end_date_obj = end_dt.date()
+        
+        while current_date <= end_date_obj:
+            date_str = current_date.strftime('%Y-%m-%d')
+            daily_new_users = data_dict.get(date_str, 0)  # New users on this date
+            cumulative_count += daily_new_users  # Add to cumulative total
             
-            filtered_data.append({
-                "date": current_date.isoformat(),
-                "count": count
-            })
-            
+            daily_counts.append(DailyUserCount(
+                date=date_str,
+                count=cumulative_count  # Use cumulative count instead of daily count
+            ))
             current_date += timedelta(days=1)
         
-        # Get total count (final cumulative count)
-        total_count = data_dict[last_data_date] if data_dict else 0
+        # For total count, we want ALL users of that type ever registered, not just in date range
+        total_query = select(func.count(User.id))
         
-        return {
-            "data": filtered_data,
-            "total_count": total_count,
-            "user_type": user_type
-        }
+        # Apply user type filter for total count
+        if user_type and user_type != 'all':
+            if user_type == 'expert':
+                total_query = total_query.where(User.role == 'expert')
+            elif user_type == 'client':
+                total_query = total_query.where(User.role == 'client')
         
-    except ValueError as e:
-        # Return filtered data if date parsing fails
-        filtered_data = []
-        for item in cumulative_data:
-            item_date = datetime.strptime(item["date"], "%Y-%m-%d").date()
-            
-            # Check if date is within range
-            include_date = True
-            if start_date:
-                start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
-                if item_date < start_date_obj:
-                    include_date = False
-            
-            if end_date:
-                end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
-                if item_date > end_date_obj:
-                    include_date = False
-            
-            if include_date:
-                filtered_data.append(item)
+        total_result = await db.execute(total_query)
+        total_count = total_result.scalar()
         
-        # Get total count up to end_date (or all time if no end_date)
-        total_count = 0
-        if filtered_data:
-            total_count = filtered_data[-1]["count"]
+        return UserAnalyticsResponse(
+            data=daily_counts,
+            total_count=total_count or 0
+        )
         
-        return {
-            "data": filtered_data,
-            "total_count": total_count,
-            "user_type": user_type
-        }
-
-
-async def get_daily_registrations(db: AsyncSession, start_date: Optional[str] = None, end_date: Optional[str] = None, user_type: str = "all"):
-    """Get daily user registration counts (non-cumulative)."""
-    from sqlalchemy import func
-    from datetime import datetime
-    
-    # Base query
-    query = select(
-        func.date(User.created_at).label('date'),
-        func.count(User.id).label('count')
-    )
-    
-    # Add user type filter
-    if user_type == "expert":
-        query = query.where(User.role == UserRole.EXPERT)
-    elif user_type == "client":
-        query = query.where(User.role == UserRole.CLIENT)
-    
-    # Add date filters
-    if start_date:
-        query = query.where(User.created_at >= start_date)
-    if end_date:
-        query = query.where(User.created_at <= end_date)
-    
-    # Group by date and order
-    query = query.group_by(func.date(User.created_at)).order_by(func.date(User.created_at))
-    
-    result = await db.execute(query)
-    data = result.fetchall()
-    
-    # Get total count for the period
-    total_query = select(func.count(User.id))
-    if user_type == "expert":
-        total_query = total_query.where(User.role == UserRole.EXPERT)
-    elif user_type == "client":
-        total_query = total_query.where(User.role == UserRole.CLIENT)
-    
-    if start_date:
-        total_query = total_query.where(User.created_at >= start_date)
-    if end_date:
-        total_query = total_query.where(User.created_at <= end_date)
-    
-    total_result = await db.execute(total_query)
-    total_count = total_result.scalar() or 0
-    
-    return {
-        "data": [{"date": str(row.date), "count": row.count} for row in data],
-        "total_count": total_count,
-        "user_type": user_type
-    }
+    except Exception as e:
+        raise e

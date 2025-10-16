@@ -65,8 +65,8 @@ def create_gig(db: Session, gig: GigCreate, expert_id: str) -> Gig:
     logger.info(f"Creating new gig for expert ID: {expert_id}")
     logger.debug(f"Gig data: {gig.dict()}")
     
-    # Convert Pydantic model to dict, excluding any None values
-    gig_data = {k: v for k, v in gig.dict().items() if v is not None and k != 'category_id'}
+    # Convert Pydantic model to dict, excluding any None values and specific fields we handle separately
+    gig_data = {k: v for k, v in gig.dict().items() if v is not None and k not in ['category_id', 'certificates']}
     
     # Get category by ID or slug
     category = get_category(db, str(gig.category_id))
@@ -74,12 +74,14 @@ def create_gig(db: Session, gig: GigCreate, expert_id: str) -> Gig:
         logger.error(f"Category with ID/slug {gig.category_id} not found")
         raise ValueError(f"Category with ID/slug {gig.category_id} not found")
     
+    # Generate gig ID
     gig_id = str(uuid.uuid4())
+
     db_gig = Gig(
         id=gig_id,
         expert_id=expert_id,
         category_id=category.id,  # Use the actual UUID from the retrieved category
-        status=GigStatus.DRAFT,  # Gigs start as drafts by default
+        status=GigStatus.PENDING,  # Gigs start as pending by default
         currency="LKR",
         response_time="< 24 hours",
         **gig_data
@@ -88,6 +90,22 @@ def create_gig(db: Session, gig: GigCreate, expert_id: str) -> Gig:
     db.commit()
     db.refresh(db_gig)
     logger.info(f"Gig created successfully with ID: {gig_id}")
+    try:
+        # Call user service to generate availability slots
+        requests.post(
+            f"{settings.user_service_url}/users/{expert_id}/generate-slots",
+            json={
+                "start_date": datetime.now().strftime("%Y-%m-%d"),
+                "end_date": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+            },
+            headers={
+                "X-Service-Key": settings.service_api_key
+            }
+        )
+    except Exception as e:
+        logger.error(f"Failed to generate availability slots: {e}")
+        # Continue with gig creation even if slot generation fails
+        
     return db_gig
 
 def get_gig(db: Session, gig_id: str) -> Optional[Gig]:
@@ -170,7 +188,7 @@ def update_gig_status(db: Session, gig_id: str, status_update) -> Optional[Gig]:
     db_gig.status = status_update.status
     
     # If the gig is being approved, update the approved_at timestamp
-    if status_update.status == GigStatus.APPROVED:
+    if status_update.status == GigStatus.ACTIVE:
         logger.info(f"Gig ID: {gig_id} is being approved, updating approved_at timestamp")
         db_gig.approved_at = datetime.utcnow()
         
@@ -299,129 +317,140 @@ def get_all_gigs(db: Session, skip: int = 0, limit: int = 100) -> list[type[Gig]
     return gigs
 
 
-def get_total_gigs_count(db: Session) -> int:
-    """Get total count of all gigs."""
-    logger.info("Getting total gigs count")
-    count = db.query(Gig).count()
-    logger.info(f"Total gigs count: {count}")
-    return count
+def create_certification(db: Session, gig_id: str, url: str, thumbnail_url: Optional[str] = None) -> Any:
+    """Creates a new certification record for a gig."""
+    logger.info(f"Creating certification for gig ID: {gig_id}")
+    
+    from .models import Certification
+    
+    db_cert = Certification(
+        gig_id=gig_id,
+        url=url,
+        thumbnail_url=thumbnail_url
+    )
+    db.add(db_cert)
+    db.commit()
+    db.refresh(db_cert)
+    logger.info(f"Certification created with ID: {db_cert.id}")
+    return db_cert
 
 
-def get_gigs_analytics(db: Session, start_date: Optional[str] = None, end_date: Optional[str] = None) -> List[dict]:
-    """Get cumulative gigs analytics data."""
-    from sqlalchemy import func, text
+def get_certifications_by_gig(db: Session, gig_id: str) -> list:
+    """Retrieves all certifications for a specific gig."""
+    logger.info(f"Retrieving certifications for gig ID: {gig_id}")
+    
+    from .models import Certification
+    
+    certifications = db.query(Certification).filter(Certification.gig_id == gig_id).all()
+    logger.info(f"Retrieved {len(certifications)} certifications for gig {gig_id}")
+    return certifications
+
+
+def delete_certifications_by_gig(db: Session, gig_id: str) -> bool:
+    """Deletes all certifications for a specific gig."""
+    logger.info(f"Deleting certifications for gig ID: {gig_id}")
+    
+    from .models import Certification
+    
+    result = db.query(Certification).filter(Certification.gig_id == gig_id).delete()
+    db.commit()
+    logger.info(f"Deleted {result} certifications for gig {gig_id}")
+    return result > 0
+
+
+def get_gig_analytics(db: Session, start_date: Optional[str] = None, end_date: Optional[str] = None):
+    """
+    Get gig analytics data for admin dashboard.
+    Returns daily gig counts within the specified date range.
+    """
+    from sqlalchemy import func, extract
+    from .schemas import GigAnalyticsResponse, DailyGigCount
     from datetime import datetime, timedelta
     
-    logger.info(f"Getting cumulative gig analytics from {start_date} to {end_date}")
+    logger.info(f"Getting gig analytics for date range: {start_date} to {end_date}")
     
-    # First, get all gigs data (not filtered by date range for cumulative calculation)
-    base_query = """
-    WITH daily_counts AS (
-        SELECT 
-            DATE(created_at) as date,
-            COUNT(*) as daily_count
-        FROM gigs
-        GROUP BY DATE(created_at)
-    )
-    SELECT 
-        date,
-        SUM(daily_count) OVER (ORDER BY date) as count
-    FROM daily_counts
-    ORDER BY date
-    """
-    
-    result = db.execute(text(base_query))
-    all_data = [{"date": row.date.isoformat(), "count": row.count} for row in result]
-    
-    # If no data, return empty
-    if not all_data:
-        logger.info("No analytics data found")
-        return []
-    
-    # If no date filters, return all data
-    if not start_date and not end_date:
-        logger.info(f"Retrieved {len(all_data)} cumulative analytics data points")
-        return all_data
-    
-    # Filter and fill the requested date range
     try:
-        start_dt = datetime.strptime(start_date, '%Y-%m-%d').date() if start_date else None
-        end_dt = datetime.strptime(end_date, '%Y-%m-%d').date() if end_date else None
-        
-        # Create a dictionary for quick lookup
-        data_dict = {datetime.strptime(dp["date"], '%Y-%m-%d').date(): dp["count"] for dp in all_data}
-        
-        # Get date range bounds
-        all_dates = sorted(data_dict.keys())
-        first_data_date = all_dates[0]
-        last_data_date = all_dates[-1]
-        
-        # Determine the actual range to show
-        range_start = start_dt if start_dt and start_dt >= first_data_date else first_data_date
-        range_end = end_dt if end_dt else last_data_date
-        
-        # If start date is before any data, start from first data date
-        if start_dt and start_dt < first_data_date:
-            range_start = first_data_date
-        
-        # Get the cumulative count at the start of our range
-        start_count = 0
-        if range_start in data_dict:
-            start_count = data_dict[range_start]
+        # Parse dates
+        if start_date:
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
         else:
-            # Find the cumulative count just before our start date
-            for date in sorted(data_dict.keys()):
-                if date < range_start:
-                    start_count = data_dict[date]
-                else:
-                    break
+            # Default to 30 days ago
+            start_dt = datetime.now() - timedelta(days=30)
         
-        analytics_data = []
-        current_date = range_start
+        if end_date:
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        else:
+            # Default to today
+            end_dt = datetime.now()
         
-        while current_date <= range_end:
-            if current_date in data_dict:
-                # Use actual data point
-                count = data_dict[current_date]
-            elif current_date <= last_data_date:
-                # Use cumulative count from previous date
-                prev_date = current_date - timedelta(days=1)
-                count = analytics_data[-1]["count"] if analytics_data else start_count
-            else:
-                # After last data date, maintain the final count
-                count = data_dict[last_data_date]
+        # Query to get daily gig counts (only ACTIVE gigs) - optimized
+        query = db.query(
+            func.date(Gig.created_at).label('date'),
+            func.count(Gig.id).label('count')
+        ).filter(
+            Gig.created_at >= start_dt,
+            Gig.created_at <= end_dt,
+            Gig.status == 'active'  # Only count active gigs
+        ).group_by(
+            func.date(Gig.created_at)
+        ).order_by(
+            func.date(Gig.created_at)
+        )
+        
+        results = query.all()
+        
+        # Create a dictionary of existing data for easy lookup
+        data_dict = {result.date.strftime('%Y-%m-%d'): result.count for result in results}
+        
+        # Get cumulative count up to start_date (only ACTIVE gigs)
+        cumulative_base_count = db.query(Gig).filter(
+            Gig.created_at < start_dt,
+            Gig.status == 'active'  # Only count active gigs
+        ).count()
+        
+        # Generate all dates in the range and calculate cumulative counts
+        daily_counts = []
+        current_date = start_dt.date()
+        end_date_obj = end_dt.date()
+        cumulative_count = cumulative_base_count
+        
+        while current_date <= end_date_obj:
+            date_str = current_date.strftime('%Y-%m-%d')
+            daily_new_gigs = data_dict.get(date_str, 0)  # New active gigs on this date
+            cumulative_count += daily_new_gigs  # Add to cumulative total
             
-            analytics_data.append({
-                "date": current_date.isoformat(),
-                "count": count
-            })
-            
+            daily_counts.append(DailyGigCount(
+                date=date_str,
+                count=cumulative_count  # Use cumulative count of active gigs
+            ))
             current_date += timedelta(days=1)
         
-        logger.info(f"Retrieved {len(analytics_data)} cumulative analytics data points (filtered range)")
-        return analytics_data
+        # Get total count of ALL ACTIVE gigs ever created (single query)
+        total_count = db.query(Gig).filter(Gig.status == 'active').count()
         
-    except ValueError as e:
-        logger.error(f"Date parsing error: {e}")
-        # Return filtered data if date parsing fails
-        filtered_data = []
-        for dp in all_data:
-            dp_date = datetime.strptime(dp["date"], '%Y-%m-%d').date()
-            if (not start_date or dp_date >= datetime.strptime(start_date, '%Y-%m-%d').date()) and \
-               (not end_date or dp_date <= datetime.strptime(end_date, '%Y-%m-%d').date()):
-                filtered_data.append(dp)
+        logger.info(f"Retrieved analytics: {len(daily_counts)} daily counts, total: {total_count}")
         
-        logger.info(f"Retrieved {len(filtered_data)} cumulative analytics data points (fallback)")
-        return filtered_data
+        return GigAnalyticsResponse(
+            data=daily_counts,
+            total_count=total_count
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in get_gig_analytics: {e}")
+        raise
 
 
-    logger.info(f"Retrieved {len(analytics_data)} daily analytics data points")
-    return analytics_data
-
-
-def get_gig_certifications(db: Session, gig_id: str) -> List[Certification]:
-    """Get all certifications for a specific gig."""
-    logger.info(f"Retrieving certifications for gig: {gig_id}")
-    certifications = db.query(Certification).filter(Certification.gig_id == gig_id).all()
-    logger.info(f"Found {len(certifications)} certifications for gig: {gig_id}")
-    return certifications
+def get_total_active_gigs(db: Session) -> int:
+    """
+    Get total count of active gigs.
+    """
+    logger.info("Getting total count of active gigs")
+    
+    try:
+        total_count = db.query(Gig).filter(Gig.status == 'active').count()
+        logger.info(f"Total active gigs: {total_count}")
+        return total_count
+        
+    except Exception as e:
+        logger.error(f"Error getting total active gigs: {e}")
+        raise

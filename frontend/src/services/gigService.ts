@@ -1,25 +1,20 @@
 // Frontend utility to sync with Gig Service
 import { ExpertApplicationForm } from "@/types/expert";
 import { GigFilters, GigListResponse } from "@/types/publicGigs.ts";
+import { getAuth } from "firebase/auth";
 
 // Mock data for development
 const MOCK_GIGS: ExpertGig[] = [
   {
     id: "gig-1",
     expert_id: "expert-123",
-    name: "Dr. Rajesh Perera",
-    title: "Senior Technology Consultant",
-    bio: "Experienced technology consultant specializing in digital transformation and strategic IT planning.",
-    profile_image_url: "https://via.placeholder.com/150",
-    banner_image_url: "https://via.placeholder.com/800x200",
-    languages: ["English", "Sinhala"],
+
     category_id: 1,
     service_description:
       "I provide comprehensive technology consulting services including system architecture, digital transformation strategies, and IT project management.",
     hourly_rate: 5000,
     currency: "LKR",
-    availability_preferences: "Available Monday to Friday, 9 AM to 6 PM",
-    education: "PhD in Computer Science, University of Colombo",
+
     experience: "15+ years in technology consulting and project management",
     certifications: [
       { url: "https://certs.com/aws-solutions-architect.pdf" },
@@ -40,19 +35,13 @@ const MOCK_GIGS: ExpertGig[] = [
   {
     id: "gig-2",
     expert_id: "expert-123",
-    name: "Dr. Rajesh Perera",
-    title: "Business Strategy Advisor",
-    bio: "Strategic business consultant helping companies optimize their operations and growth strategies.",
-    profile_image_url: "https://via.placeholder.com/150",
-    banner_image_url: "https://via.placeholder.com/800x200",
-    languages: ["English", "Sinhala"],
+
     category_id: 2,
     service_description:
       "I offer strategic business consulting services including market analysis, business planning, and operational optimization.",
     hourly_rate: 6000,
     currency: "LKR",
-    availability_preferences: "Available Tuesday to Saturday, 10 AM to 5 PM",
-    education: "MBA in Strategic Management, University of Sri Jayewardenepura",
+
     experience: "12+ years in business strategy and management consulting",
     certifications: [
       { url: "https://certs.com/six-sigma-black-belt.pdf" },
@@ -73,20 +62,13 @@ const MOCK_GIGS: ExpertGig[] = [
   {
     id: "gig-3",
     expert_id: "expert-123",
-    name: "Dr. Rajesh Perera",
-    title: "Digital Marketing Specialist",
-    bio: "Digital marketing expert helping businesses establish strong online presence and drive growth.",
-    profile_image_url: "https://via.placeholder.com/150",
-    banner_image_url: "https://via.placeholder.com/800x200",
-    languages: ["English", "Sinhala"],
+
     category_id: 3,
     service_description:
       "I provide comprehensive digital marketing services including SEO, social media marketing, and online advertising strategies.",
     hourly_rate: 4500,
     currency: "LKR",
-    availability_preferences:
-      "Flexible schedule, available for urgent consultations",
-    education: "Bachelor in Marketing, University of Kelaniya",
+
     experience: "8+ years in digital marketing and brand management",
     certifications: [
       { url: "https://certs.com/google-ads-certified.pdf" },
@@ -129,39 +111,28 @@ export interface GigServiceAPI {
 }
 
 interface Certificate {
-  url: string | null;
+  url?: string | null;
   thumbnail?: File;
+  file?: File; // Allow File objects for uploads
 }
 
 export interface ExpertGigCreateData {
-  // Basic Information (Step 0)
-  name?: string;
-  title?: string;
-  bio?: string;
-  profile_image_url?: string;
-  banner_image_url?: string;
-  languages?: string[];
-
   // Expertise & Services (Step 1)
   category_id: number | string;
   service_description?: string;
   hourly_rate?: number;
   currency?: string;
-  availability_preferences?: string;
-  availability_rules?: {
-    day_of_week: number;
-    start_time_utc: string;
-    end_time_utc: string;
-  }[];
+  experience_years?: number;
+  expertise_areas?: string[];
+
+  // availability_preferences?: string; --- IGNORE ---
 
   // Qualifications (Step 2)
-  education?: string;
+
   experience?: string;
   certifications?: Certificate[];
 
   // Verification (Step 3)
-  government_id_url?: string;
-  professional_license_url?: string;
   references?: string;
   background_check_consent?: boolean;
 }
@@ -196,12 +167,7 @@ interface GigCategory {
 
 // Convert ApplyExpert form to Gig Service format
 export function convertFormToGigData(
-  form: Partial<ExpertApplicationForm> & {
-    government_id_url?: string;
-    professional_license_url?: string;
-  },
-  profileImageUrl?: string,
-  bannerImageUrl?: string,
+  form: Partial<ExpertApplicationForm>,
   certificationUrls: string[] = []
 ): ExpertGigCreateData {
   return {
@@ -209,14 +175,10 @@ export function convertFormToGigData(
     service_description: form.serviceDesc || "",
     hourly_rate: Number(form.rate) || 0,
     currency: "LKR",
-    availability_preferences: form.availabilityNotes || "",
-    availability_rules: form.availabilityRules || [],
     experience: form.experience || "",
     certifications: certificationUrls.map((url) => ({ url })),
     references: form.references || "",
     background_check_consent: form.bgConsent || false,
-    government_id_url: form.government_id_url || "",
-    professional_license_url: form.professional_license_url || "",
   };
 }
 
@@ -235,13 +197,37 @@ export const gigServiceAPI: GigServiceAPI = {
     console.log("Sending POST request to:", url);
     console.log("Gig data being sent:", gigData);
 
+    // Use FormData for multipart/form-data request to handle files
+    const formData = new FormData();
+
+    // Add all non-file fields to the form data
+    Object.keys(gigData).forEach((key) => {
+      if (key !== "certifications") {
+        // If it's an array, convert it to a string
+        if (Array.isArray(gigData[key])) {
+          formData.append(key, gigData[key].join(","));
+        } else {
+          formData.append(key, String(gigData[key]));
+        }
+      }
+    });
+
+    // Add any certificate files if they exist
+    if (gigData.certifications && Array.isArray(gigData.certifications)) {
+      gigData.certifications.forEach((cert, index) => {
+        if (cert instanceof File) {
+          formData.append(`certificate_files`, cert);
+        }
+      });
+    }
+
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        // Don't set Content-Type for multipart/form-data
         Authorization: `Bearer ${await getIdToken()}`,
       },
-      body: JSON.stringify(gigData),
+      body: formData,
     });
 
     console.log("Response status:", response.status);
