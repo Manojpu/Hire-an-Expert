@@ -43,7 +43,7 @@ const GigDashboard: React.FC<GigDashboardProps> = ({ onBack }) => {
   const loadGig = async (id: string) => {
     try {
       setLoading(true);
-      const gigData = await gigServiceAPI.getGigById(id);
+      const gigData = await gigServiceAPI.getMyGigById(id);
       setGig(gigData);
       setError(null);
     } catch (err) {

@@ -16,6 +16,7 @@ const Chat = lazy(() => import("@/pages/Chat"));
 const Messages = lazy(() => import("@/pages/MessagesPage"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const ExpertDashboard = lazy(() => import("@/pages/expert/ExpertDashboard"));
+const OverallExpertProfile = lazy(() => import("@/components/dashboard/OverallExpertProfile"));
 const AdminDashboard = lazy(() => import("@/pages/admin/AdminDashboard"));
 const AdminRequests = lazy(() => import("@/pages/admin/AdminRequests"));
 const AdminPayments = lazy(() => import("@/pages/admin/AdminPayments"));
@@ -30,6 +31,7 @@ const GigView = lazy(() => import("@/pages/GigView"));
 const BookConsultation = lazy(() => import("@/pages/BookConsultation"));
 const PaymentSuccess = lazy(() => import("@/pages/PaymentSuccess"));
 const HowItWorksPage = lazy(() => import("@/pages/HowItWorks"));
+
 
 const ProtectedRoute = ({
   children,
@@ -192,6 +194,7 @@ const AppRoutes = () => (
           }
         />
         <Route path="experts" element={<Experts />} />
+        <Route path="test-booking-service" element={<BookingServiceTest />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

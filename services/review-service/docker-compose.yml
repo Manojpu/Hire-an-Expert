@@ -1,41 +1,65 @@
+version: '3.8'
+
 services:
   db:
-    # We will use the official PostgreSQL image, version 15.
-
-    image: postgres:15
-
-    # These environment variables configure PostgreSQL when it first starts.
+    image: postgres:15-alpine
     environment:
-      - POSTGRES_USER=review
-      - POSTGRES_PASSWORD=review123
-      - POSTGRES_DB=review_db
-
-    # This maps the port inside the Docker container (5432)
-    # to a port on your local machine (5433). We use 5433 to avoid
-    # conflicts with any other PostgreSQL you might have installed.
+      POSTGRES_USER: review_user
+      POSTGRES_PASSWORD: review_pass_123
+      POSTGRES_DB: review_service
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
     ports:
-      - "5433:5432"
-
-    # This makes sure your data is saved even if you stop or remove
-    # the container. Your data will be stored in a "volume" named 'postgres_data'.
+      - "5435:5432"  # Use different port to avoid conflicts
     volumes:
-      - postgres_data:/var/lib/postgresql/data/
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U review_user -d review_service"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
-      - review-service-network
+      - review-network
+    restart: unless-stopped
 
   review-service:
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile
     ports:
-      - "8007:8007"
+      - "8005:8005"  # Correct port for review service
     environment:
-      - DATABASE_URL=postgresql://review:review123@db:5432/review_db
+      - DATABASE_URL=postgresql://review_user:review_pass_123@db:5432/review_service
+      - INTERNAL_JWT_SECRET_KEY=docker-dev-secret-key-change-in-production
+      - ALGORITHM=HS256
+      - BOOKING_SERVICE_URL=http://booking-service:8003
+      - GIG_SERVICE_URL=http://gig-service:8004
+      - USER_SERVICE_URL=http://user-service:8001
+      - CORS_ORIGINS=["http://localhost:3000", "http://localhost:5173"]
+      - DEBUG=true
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app  # Mount source code for development
     networks:
-      - review-service-network
+      - review-network
+    restart: unless-stopped
+    command: >
+      sh -c "
+        echo 'Waiting for database...' &&
+        sleep 10 &&
+        echo 'Running database migrations...' &&
+        alembic upgrade head &&
+        echo 'Starting Review Service...' &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8005 --reload
+      "
 
 networks:
-  review-service-network:
+  review-network:
+    driver: bridge
 
 volumes:
   postgres_data:
+    driver: local

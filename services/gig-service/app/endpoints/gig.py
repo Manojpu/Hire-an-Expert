@@ -218,6 +218,57 @@ def get_my_gig(
     return db_gig
 
 
+@router.get("/my/gigs", response_model=List[schemas.Gig])
+def get_my_gigs(
+        skip: int = Query(0, ge=0),
+        limit: int = Query(100, ge=1, le=1000),
+        db: Session = Depends(session.get_db),
+        current_user_id = Depends(session.get_current_user_id)
+):
+    """
+    Get all gigs belonging to the current expert user.
+    This endpoint matches user ID from user service with expert_id in gig service.
+    Used by GigSelector component for displaying user's gigs.
+    """
+    # Convert UUID to string if needed
+    expert_id = str(current_user_id)
+    
+    logger.info(f"Fetching all gigs for current user ID: {expert_id} with skip={skip}, limit={limit}")
+    
+    # Get all gigs that belong to this expert (user_id matches gig.expert_id)
+    gigs = crud.get_gigs_by_expert(db=db, expert_id=expert_id, skip=skip, limit=limit)
+    
+    # Enrich the gigs with additional data (same as get_all_gigs)
+    def enrich_gig(gig):
+        # Convert gig object to dict if it has __dict__ attribute, otherwise use direct conversion
+        if hasattr(gig, '__dict__'):
+            gig_dict = gig.__dict__.copy()
+        else:
+            gig_dict = dict(gig)
+        
+        # Remove SQLAlchemy internal attributes
+        gig_dict.pop('_sa_instance_state', None)
+        
+        # Add enriched fields for frontend display
+        gig_dict.update({
+            'bio': 'Expert in their field. Contact for professional consultation.',
+            'banner_image_url': '/logo.png',
+            'profile_image_url': '/favicon.png',
+            'name': 'Expert Professional',
+            'title': 'Professional Consultant',
+            'rating': 4.8,
+            'total_reviews': 12,
+            'total_consultations': 25
+        })
+        
+        return gig_dict
+    
+    enriched_gigs = [enrich_gig(gig) for gig in gigs]
+    
+    logger.info(f"Returned {len(enriched_gigs)} gigs for current user ID: {expert_id}")
+    return enriched_gigs
+
+
 @router.put("/my/gig", response_model=schemas.GigPrivateResponse)
 async def update_my_gig(
         gig_update: schemas.GigUpdate = Depends(),
