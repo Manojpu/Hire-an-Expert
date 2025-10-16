@@ -148,6 +148,50 @@ def get_bookings_by_user(
         )
 
 # 3. Create booking endpoint
+@router.get("/gigs/{gig_id}/available-slots")
+def get_available_slots(
+    gig_id: str,
+    date: str,
+    db: Session = Depends(session.get_db)
+):
+    """Get available time slots for a gig on a specific date."""
+    try:
+        # Validate UUID format for gig_id
+        try:
+            uuid_obj = uuid.UUID(gig_id)
+        except ValueError:
+            logger.warning(f"Invalid UUID format for gig_id: {gig_id}")
+            raise HTTPException(
+                status_code=400, 
+                detail="Invalid gig ID format. Must be a valid UUID."
+            )
+            
+        # Validate date format
+        try:
+            from datetime import datetime
+            datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            logger.warning(f"Invalid date format: {date}")
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid date format. Must be in YYYY-MM-DD format."
+            )
+        
+        # Get booked slots for the date
+        booked_slots = crud.get_booked_slots_for_date(db=db, gig_id=uuid_obj, date_str=date)
+        
+        # Return the booked times as ISO strings
+        booked_times = [b.scheduled_time.isoformat() for b in booked_slots]
+        return booked_times
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting available slots: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get available slots: {str(e)}"
+        )
+
 @router.post("/", response_model=BookingResponse, status_code=status.HTTP_201_CREATED)
 def create_booking(
     booking: BookingCreate, 
@@ -159,8 +203,10 @@ def create_booking(
         logger.info(f"Creating booking for user {current_user_id}, gig {booking.gig_id}")
         db_booking = crud.create_booking(db=db, booking=booking, user_id=current_user_id)
         if not db_booking:
-            raise HTTPException(status_code=400, detail="Booking creation failed")
+            raise HTTPException(status_code=400, detail="Time slot is already booked")
         return db_booking
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error creating booking: {str(e)}")
         logger.error(f"Booking data: {booking}")
