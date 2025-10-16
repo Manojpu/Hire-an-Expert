@@ -40,9 +40,10 @@ try:
     models.Base.metadata.create_all(bind=session.engine)
     logger.info("Database setup completed successfully!")
     
-    # Seed the database with test data
-    db = next(session.get_db())
-    seed_database(db)
+    # Seed the database with test data (temporarily disabled)
+    # db = next(session.get_db())
+    # seed_database(db)
+    logger.info("Database seeding skipped - service ready")
 except OperationalError as e:
     logger.error(f"Database connection failed: {e}")
     logger.info("Make sure your database is running. You can start it with 'docker-compose up -d'")

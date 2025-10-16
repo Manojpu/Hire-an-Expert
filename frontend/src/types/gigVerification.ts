@@ -65,6 +65,7 @@ export interface GigVerificationDetails {
 
 export interface GigVerificationTableRow {
   gig_id: string;
+  expert_id: string;
   expert_name: string;
   category_name: string;
   hourly_rate: number;
