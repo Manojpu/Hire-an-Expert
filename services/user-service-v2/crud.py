@@ -16,21 +16,24 @@ from schemas import (
     ExpertVerificationUpdate, ExpertVerificationResponse,
     AvailabilityRuleCreate
 )
-from sqlalchemy.future import select
-from sqlalchemy.orm import selectinload
-# Removing problematic relative import
-
-
 
 # User CRUD operations    
-def upsert_user(db: Session, uid: str, email: str, name: str, is_expert=True, expert_profiles=[]):  # Changed full_name to name
+def upsert_user(db: Session, uid: str, email: str, name: str = None, is_expert=True, expert_profiles=[]):
+    """
+    Create or update a user. If name is not provided, uses email prefix as name.
+    """
     user = db.query(User).filter(User.firebase_uid == uid).first()
+    
     if user:
+        # Update existing user
         user.email = email
-        user.name = name  # Changed from full_name to name
+        if name:  # Only update name if provided
+            user.name = name
         user.is_expert = is_expert
     else:
-        user = User(firebase_uid=uid, email=email, name=name, is_expert=is_expert)  # Changed from full_name to name
+        # Create new user - use email prefix as name if name not provided
+        user_name = name if name else email.split('@')[0]
+        user = User(firebase_uid=uid, email=email, name=user_name, is_expert=is_expert)
         db.add(user)
         db.commit()
         db.refresh(user)
@@ -46,13 +49,14 @@ def upsert_user(db: Session, uid: str, email: str, name: str, is_expert=True, ex
         for pref in default_preferences:
             db.add(pref)
 
-    # handle expert profiles
+    # Handle expert profiles if provided
     if is_expert and expert_profiles:
-        # delete existing
+        # Delete existing profiles and add new ones
         db.query(ExpertProfile).filter(ExpertProfile.user_id == user.id).delete()
         for profile in expert_profiles:
             ep = ExpertProfile(user_id=user.id, specialization=profile.specialization)
             db.add(ep)
+    
     db.commit()
     db.refresh(user)
     return user
