@@ -37,6 +37,14 @@ class Config:
     DEBUG = os.getenv("DEBUG", "true").lower() == "true"
     PORT = int(os.getenv("PORT", "8000"))
     FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    # Additional CORS origins for development
+    CORS_ORIGINS = [
+        "http://localhost:3000",
+        "http://localhost:5173",  # Vite default
+        "http://localhost:4173",  # Vite preview
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173"
+    ]
     
     # Service URLs
     AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://localhost:8001")
@@ -316,7 +324,7 @@ routes = [
 middleware = [
     Middleware(
         CORSMiddleware,
-        allow_origins=[config.FRONTEND_URL],
+        allow_origins=config.CORS_ORIGINS,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

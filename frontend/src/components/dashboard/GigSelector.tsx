@@ -1,9 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus, ChevronRight, Star, DollarSign, Users } from 'lucide-react';
 import { ExpertGig, gigServiceAPI } from '@/services/gigService';
+import { useAuth } from '@/context/auth/AuthContext';
+import { useNavigate } from 'react-router-dom';
+
+// Extended type to handle category object from API response
+interface ExpertGigWithCategory extends ExpertGig {
+  category?: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+}
 
 interface GigSelectorProps {
   onGigSelect: (gig: ExpertGig) => void;
@@ -12,28 +23,47 @@ interface GigSelectorProps {
 }
 
 const GigSelector: React.FC<GigSelectorProps> = ({ onGigSelect, onCreateNew, onViewOverall }) => {
-  const [gigs, setGigs] = useState<ExpertGig[]>([]);
+  const [gigs, setGigs] = useState<ExpertGigWithCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user, loggedIn } = useAuth();
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    loadGigs();
-  }, []);
+  const loadGigs = useCallback(async () => {
+    if (!user || !loggedIn) {
+      console.log("⚠️ No authenticated user, skipping gig loading");
+      setLoading(false);
+      return;
+    }
 
-  const loadGigs = async () => {
     try {
       setLoading(true);
+      console.log("🔄 Loading gigs for user:", { 
+        id: user.id, 
+        email: user.email, 
+        isExpert: user.isExpert,
+        name: user.name,
+        uid: user.uid
+      });
+      
       const myGigs = await gigServiceAPI.getMyGigs();
-      setGigs(myGigs);
+      setGigs(myGigs as ExpertGigWithCategory[]);
       setError(null);
+      console.log(`✅ Successfully loaded ${myGigs.length} gigs from backend for user ${user.id}:`, myGigs);
     } catch (err) {
-      console.error('Error loading gigs:', err);
-      setError('Unable to load your gigs at this time. The gig service may be offline.');
+      console.error('❌ Error loading gigs from backend:', err);
+      setError(`Backend Connection Failed: ${err instanceof Error ? err.message : 'Unknown error'}. Gig service may be offline at ${import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8000'}.`);
       // Don't clear existing gigs on error, keep them if they exist
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, loggedIn]);
+
+  useEffect(() => {
+    if (loggedIn && user) {
+      loadGigs();
+    }
+  }, [loggedIn, user, loadGigs]);
 
   const getStatusColor = (status: ExpertGig['status']) => {
     switch (status) {
@@ -47,6 +77,7 @@ const GigSelector: React.FC<GigSelectorProps> = ({ onGigSelect, onCreateNew, onV
     }
   };
 
+  // Show loading state while auth is being determined
   if (loading) {
     return (
       <div className="container mx-auto py-8">
@@ -57,6 +88,94 @@ const GigSelector: React.FC<GigSelectorProps> = ({ onGigSelect, onCreateNew, onV
     );
   }
 
+  // If not logged in, show a simplified dashboard with View Profile option
+  if (!loggedIn) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold mb-2">Expert Dashboard</h1>
+            <p className="text-muted-foreground">
+              Please sign in to access full dashboard features, or view profile.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Overall Expert Profile Card */}
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Overall Expert Profile</span>
+                  <ChevronRight className="h-5 w-5" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground mb-4">
+                  View expert profile (works without login for testing)
+                </p>
+                <Button onClick={() => {
+                  console.log("🔄 View Profile button clicked - navigating to expert profile");
+                  navigate("/expert-profile");
+                }}>View Profile</Button>
+              </CardContent>
+            </Card>
+
+            {/* Login Prompt Card */}
+            <Card className="border-dashed">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Sign In Required</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground mb-4">
+                  Sign in to access full expert dashboard features
+                </p>
+                <Button variant="outline" className="w-full">
+                  Go to Login
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // For development: Show dashboard even if user is not flagged as expert yet
+  // TODO: Re-enable this check when expert flag is properly set in backend
+  /*
+  if (!user?.isExpert) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold mb-2">Become an Expert</h1>
+            <p className="text-muted-foreground">
+              Welcome {user?.name}! Complete your expert application to start offering services.
+            </p>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+            <div className="flex items-start gap-3">
+              <div className="text-blue-600">ℹ️</div>
+              <div className="flex-1">
+                <h3 className="font-medium text-blue-800 mb-2">Expert Application Required</h3>
+                <p className="text-sm text-blue-700 mb-4">
+                  To create and manage gigs, you need to complete the expert application process first.
+                </p>
+                <Button variant="outline" size="sm" onClick={onCreateNew}>
+                  Start Expert Application
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  */
+
   if (error) {
     return (
       <div className="container mx-auto py-8">
@@ -64,6 +183,7 @@ const GigSelector: React.FC<GigSelectorProps> = ({ onGigSelect, onCreateNew, onV
           <div className="mb-8">
             <h1 className="text-3xl font-bold mb-2">Expert Dashboard</h1>
             <p className="text-muted-foreground">
+              {user?.name && `Welcome back, ${user.name}! `}
               Select a gig to manage or view your overall expert profile
             </p>
           </div>
@@ -84,7 +204,10 @@ const GigSelector: React.FC<GigSelectorProps> = ({ onGigSelect, onCreateNew, onV
                   <Button variant="outline" size="sm" onClick={onCreateNew}>
                     Create New Gig
                   </Button>
-                  <Button variant="outline" size="sm" onClick={onViewOverall}>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    console.log("🔄 View Profile button clicked");
+                    onViewOverall();
+                  }}>
                     View Profile
                   </Button>
                 </div>
@@ -106,7 +229,10 @@ const GigSelector: React.FC<GigSelectorProps> = ({ onGigSelect, onCreateNew, onV
                 <p className="text-muted-foreground mb-4">
                   View your complete expert profile and account settings
                 </p>
-                <Button onClick={onViewOverall}>View Profile</Button>
+                <Button onClick={() => {
+                  console.log("🔄 View Profile button clicked - navigating to expert profile");
+                  navigate("/expert-profile");
+                }}>View Profile</Button>
               </CardContent>
             </Card>
 
@@ -138,9 +264,14 @@ const GigSelector: React.FC<GigSelectorProps> = ({ onGigSelect, onCreateNew, onV
     <div className="container mx-auto py-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Expert Dashboard</h1>
+          <h1 className="text-3xl font-bold mb-2">
+            {user?.isExpert ? 'Expert Dashboard' : 'Expert Application Dashboard'}
+          </h1>
           <p className="text-muted-foreground">
-            Select a gig to manage or view your overall expert profile
+            {user?.name && `Welcome back, ${user.name}! `}
+            {user?.isExpert 
+              ? 'Select a gig to manage or view your overall expert profile' 
+              : 'Complete your expert application to start offering services'}
           </p>
         </div>
 
@@ -168,7 +299,10 @@ const GigSelector: React.FC<GigSelectorProps> = ({ onGigSelect, onCreateNew, onV
                     Total Revenue
                   </span>
                 </div>
-                <Button onClick={onViewOverall}>View Profile</Button>
+                <Button onClick={() => {
+                  console.log("🔄 View Profile button clicked");
+                  onViewOverall();
+                }}>View Profile</Button>
               </div>
             </CardContent>
           </Card>
@@ -203,11 +337,19 @@ const GigSelector: React.FC<GigSelectorProps> = ({ onGigSelect, onCreateNew, onV
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <CardTitle className="text-lg mb-1">{gig.title}</CardTitle>
-                        <p className="text-sm text-muted-foreground capitalize">{gig.category.replace('-', ' ')}</p>
+                        <CardTitle className="text-lg mb-1">
+                          {gig.name || 
+                           (gig.service_description && gig.service_description.length > 60 
+                            ? gig.service_description.substring(0, 60) + '...' 
+                            : gig.service_description) || 
+                           'Professional Service'}
+                        </CardTitle>
+                        <p className="text-sm text-muted-foreground capitalize">
+                          {gig.category?.name || 'Professional Service'}
+                        </p>
                       </div>
                       <Badge className={getStatusColor(gig.status)}>
-                        {gig.status}
+                        {gig.status.toUpperCase()}
                       </Badge>
                     </div>
                   </CardHeader>
@@ -220,17 +362,17 @@ const GigSelector: React.FC<GigSelectorProps> = ({ onGigSelect, onCreateNew, onV
                       <div className="flex items-center justify-between text-sm">
                         <span className="flex items-center gap-1">
                           <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                          {gig.rating.toFixed(1)}
+                          {(gig.rating || 0).toFixed(1)}
                         </span>
-                        <span>{gig.total_reviews} reviews</span>
+                        <span>{gig.total_reviews || 0} reviews</span>
                       </div>
                       
                       <div className="flex items-center justify-between text-sm">
                         <span className="flex items-center gap-1">
                           <DollarSign className="h-4 w-4" />
-                          Rs. {gig.hourly_rate}/hr
+                          Rs. {gig.hourly_rate || 0}/hr
                         </span>
-                        <span>{gig.total_consultations} consultations</span>
+                        <span>{gig.total_consultations || 0} consultations</span>
                       </div>
                     </div>
 
