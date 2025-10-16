@@ -1,0 +1,32 @@
+{
+  "categories": [
+    {"slug": "software-development", "name": "Software Development"},
+    {"slug": "data-science", "name": "Data Science"},
+    {"slug": "cyber-security", "name": "Cyber Security"},
+    {"slug": "ui-ux", "name": "UI/UX Design"}
+  ],
+  "gigs": [
+    {
+      "firebase_uid": "FLTM8lc9d1Magh8Fpgnsk2YKXl73",
+      "category": "software-development",
+      "service_description": "Full-stack development for web applications with React and FastAPI.",
+      "hourly_rate": 50,
+      "expertise_areas": ["React", "FastAPI", "PostgreSQL"],
+      "experience_years": 5,
+      "work_experience": "Worked on scalable SaaS product for 5 years.",
+      "certification": ["https://example.com/cert/react"],
+      "status": "active"
+    },
+    {
+      "firebase_uid": "Zt8HiA4pbsMg5L6TC2u6A9dR9KM2",
+      "category": "data-science",
+      "service_description": "Data analysis and predictive modeling using Python.",
+      "hourly_rate": 45,
+      "expertise_areas": ["Python", "Pandas", "Scikit-learn"],
+      "experience_years": 4,
+      "work_experience": "Built predictive models for finance domain.",
+      "certification": ["https://example.com/cert/ds"],
+      "status": "active"
+    }
+  ]
+}

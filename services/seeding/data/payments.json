@@ -1,0 +1,16 @@
+{
+  "payments": [
+    {
+      "booking_reference": 0,
+      "amount": 5000,
+      "currency": "LKR",
+      "status": "succeeded"
+    },
+    {
+      "booking_reference": 1,
+      "amount": 6500,
+      "currency": "LKR",
+      "status": "pending"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "bookings": [
+    {
+      "client_email": "user@gmail.com",
+      "gig_firebase_uid": "FLTM8lc9d1Magh8Fpgnsk2YKXl73",
+      "scheduled_time": "2025-10-20T10:00:00Z",
+      "status": "confirmed"
+    },
+    {
+      "client_email": "pubudu@user.com",
+      "gig_firebase_uid": "Zt8HiA4pbsMg5L6TC2u6A9dR9KM2",
+      "scheduled_time": "2025-10-22T14:00:00Z",
+      "status": "pending"
+    }
+  ]
+}
