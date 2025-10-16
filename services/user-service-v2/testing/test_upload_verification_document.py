@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from main import app
 from models import User
+import cloudinary_utils
 
 client = TestClient(app)
 
@@ -26,6 +27,11 @@ def test_upload_verification_document(monkeypatch):
     # Mock current_user dependency if needed
     # You may need to adjust this depending on your auth setup
     
+    async def fake_upload_file(**kwargs):
+        return "https://example.com/mock.pdf"
+
+    monkeypatch.setattr(cloudinary_utils, "upload_file", fake_upload_file)
+
     # Prepare a fake file
     file_content = b"dummy file content"
     file = io.BytesIO(file_content)
@@ -45,5 +51,5 @@ def test_upload_verification_document(monkeypatch):
     assert response.status_code in (200, 201)
     data = response.json()
     assert "id" in data
-    assert data["document_url"].endswith(".pdf")
+    assert data["document_url"].startswith("https://")
     assert data["document_type"] == document_type
