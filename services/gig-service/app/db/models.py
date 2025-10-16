@@ -8,12 +8,10 @@ import enum
 Base = declarative_base()
 
 class GigStatus(str, enum.Enum):
-    DRAFT = "draft"
-    PENDING = "pending" 
-    APPROVED = "approved"
-    REJECTED = "rejected"
+    PENDING = "pending"
     ACTIVE = "active"
-    INACTIVE = "inactive"
+    HOLD = "hold"
+    REJECTED = "rejected"
 
 class Category(Base):
     """
@@ -71,9 +69,10 @@ class Gig(Base):
     expertise_areas = Column(ARRAY(String))  # List of expertise areas
     experience_years = Column(Integer)
     work_experience = Column(Text)  # New field for work experience details
+    certification = Column(ARRAY(String))  # List of certification URLs
     
     # System fields
-    status = Column(Enum(GigStatus, name="gigstatus"), default=GigStatus.DRAFT)
+    status = Column(Enum(GigStatus, name="gigstatus"), default=GigStatus.PENDING)
 
     # Relationships
     category = relationship("Category", back_populates="gigs")

@@ -3,6 +3,13 @@ from sqlalchemy.orm import sessionmaker
 import os
 from dotenv import load_dotenv
 from app.core.config import settings
+import logging
+
+# Import the authentication functionality
+from app.core.firebase_auth import get_current_user_id as firebase_get_user_id
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -30,9 +37,6 @@ def get_db():
     finally:
         db.close()
 
-# For development/testing purposes - returns a mock user ID
-# In a real application, this would verify JWT tokens and extract the user ID
-def get_current_user_id():
-    # TODO: Implement proper authentication with JWT tokens
-    # For now, return a hardcoded user ID for testing purposes only
-    return 1  # Mock user ID for development
+# Real implementation of get_current_user_id using Firebase authentication
+# Re-export the function from firebase_auth module for backward compatibility
+get_current_user_id = firebase_get_user_id

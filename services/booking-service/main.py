@@ -6,15 +6,31 @@ from app.db.seed import seed_database
 from app.endpoints import booking
 from sqlalchemy.exc import OperationalError
 from app.core.logging import logger
+from app.core.config import settings
 import traceback
+# Import Firebase initialization
+from app.core.firebase_auth import initialize_firebase
 
 
 app = FastAPI(title="Booking Service")
 
+# Initialize Firebase on startup
+@app.on_event("startup")
+def startup_event():
+    logger.info("Initializing Firebase Admin SDK...")
+    try:
+        initialize_firebase()
+        logger.info("Firebase Admin SDK initialized successfully!")
+    except Exception as e:
+        logger.error(f"Failed to initialize Firebase Admin SDK: {e}")
+
 # Enable CORS
+# Parse CORS origins from comma-separated string in settings
+origins = settings.CORS_ORIGINS.split(",") if settings.CORS_ORIGINS else ["*"]
+logger.info(f"Setting up CORS with origins: {origins}")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For production, specify your frontend domains
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -49,6 +65,7 @@ except OperationalError as e:
     logger.info("Make sure your database is running. You can start it with 'docker-compose up -d'")
 
 # Include the booking router
+# Important: routes in booking.router should be ordered with fixed paths before path parameters
 app.include_router(booking.router, prefix="/bookings", tags=["bookings"])
 
 @app.get("/")

@@ -1,89 +1,245 @@
-import React, { useState } from 'react';
-import { Brain, Database, Upload, Search, Settings, Zap, FileText, MessageSquare, BarChart3 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Brain, Database, Upload, Search, Settings, Zap, FileText, MessageSquare, BarChart3, Trash2, X, CheckCircle, AlertCircle, Loader2, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import axios from 'axios';
+import { useToast } from '@/components/ui/use-toast';
+
+// API Configuration
+const RAG_API_BASE = 'http://localhost:8000/api/rag';
+
+interface Document {
+  _id: string;
+  title: string;
+  source_type: string;
+  content: string;
+  created_at?: string;
+  metadata?: any;
+  // File metadata
+  filename?: string;
+  file_type?: string;
+  file_size?: number;
+  file_path?: string;
+  file_id?: string;  // GridFS file ID for viewing original file
+  // PDF-specific metadata
+  page_count?: number;
+  pdf_title?: string;
+  pdf_author?: string;
+  pdf_subject?: string;
+  pdf_creator?: string;
+  // Text document metadata
+  content_length?: number;
+}
+
+interface UploadProgress {
+  isUploading: boolean;
+  progress: number;
+  fileName: string;
+}
 
 const AdminRAGSystem = () => {
   const [activeTab, setActiveTab] = useState('knowledge-base');
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress>({
+    isUploading: false,
+    progress: 0,
+    fileName: ''
+  });
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [textUploadData, setTextUploadData] = useState({ title: '', content: '' });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
-  // Sample knowledge base data
-  const knowledgeBaseStats = [
-    { label: 'Total Documents', value: '1,247', icon: FileText, color: 'blue' },
-    { label: 'Categories', value: '23', icon: Database, color: 'green' },
-    { label: 'AI Queries Today', value: '156', icon: MessageSquare, color: 'purple' },
-    { label: 'System Accuracy', value: '94.2%', icon: BarChart3, color: 'orange' }
-  ];
+  // Load documents on mount
+  useEffect(() => {
+    loadDocuments();
+  }, []);
 
-  const recentDocuments = [
-    {
-      id: 1,
-      title: 'Web Development Best Practices',
-      category: 'Programming',
-      status: 'processed',
-      uploadedAt: '2024-01-15 10:30 AM',
-      size: '2.4 MB'
-    },
-    {
-      id: 2,
-      title: 'Digital Marketing Strategies 2024',
-      category: 'Marketing',
-      status: 'processing',
-      uploadedAt: '2024-01-15 09:15 AM',
-      size: '1.8 MB'
-    },
-    {
-      id: 3,
-      title: 'UI/UX Design Guidelines',
-      category: 'Design',
-      status: 'processed',
-      uploadedAt: '2024-01-14 04:20 PM',
-      size: '3.1 MB'
-    }
-  ];
-
-  const recentQueries = [
-    {
-      id: 1,
-      query: 'How to optimize React performance?',
-      category: 'Programming',
-      accuracy: 96,
-      responseTime: '1.2s',
-      timestamp: '2024-01-15 2:45 PM'
-    },
-    {
-      id: 2,
-      query: 'Best practices for social media marketing',
-      category: 'Marketing',
-      accuracy: 91,
-      responseTime: '0.8s',
-      timestamp: '2024-01-15 2:30 PM'
-    },
-    {
-      id: 3,
-      query: 'Color theory in web design',
-      category: 'Design',
-      accuracy: 89,
-      responseTime: '1.5s',
-      timestamp: '2024-01-15 2:15 PM'
-    }
-  ];
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'processed':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'processing':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'failed':
-        return 'bg-red-100 text-red-800 border-red-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+  // Load all documents from API
+  const loadDocuments = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${RAG_API_BASE}/documents`);
+      setDocuments(response.data.documents || []);
+      toast({
+        title: "Documents Loaded",
+        description: `Successfully loaded ${response.data.count || 0} documents`,
+      });
+    } catch (error) {
+      console.error('Error loading documents:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load documents. Please check if services are running.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getAccuracyColor = (accuracy: number) => {
-    if (accuracy >= 90) return 'text-green-600';
-    if (accuracy >= 80) return 'text-yellow-600';
-    return 'text-red-600';
+  // Upload file
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setUploadProgress({
+      isUploading: true,
+      progress: 0,
+      fileName: file.name
+    });
+
+    try {
+      const response = await axios.post(`${RAG_API_BASE}/ingest/file`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (progressEvent) => {
+          const progress = progressEvent.total 
+            ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
+            : 0;
+          setUploadProgress(prev => ({ ...prev, progress }));
+        }
+      });
+
+      toast({
+        title: "Upload Successful",
+        description: `${file.name} has been processed successfully`,
+      });
+
+      // Reload documents
+      await loadDocuments();
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Upload Failed",
+        description: "Failed to upload document. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setUploadProgress({
+        isUploading: false,
+        progress: 0,
+        fileName: ''
+      });
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Upload text document
+  const handleTextUpload = async () => {
+    if (!textUploadData.title || !textUploadData.content) {
+      toast({
+        title: "Validation Error",
+        description: "Please provide both title and content",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setUploadProgress({
+        isUploading: true,
+        progress: 50,
+        fileName: textUploadData.title
+      });
+
+      await axios.post(`${RAG_API_BASE}/ingest/text`, {
+        text: textUploadData.content,
+        title: textUploadData.title,
+        metadata: {
+          source: 'admin_upload',
+          uploaded_at: new Date().toISOString()
+        }
+      });
+
+      toast({
+        title: "Text Document Added",
+        description: `"${textUploadData.title}" has been added successfully`,
+      });
+
+      setShowUploadModal(false);
+      setTextUploadData({ title: '', content: '' });
+      await loadDocuments();
+    } catch (error) {
+      console.error('Text upload error:', error);
+      toast({
+        title: "Upload Failed",
+        description: "Failed to add text document. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setUploadProgress({
+        isUploading: false,
+        progress: 0,
+        fileName: ''
+      });
+    }
+  };
+
+  // Delete document
+  const handleDeleteDocument = async (documentId: string, title: string) => {
+    if (!confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await axios.delete(`${RAG_API_BASE}/documents/${documentId}`);
+      
+      toast({
+        title: "Document Deleted",
+        description: `"${title}" has been removed successfully`,
+      });
+
+      // Reload documents
+      await loadDocuments();
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast({
+        title: "Delete Failed",
+        description: "Failed to delete document. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Filter documents based on search
+  const filteredDocuments = documents.filter(doc => 
+    doc.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    doc.filename?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    doc.content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    doc.source_type?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Calculate stats
+  const stats = {
+    totalDocuments: documents.length,
+    categories: new Set(documents.map(d => d.source_type)).size,
+    totalChunks: documents.reduce((acc, doc) => acc + (doc.metadata?.chunks?.length || 0), 0),
+  };
+
+  const knowledgeBaseStats = [
+    { label: 'Total Documents', value: stats.totalDocuments.toString(), icon: FileText, color: 'blue' },
+    { label: 'Categories', value: stats.categories.toString(), icon: Database, color: 'green' },
+    { label: 'Total Chunks', value: stats.totalChunks.toString(), icon: MessageSquare, color: 'purple' },
+    { label: 'System Status', value: loading ? 'Loading...' : 'Active', icon: BarChart3, color: 'orange' }
+  ];
+
+  // Format date
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleString();
+  };
+
+  // Get file size estimate
+  const getContentSize = (content: string) => {
+    const bytes = new Blob([content]).size;
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
   const tabs = [
@@ -109,6 +265,24 @@ const AdminRAGSystem = () => {
             </div>
           </div>
         </div>
+
+        {/* Upload Progress Toast */}
+        {uploadProgress.isUploading && (
+          <div className="fixed top-4 right-4 bg-white rounded-xl shadow-2xl border border-slate-200 p-6 z-50 min-w-[300px]">
+            <div className="flex items-center gap-3 mb-3">
+              <Loader2 className="h-5 w-5 text-purple-600 animate-spin" />
+              <span className="font-semibold text-slate-900">Uploading Document</span>
+            </div>
+            <p className="text-sm text-slate-600 mb-2">{uploadProgress.fileName}</p>
+            <div className="w-full bg-slate-200 rounded-full h-2">
+              <div 
+                className="bg-gradient-to-r from-purple-500 to-indigo-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${uploadProgress.progress}%` }}
+              />
+            </div>
+            <p className="text-xs text-slate-500 mt-2">{uploadProgress.progress}% complete</p>
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -170,232 +344,290 @@ const AdminRAGSystem = () => {
                       <input
                         type="text"
                         placeholder="Search documents..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       />
                     </div>
                   </div>
                   <div className="flex gap-3">
-                    <Button variant="outline" className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => setShowUploadModal(true)}
+                    >
+                      <FileText className="h-4 w-4" />
+                      Add Text Document
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadProgress.isUploading}
+                    >
                       <Upload className="h-4 w-4" />
-                      Upload Documents
+                      Upload File
                     </Button>
-                    <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700">
-                      <Zap className="h-4 w-4 mr-2" />
-                      Reprocess All
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.txt,.docx,.doc"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    <Button 
+                      className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700"
+                      onClick={loadDocuments}
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="h-4 w-4 mr-2" />
+                          Refresh
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                      <tr>
-                        <th className="text-left py-3 px-4 font-semibold text-slate-700">Document</th>
-                        <th className="text-left py-3 px-4 font-semibold text-slate-700">Category</th>
-                        <th className="text-left py-3 px-4 font-semibold text-slate-700">Size</th>
-                        <th className="text-left py-3 px-4 font-semibold text-slate-700">Uploaded</th>
-                        <th className="text-left py-3 px-4 font-semibold text-slate-700">Status</th>
-                        <th className="text-left py-3 px-4 font-semibold text-slate-700">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentDocuments.map((doc) => (
-                        <tr key={doc.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 rounded-lg bg-purple-100">
-                                <FileText className="h-4 w-4 text-purple-600" />
-                              </div>
-                              <span className="font-medium text-slate-900">{doc.title}</span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="text-slate-700">{doc.category}</span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="text-slate-700">{doc.size}</span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="text-slate-700">{doc.uploadedAt}</span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(doc.status)}`}>
-                              {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex gap-2">
-                              <Button size="sm" variant="outline">
-                                View
-                              </Button>
-                              <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50">
-                                Delete
-                              </Button>
-                            </div>
-                          </td>
+                {/* Documents Table */}
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 text-purple-600 animate-spin" />
+                    <span className="ml-3 text-slate-600">Loading documents...</span>
+                  </div>
+                ) : filteredDocuments.length === 0 ? (
+                  <div className="text-center py-12">
+                    <FileText className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+                    <p className="text-slate-600 text-lg">No documents found</p>
+                    <p className="text-slate-500 text-sm mt-2">
+                      {searchQuery ? 'Try adjusting your search' : 'Upload your first document to get started'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                          <th className="text-left py-3 px-4 font-semibold text-slate-700">Document</th>
+                          <th className="text-left py-3 px-4 font-semibold text-slate-700">Type</th>
+                          <th className="text-left py-3 px-4 font-semibold text-slate-700">Created</th>
+                          <th className="text-left py-3 px-4 font-semibold text-slate-700">Status</th>
+                          <th className="text-left py-3 px-4 font-semibold text-slate-700">Actions</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {filteredDocuments.map((doc) => (
+                          <tr key={doc._id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-purple-100">
+                                  <FileText className="h-4 w-4 text-purple-600" />
+                                </div>
+                                <div className="max-w-md">
+                                  <span className="font-medium text-slate-900 block truncate">
+                                    {doc.title || doc.filename || 'Untitled'}
+                                  </span>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    {doc.filename && (
+                                      <span className="text-xs text-slate-500 truncate">
+                                        📎 {doc.filename}
+                                      </span>
+                                    )}
+                                    {doc.page_count && (
+                                      <span className="text-xs text-slate-400">
+                                        • {doc.page_count} pages
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
+                                {doc.source_type || 'unknown'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="text-slate-700 text-sm">{formatDate(doc.created_at)}</span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border bg-green-100 text-green-800 border-green-200">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Processed
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex gap-2">
+                                {/* Eye icon for PDFs/Files with GridFS storage */}
+                                {doc.file_id && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => window.open(`${RAG_API_BASE}/documents/${doc._id}/view`, '_blank')}
+                                    title="View original file"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                
+                                {/* View button only for text documents (no file_id) */}
+                                {!doc.file_id && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => {
+                                      setTextUploadData({ 
+                                        title: doc.title || 'Untitled', 
+                                        content: doc.content || 'No content available for this document.' 
+                                      });
+                                      setShowUploadModal(true);
+                                    }}
+                                    title="View text content"
+                                  >
+                                    View
+                                  </Button>
+                                )}
+                                
+                                {/* Delete button for all documents */}
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="text-red-600 hover:bg-red-50"
+                                  onClick={() => handleDeleteDocument(doc._id, doc.title)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* AI Queries Tab */}
+            {/* AI Queries Tab - Coming Soon */}
             {activeTab === 'ai-queries' && (
-              <div className="space-y-6">
-                <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                  <div className="flex-1 max-w-md">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
-                      <input
-                        type="text"
-                        placeholder="Search queries..."
-                        className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                  <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700">
-                    Export Analytics
-                  </Button>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                      <tr>
-                        <th className="text-left py-3 px-4 font-semibold text-slate-700">Query</th>
-                        <th className="text-left py-3 px-4 font-semibold text-slate-700">Category</th>
-                        <th className="text-left py-3 px-4 font-semibold text-slate-700">Accuracy</th>
-                        <th className="text-left py-3 px-4 font-semibold text-slate-700">Response Time</th>
-                        <th className="text-left py-3 px-4 font-semibold text-slate-700">Timestamp</th>
-                        <th className="text-left py-3 px-4 font-semibold text-slate-700">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentQueries.map((query) => (
-                        <tr key={query.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 rounded-lg bg-indigo-100">
-                                <MessageSquare className="h-4 w-4 text-indigo-600" />
-                              </div>
-                              <span className="font-medium text-slate-900 max-w-md truncate">{query.query}</span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="text-slate-700">{query.category}</span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={`font-semibold ${getAccuracyColor(query.accuracy)}`}>
-                              {query.accuracy}%
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="text-slate-700">{query.responseTime}</span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="text-slate-700">{query.timestamp}</span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <Button size="sm" variant="outline">
-                              View Details
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+              <div className="text-center py-12">
+                <MessageSquare className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-600 text-lg">AI Query Analytics</p>
+                <p className="text-slate-500 text-sm mt-2">Coming soon - Track and analyze AI chat interactions</p>
               </div>
             )}
 
-            {/* System Config Tab */}
+            {/* System Config Tab - Coming Soon */}
             {activeTab === 'system-config' && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-slate-50 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                      <Settings className="h-5 w-5" />
-                      AI Model Configuration
-                    </h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Model Version</label>
-                        <select className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
-                          <option>GPT-4 Turbo</option>
-                          <option>GPT-4</option>
-                          <option>GPT-3.5 Turbo</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Temperature</label>
-                        <input 
-                          type="number" 
-                          min="0" 
-                          max="1" 
-                          step="0.1" 
-                          defaultValue="0.3"
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Max Tokens</label>
-                        <input 
-                          type="number" 
-                          defaultValue="1000"
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                      <Database className="h-5 w-5" />
-                      Vector Database Settings
-                    </h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Embedding Model</label>
-                        <select className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
-                          <option>text-embedding-ada-002</option>
-                          <option>text-embedding-3-small</option>
-                          <option>text-embedding-3-large</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Similarity Threshold</label>
-                        <input 
-                          type="number" 
-                          min="0" 
-                          max="1" 
-                          step="0.01" 
-                          defaultValue="0.7"
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Max Results</label>
-                        <input 
-                          type="number" 
-                          defaultValue="5"
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700">
-                    Save Configuration
-                  </Button>
-                </div>
+              <div className="text-center py-12">
+                <Settings className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-600 text-lg">System Configuration</p>
+                <p className="text-slate-500 text-sm mt-2">Coming soon - Configure RAG system settings</p>
               </div>
             )}
           </div>
         </div>
+
+        {/* Upload Text Document Modal */}
+        {showUploadModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white">
+                <h2 className="text-2xl font-bold text-slate-900">Add Text Document</h2>
+                <button
+                  onClick={() => {
+                    setShowUploadModal(false);
+                    setTextUploadData({ title: '', content: '' });
+                  }}
+                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <X className="h-5 w-5 text-slate-500" />
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Document Title <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={textUploadData.title}
+                    onChange={(e) => setTextUploadData({ ...textUploadData, title: e.target.value })}
+                    placeholder="e.g., Platform Pricing Guide"
+                    className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Document Content <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={textUploadData.content}
+                    onChange={(e) => setTextUploadData({ ...textUploadData, content: e.target.value })}
+                    placeholder="Enter the document content here..."
+                    rows={12}
+                    className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                  />
+                  <p className="text-xs text-slate-500 mt-2">
+                    {(textUploadData.content || '').length} characters
+                  </p>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <div className="flex gap-3">
+                    <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-blue-800">
+                      <p className="font-semibold mb-1">Tips for better results:</p>
+                      <ul className="list-disc list-inside space-y-1 text-blue-700">
+                        <li>Use clear, descriptive titles</li>
+                        <li>Include relevant keywords in the content</li>
+                        <li>Organize information in paragraphs</li>
+                        <li>Add details about your platform features and policies</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-slate-200 flex gap-3 justify-end sticky bottom-0 bg-white">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowUploadModal(false);
+                    setTextUploadData({ title: '', content: '' });
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700"
+                  onClick={handleTextUpload}
+                  disabled={!textUploadData.title || !textUploadData.content || uploadProgress.isUploading}
+                >
+                  {uploadProgress.isUploading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Add Document
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

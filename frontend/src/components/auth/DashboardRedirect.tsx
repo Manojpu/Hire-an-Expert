@@ -44,7 +44,7 @@ const DashboardRedirect: React.FC = () => {
           navigate('/client-dashboard', { replace: true });
           break;
       }
-    } else if (redirectAttempts < 5) {
+    } else if (redirectAttempts < 10) {
       // If user exists but role is not loaded yet, wait a bit and retry
       console.log(`⏳ User role not loaded yet, attempt ${redirectAttempts + 1}/5`);
       const timer = setTimeout(() => {

@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends, status, HTTPException, Query
+from fastapi import APIRouter, Depends, status, HTTPException, Query, File, UploadFile, Form, Body
 from app.db import schemas
 from sqlalchemy.orm import Session
+from fastapi.encoders import jsonable_encoder
+import json
 
 from typing import List, Optional
 from app.db import crud, session
 from app.utils.logger import get_logger
+from app.utils.file_handler import save_certificate_files
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -13,18 +16,22 @@ router = APIRouter()
 
 
 @router.post("/", response_model=schemas.Gig, status_code=status.HTTP_201_CREATED)
-def create_new_gig(
-        gig: schemas.GigCreate,
-        db: Session = Depends(session.get_db),
-        current_user_id = Depends(session.get_current_user_id)
+async def create_new_gig(
+    gig: schemas.GigCreate = Depends(schemas.gig_create_form),
+    certificate_files: List[UploadFile] = File(None),
+    db: Session = Depends(session.get_db),
+    current_user_id=Depends(session.get_current_user_id)
 ):
     """
-    Create a new gig. Requires Firebase authentication.
+    Create a new gig with certificate files. Requires Firebase authentication.
+    
+    - gig: The gig data as a GigCreate model
+    - certificate_files: List of certificate files to upload
     """
     try:
         logger.info(f"Creating new gig for expert: {current_user_id}")
-        logger.debug(f"Gig data received: {gig.dict()}")
-
+        logger.debug(f"Gig data received: {jsonable_encoder(gig)}")
+        
         # Convert UUID to string if needed
         expert_id = str(current_user_id)
         
@@ -33,15 +40,42 @@ def create_new_gig(
         if not category:
             logger.warning(f"Category with ID {gig.category_id} not found when creating gig for user {expert_id}")
             raise HTTPException(status_code=404, detail=f"Category with ID {gig.category_id} not found")
-
+        
+        # Create gig first to get ID (we'll need it for the certificate files)
         db_gig = crud.create_gig(db=db, gig=gig, expert_id=expert_id)
-        logger.info(f"Gig creation completed: {db_gig.id}")
-
+        logger.info(f"Gig created initially with ID: {db_gig.id}")
+        
+        # Handle certificate files if any were uploaded
+        certificate_paths = []
+        if certificate_files:
+            try:
+                # Save the certificate files and get their paths
+                certificate_paths = await save_certificate_files(certificate_files, db_gig.id)
+                logger.info(f"Saved {len(certificate_paths)} certificate files for gig {db_gig.id}")
+                
+                # Update the gig with the certificate paths if any were saved
+                if certificate_paths:
+                    # Update the gig's certification field with the file paths
+                    db_gig.certification = certificate_paths
+                    db.commit()
+                    logger.info(f"Updated gig {db_gig.id} with certificate paths")
+            except Exception as e:
+                logger.error(f"Error saving certificate files: {str(e)}")
+                # Continue with gig creation even if file upload fails
+                # We can handle file uploads separately later if needed
+        
         # We need to fetch the complete gig with relationship data for the response
         # Because the crud.create_gig doesn't populate the relationship
         complete_gig = crud.get_gig(db=db, gig_id=db_gig.id)
+        logger.info(f"Gig creation completed: {db_gig.id}")
         return complete_gig
 
+    except HTTPException:
+        # Re-raise HTTP exceptions without modification
+        raise
+    except ValueError as e:
+        logger.error(f"Validation error in create_new_gig for user {current_user_id}: {e}")
+        raise HTTPException(status_code=400, detail=f"Validation error: {str(e)}")
     except Exception as e:
         logger.error(f"Error in create_new_gig for user {current_user_id}: {e}")
         import traceback
@@ -102,8 +136,8 @@ def get_gig_detail(
         logger.warning(f"Gig not found for gig ID: {gig_id}")
         raise HTTPException(status_code=404, detail="Gig not found")
 
-    # Only show approved/active gigs to public
-    if db_gig.status not in [schemas.GigStatus.APPROVED, schemas.GigStatus.ACTIVE]:
+    # Only show active gigs to public
+    if db_gig.status not in [schemas.GigStatus.ACTIVE]:
         logger.warning(f"Gig with ID {gig_id} is not available (status: {db_gig.status})")
         raise HTTPException(status_code=404, detail="Gig not available")
 
@@ -155,7 +189,7 @@ def get_gig_by_expert(
         logger.warning(f"Expert gig not found for expert ID: {expert_id}")
         raise HTTPException(status_code=404, detail="Expert gig not found")
 
-    if db_gig.status not in [schemas.GigStatus.APPROVED, schemas.GigStatus.ACTIVE]:
+    if db_gig.status not in [schemas.GigStatus.ACTIVE]:
         logger.warning(f"Expert profile not available for expert ID: {expert_id} (status: {db_gig.status})")
         raise HTTPException(status_code=404, detail="Expert profile not available")
 
@@ -236,8 +270,9 @@ def get_my_gigs(
 
 
 @router.put("/my/gig", response_model=schemas.GigPrivateResponse)
-def update_my_gig(
-        gig_update: schemas.GigUpdate,
+async def update_my_gig(
+        gig_update: schemas.GigUpdate = Depends(),
+        certificate_files: List[UploadFile] = File(None),
         db: Session = Depends(session.get_db),
         current_user_id = Depends(session.get_current_user_id)
 ):
@@ -249,6 +284,8 @@ def update_my_gig(
     
     # First get the gig to ensure it belongs to the current user
     logger.info(f"Updating gig for current user ID: {expert_id}")
+    logger.debug(f"Gig update data: {jsonable_encoder(gig_update)}")
+    
     db_gig = crud.get_gig_by_expert(db=db, expert_id=expert_id)
     if not db_gig:
         logger.warning(f"No gig found for current user ID: {expert_id}")
@@ -258,6 +295,27 @@ def update_my_gig(
     if not updated_gig:
         logger.error(f"Failed to update gig for current user ID: {expert_id}")
         raise HTTPException(status_code=404, detail="Failed to update gig")
+    
+    # Handle certificate files if any were uploaded
+    if certificate_files:
+        try:
+            # Save the certificate files and get their paths
+            certificate_paths = await save_certificate_files(certificate_files, updated_gig.id)
+            logger.info(f"Saved {len(certificate_paths)} certificate files for gig {updated_gig.id}")
+            
+            # Update the gig with the certificate paths if any were saved
+            if certificate_paths:
+                # Get existing certificates if any
+                existing_certs = updated_gig.certification or []
+                
+                # Add new certificate paths to existing ones
+                updated_gig.certification = existing_certs + certificate_paths
+                db.commit()
+                logger.info(f"Updated gig {updated_gig.id} with certificate paths")
+        except Exception as e:
+            logger.error(f"Error saving certificate files during update: {str(e)}")
+            # Continue with gig update even if file upload fails
+            # We can handle file uploads separately later if needed
 
     logger.info(f"Gig updated for current user ID: {expert_id}")
     return updated_gig
@@ -290,49 +348,98 @@ def delete_my_gig(
     return None  # 204 No Content response
 
 
-@router.get("/admin/analytics/total-stats")
-def get_total_gig_stats(
-        db: Session = Depends(session.get_db)
+@router.post("/my/gig/certificates", response_model=schemas.GigPrivateResponse)
+async def upload_certificates(
+    certificate_files: List[UploadFile] = File(...),
+    db: Session = Depends(session.get_db),
+    current_user_id = Depends(session.get_current_user_id)
 ):
     """
-    Get total gig statistics for admin dashboard.
+    Upload certificate files for the expert's gig.
+    This endpoint is specifically for adding certificates to an existing gig.
     """
-    logger.info("Getting total gig statistics")
+    # Convert UUID to string if needed
+    expert_id = str(current_user_id)
+    
+    # First get the gig to ensure it exists and belongs to the current user
+    logger.info(f"Uploading certificates for expert ID: {expert_id}")
+    db_gig = crud.get_gig_by_expert(db=db, expert_id=expert_id)
+    if not db_gig:
+        logger.warning(f"No gig found for current user ID: {expert_id}")
+        raise HTTPException(status_code=404, detail="No gig found for this expert")
+    
+    if not certificate_files:
+        raise HTTPException(status_code=400, detail="No certificate files provided")
+    
     try:
-        total_gigs = crud.get_total_gigs_count(db)
+        # Save the certificate files and get their paths
+        certificate_paths = await save_certificate_files(certificate_files, db_gig.id)
+        logger.info(f"Saved {len(certificate_paths)} certificate files for gig {db_gig.id}")
         
-        return {
-            "totalGigs": total_gigs
-        }
+        # Update the gig with the certificate paths
+        existing_certs = db_gig.certification or []
+        db_gig.certification = existing_certs + certificate_paths
+        db.commit()
+        db.refresh(db_gig)
+        
+        logger.info(f"Updated gig {db_gig.id} with new certificate paths")
+        return db_gig
+        
     except Exception as e:
-        logger.error(f"Error getting total gig stats: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get gig statistics: {str(e)}")
+        logger.error(f"Error uploading certificates: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to upload certificates: {str(e)}")
 
 
-@router.get("/admin/analytics/gigs", response_model=schemas.GigAnalyticsResponse)
-def get_gig_analytics(
-        start_date: Optional[str] = Query(None, description="Start date in YYYY-MM-DD format"),
-        end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
-        db: Session = Depends(session.get_db)
+@router.delete("/my/gig/certificates/{certificate_index}", response_model=schemas.GigPrivateResponse)
+async def delete_certificate(
+    certificate_index: int,
+    db: Session = Depends(session.get_db),
+    current_user_id = Depends(session.get_current_user_id)
 ):
     """
-    Get cumulative gig analytics data for admin dashboard.
-    Shows total gigs created up to each date for growth trend analysis.
+    Delete a specific certificate from the expert's gig by index.
     """
-    logger.info(f"Getting cumulative gig analytics from {start_date} to {end_date}")
+    # Convert UUID to string if needed
+    expert_id = str(current_user_id)
+    
+    # First get the gig to ensure it exists and belongs to the current user
+    logger.info(f"Deleting certificate for expert ID: {expert_id} at index {certificate_index}")
+    db_gig = crud.get_gig_by_expert(db=db, expert_id=expert_id)
+    if not db_gig:
+        logger.warning(f"No gig found for current user ID: {expert_id}")
+        raise HTTPException(status_code=404, detail="No gig found for this expert")
+    
+    # Check if certificate exists
+    if not db_gig.certification or certificate_index >= len(db_gig.certification):
+        raise HTTPException(status_code=404, detail="Certificate not found")
+    
     try:
-        analytics_data = crud.get_gigs_analytics(db=db, start_date=start_date, end_date=end_date)
-        total_count = crud.get_total_gigs_count(db)
+        # Get the certificate path
+        certificate_path = db_gig.certification[certificate_index]
         
-        daily_counts = [schemas.DailyGigCount(**item) for item in analytics_data]
+        # Remove the certificate from the list
+        db_gig.certification = [cert for i, cert in enumerate(db_gig.certification) if i != certificate_index]
+        db.commit()
+        db.refresh(db_gig)
         
-        return schemas.GigAnalyticsResponse(
-            data=daily_counts,
-            total_count=total_count
-        )
+        # Try to delete the file (non-blocking)
+        try:
+            import os
+            from app.utils.file_handler import UPLOAD_DIR
+            full_path = os.path.join(UPLOAD_DIR, certificate_path)
+            if os.path.exists(full_path):
+                os.remove(full_path)
+                logger.info(f"Deleted certificate file: {full_path}")
+        except Exception as file_e:
+            # Just log the error, don't fail the request
+            logger.warning(f"Could not delete certificate file: {str(file_e)}")
+        
+        logger.info(f"Removed certificate at index {certificate_index} from gig {db_gig.id}")
+        return db_gig
+        
     except Exception as e:
-        logger.error(f"Error getting gig analytics: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get gig analytics: {str(e)}")
+        logger.error(f"Error deleting certificate: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete certificate: {str(e)}")
 
 
 # Admin endpoints for gig verification
@@ -353,6 +460,172 @@ def get_pending_gigs_for_admin(
     except Exception as e:
         logger.error(f"Error getting pending gigs: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get pending gigs: {str(e)}")
+
+
+@router.get("/admin/active", response_model=List[schemas.Gig])
+def get_active_gigs_for_admin(
+        skip: int = Query(0, ge=0),
+        limit: int = Query(100, ge=1, le=1000),
+        db: Session = Depends(session.get_db)
+):
+    """
+    Get all gigs with active status for admin review.
+    """
+    logger.info(f"Admin fetching active gigs: skip={skip}, limit={limit}")
+    try:
+        active_gigs = db.query(crud.Gig).filter(
+            crud.Gig.status == schemas.GigStatus.ACTIVE
+        ).offset(skip).limit(limit).all()
+        logger.info(f"Retrieved {len(active_gigs)} active gigs")
+        return active_gigs
+    except Exception as e:
+        logger.error(f"Error getting active gigs: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get active gigs: {str(e)}")
+
+
+@router.get("/admin/hold", response_model=List[schemas.Gig])
+def get_hold_gigs_for_admin(
+        skip: int = Query(0, ge=0),
+        limit: int = Query(100, ge=1, le=1000),
+        db: Session = Depends(session.get_db)
+):
+    """
+    Get all gigs with hold status for admin review.
+    """
+    logger.info(f"Admin fetching hold gigs: skip={skip}, limit={limit}")
+    try:
+        hold_gigs = db.query(crud.Gig).filter(
+            crud.Gig.status == schemas.GigStatus.HOLD
+        ).offset(skip).limit(limit).all()
+        logger.info(f"Retrieved {len(hold_gigs)} hold gigs")
+        return hold_gigs
+    except Exception as e:
+        logger.error(f"Error getting hold gigs: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get hold gigs: {str(e)}")
+
+
+@router.put("/admin/{gig_id}/activate", response_model=schemas.Gig)
+def activate_gig_for_admin(
+        gig_id: str,
+        db: Session = Depends(session.get_db)
+):
+    """
+    Activate a gig (change status from HOLD to ACTIVE).
+    """
+    logger.info(f"Admin activating gig: {gig_id}")
+    try:
+        gig = crud.get_gig(db=db, gig_id=gig_id)
+        if not gig:
+            raise HTTPException(status_code=404, detail="Gig not found")
+        
+        # Update status to ACTIVE
+        gig.status = schemas.GigStatus.ACTIVE
+        db.commit()
+        db.refresh(gig)
+        logger.info(f"Gig {gig_id} activated successfully")
+        return gig
+    except Exception as e:
+        logger.error(f"Error activating gig: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to activate gig: {str(e)}")
+
+
+@router.put("/admin/{gig_id}/reject", response_model=schemas.Gig)
+def reject_gig_for_admin(
+        gig_id: str,
+        db: Session = Depends(session.get_db)
+):
+    """
+    Reject a gig (change status to REJECTED).
+    """
+    logger.info(f"Admin rejecting gig: {gig_id}")
+    try:
+        gig = crud.get_gig(db=db, gig_id=gig_id)
+        if not gig:
+            raise HTTPException(status_code=404, detail="Gig not found")
+        
+        # Update status to REJECTED
+        gig.status = schemas.GigStatus.REJECTED
+        db.commit()
+        db.refresh(gig)
+        logger.info(f"Gig {gig_id} rejected successfully")
+        return gig
+    except Exception as e:
+        logger.error(f"Error rejecting gig: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to reject gig: {str(e)}")
+
+
+@router.get("/admin/rejected", response_model=List[schemas.Gig])
+def get_rejected_gigs_for_admin(
+        skip: int = Query(0, ge=0),
+        limit: int = Query(100, ge=1, le=1000),
+        db: Session = Depends(session.get_db)
+):
+    """
+    Get all gigs with rejected status for admin review.
+    """
+    logger.info(f"Admin fetching rejected gigs: skip={skip}, limit={limit}")
+    try:
+        rejected_gigs = db.query(crud.Gig).filter(
+            crud.Gig.status == schemas.GigStatus.REJECTED
+        ).offset(skip).limit(limit).all()
+        logger.info(f"Retrieved {len(rejected_gigs)} rejected gigs")
+        return rejected_gigs
+    except Exception as e:
+        logger.error(f"Error getting rejected gigs: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get rejected gigs: {str(e)}")
+
+
+@router.put("/admin/{gig_id}/reactivate", response_model=schemas.Gig)
+def reactivate_rejected_gig(
+        gig_id: str,
+        db: Session = Depends(session.get_db)
+):
+    """
+    Reactivate a rejected gig (change status from REJECTED to ACTIVE).
+    """
+    logger.info(f"Admin reactivating rejected gig: {gig_id}")
+    try:
+        gig = crud.get_gig(db=db, gig_id=gig_id)
+        if not gig:
+            raise HTTPException(status_code=404, detail="Gig not found")
+        
+        # Update status to ACTIVE
+        gig.status = schemas.GigStatus.ACTIVE
+        db.commit()
+        db.refresh(gig)
+        logger.info(f"Rejected gig {gig_id} reactivated successfully")
+        return gig
+    except Exception as e:
+        logger.error(f"Error reactivating gig: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to reactivate gig: {str(e)}")
+
+
+@router.delete("/admin/{gig_id}/delete")
+def delete_rejected_gig(
+        gig_id: str,
+        db: Session = Depends(session.get_db)
+):
+    """
+    Permanently delete a rejected gig from the database.
+    """
+    logger.info(f"Admin deleting rejected gig: {gig_id}")
+    try:
+        gig = crud.get_gig(db=db, gig_id=gig_id)
+        if not gig:
+            raise HTTPException(status_code=404, detail="Gig not found")
+        
+        # Delete the gig
+        db.delete(gig)
+        db.commit()
+        logger.info(f"Gig {gig_id} deleted successfully")
+        return {"success": True, "message": f"Gig {gig_id} deleted successfully"}
+    except Exception as e:
+        logger.error(f"Error deleting gig: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete gig: {str(e)}")
 
 
 @router.get("/admin/{gig_id}", response_model=schemas.Gig)
@@ -391,7 +664,7 @@ def get_gig_certificates_for_admin(
             raise HTTPException(status_code=404, detail="Gig not found")
         
         # Get certifications for this gig
-        certifications = crud.get_gig_certifications(db=db, gig_id=gig_id)
+        certifications = crud.get_certifications_by_gig(db=db, gig_id=gig_id)
         
         # Convert to response format
         certificates = []
@@ -448,14 +721,14 @@ def approve_gig_for_admin(
         from app.db.schemas import GigStatusUpdate
         from app.db.models import GigStatus
         
-        status_update = GigStatusUpdate(status=GigStatus.APPROVED)
+        status_update = GigStatusUpdate(status=GigStatus.ACTIVE)
         updated_gig = crud.update_gig_status(db=db, gig_id=gig_id, status_update=status_update)
         
         if not updated_gig:
             raise HTTPException(status_code=500, detail="Failed to update gig status")
             
-        logger.info(f"Gig {gig_id} approved successfully")
-        return {"message": "Gig approved successfully", "gig_id": gig_id}
+        logger.info(f"Gig {gig_id} approved and activated successfully")
+        return {"message": "Gig approved and activated successfully", "gig_id": gig_id}
     except Exception as e:
         logger.error(f"Error approving gig: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to approve gig: {str(e)}")
@@ -490,6 +763,37 @@ def reject_gig_for_admin(
     except Exception as e:
         logger.error(f"Error rejecting gig: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to reject gig: {str(e)}")
+
+
+@router.post("/admin/{gig_id}/hold")
+def put_gig_on_hold_for_admin(
+        gig_id: str,
+        db: Session = Depends(session.get_db)
+):
+    """
+    Put a gig on hold (change status to hold).
+    """
+    logger.info(f"Admin putting gig on hold: {gig_id}")
+    try:
+        gig = crud.get_gig(db=db, gig_id=gig_id)
+        if not gig:
+            raise HTTPException(status_code=404, detail="Gig not found")
+        
+        # Create a status update object
+        from app.db.schemas import GigStatusUpdate
+        from app.db.models import GigStatus
+        
+        status_update = GigStatusUpdate(status=GigStatus.HOLD)
+        updated_gig = crud.update_gig_status(db=db, gig_id=gig_id, status_update=status_update)
+        
+        if not updated_gig:
+            raise HTTPException(status_code=500, detail="Failed to update gig status")
+            
+        logger.info(f"Gig {gig_id} put on hold successfully")
+        return {"message": "Gig put on hold successfully", "gig_id": gig_id}
+    except Exception as e:
+        logger.error(f"Error putting gig on hold: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to put gig on hold: {str(e)}")
 
 
 @router.get("/admin/users/{user_id}")
@@ -528,3 +832,79 @@ async def get_user_details_for_admin(
     except Exception as e:
         logger.error(f"Error getting user details: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get user details: {str(e)}")
+
+
+@router.get("/admin/analytics/gigs", response_model=schemas.GigAnalyticsResponse)
+async def get_gig_analytics(
+    start_date: Optional[str] = Query(None, description="Start date in YYYY-MM-DD format"),
+    end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
+    db: Session = Depends(session.get_db)
+):
+    """
+    Get gig analytics data for admin dashboard.
+    Returns daily gig counts within the specified date range.
+    """
+    try:
+        logger.info(f"Getting gig analytics for date range: {start_date} to {end_date}")
+        
+        # Get analytics data from database
+        analytics_data = crud.get_gig_analytics(db, start_date, end_date)
+        
+        logger.info(f"Retrieved {len(analytics_data.data)} analytics data points")
+        return analytics_data
+        
+    except Exception as e:
+        logger.error(f"Error getting gig analytics: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get gig analytics: {str(e)}")
+
+
+@router.get("/admin/analytics/total-stats")
+async def get_gig_total_stats(
+    db: Session = Depends(session.get_db)
+):
+    """
+    Get total stats for gigs - returns total count of active gigs.
+    """
+    try:
+        logger.info("Getting total gig stats")
+        
+        # Get total count of active gigs
+        total_active_gigs = crud.get_total_active_gigs(db)
+        
+        logger.info(f"Total active gigs: {total_active_gigs}")
+        return {"totalGigs": total_active_gigs}
+        
+    except Exception as e:
+        logger.error(f"Error getting total gig stats: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get total gig stats: {str(e)}")
+
+
+@router.get("/admin/analytics/status-counts")
+async def get_gig_status_counts(
+    db: Session = Depends(session.get_db)
+):
+    """
+    Get count of gigs by status - returns counts for PENDING, ACTIVE, HOLD, and REJECTED statuses.
+    """
+    try:
+        logger.info("Getting gig status counts")
+        
+        # Get counts for each status using the GigStatus enum
+        pending_count = db.query(crud.Gig).filter(crud.Gig.status == schemas.GigStatus.PENDING).count()
+        active_count = db.query(crud.Gig).filter(crud.Gig.status == schemas.GigStatus.ACTIVE).count()
+        hold_count = db.query(crud.Gig).filter(crud.Gig.status == schemas.GigStatus.HOLD).count()
+        rejected_count = db.query(crud.Gig).filter(crud.Gig.status == schemas.GigStatus.REJECTED).count()
+        
+        result = {
+            "pending": pending_count,
+            "active": active_count,
+            "hold": hold_count,
+            "rejected": rejected_count
+        }
+        
+        logger.info(f"Status counts: {result}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error getting gig status counts: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get gig status counts: {str(e)}")

@@ -34,8 +34,8 @@ class BookingCreate(BookingBase):
     notes: Optional[str] = None
 
 class BookingResponse(BookingBase):
-    id: int
-    user_id: int
+    id: uuid.UUID
+    user_id: uuid.UUID
     status: str
     scheduled_time: Optional[datetime] = None
     duration: Optional[int] = None
@@ -55,6 +55,16 @@ class BookingWithDetails(BookingResponse):
     class Config:
         from_attributes = True
 
+        
+class GigDetails(BaseModel):
+    id: str
+    service_description: str
+    thumbnail_url: Optional[str] = None
+    hourly_rate: float
+    currency: str
+    
+class BookingResponseWithGigDetails(BookingResponse):
+    gig_details: Optional[GigDetails] = None
 class BookingUpdate(BaseModel):
     status: Optional[str] = None
     scheduled_time: Optional[datetime] = None

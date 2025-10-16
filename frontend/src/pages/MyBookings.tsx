@@ -1,96 +1,299 @@
-import React, { useMemo, useState, useEffect } from "react";
-import { getBookings, updateBookingStatus, cancelBooking, confirmBookingWithPayment, capturePayment, Booking } from "@/lib/bookings";
+import React, { useState, useEffect } from "react";
 import { MOCK_EXPERTS } from "@/data/mockExperts";
 import { useAuth } from "@/context/auth/AuthContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { getICalHref, getGoogleCalendarUrl } from "@/lib/calendar";
+import { bookingService, Booking } from "@/services/bookingService";
+import { toSriLankaTime } from "@/utils/dateUtils";
+import { Loader2 } from "lucide-react";
 
 const MyBookings = () => {
   const { user } = useAuth();
   const userId = user?.id;
-  const [tick, setTick] = useState(0);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const bookings = useMemo(() => {
-    if (!userId) return [] as Booking[];
-    return getBookings().filter((b) => b.clientId === userId || b.expertId === userId);
+  // Fetch bookings from API when component mounts or userId changes
+  useEffect(() => {
+    async function fetchUserBookings() {
+      if (!userId) {
+        setBookings([]);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null); // Clear any previous errors
+        const userBookings = await bookingService.getUserBookings();
+        console.log("Fetched bookings:", userBookings); // Debug log
+        setBookings(userBookings || []);
+      } catch (err) {
+        console.error("Error fetching bookings:", err);
+        setError(
+          "Failed to load your bookings. Please ensure you are logged in."
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchUserBookings();
   }, [userId]);
 
-  useEffect(() => {
-    // listen for storage events to update bookings across tabs
-    const handler = () => setTick((t) => t + 1);
-    window.addEventListener('storage', handler);
-    return () => window.removeEventListener('storage', handler);
-  }, []);
+  // Modified action handlers for the API
+  const handleUpdateStatus = async (bookingId: string, status: string) => {
+    try {
+      await bookingService.updateBookingStatus(bookingId, status);
+      // Refresh bookings after update
+      const updatedBookings = await bookingService.getUserBookings();
+      setBookings(updatedBookings);
 
-  // refresh when tick changes
-  useEffect(() => {
-    // no-op, tick used to re-evaluate bookings via useMemo's closure by reading from localStorage inside the render
-  }, [tick]);
+      toast({
+        title: `Booking ${status}`,
+        description: `Booking has been ${status}`,
+      });
+    } catch (err) {
+      console.error(`Failed to update booking status:`, err);
+      toast({
+        title: "Update failed",
+        description: "Failed to update booking status",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (!userId) {
-    return <div className="min-h-[60vh] flex items-center justify-center">Please sign in to view your bookings.</div>;
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center">
+        <div className="text-xl font-semibold mb-4">
+          Authentication Required
+        </div>
+        <div className="text-muted-foreground">
+          Please sign in to view your bookings.
+        </div>
+      </div>
+    );
   }
 
   return (
     <div>
-      <h2 className="text-2xl font-bold">My Bookings</h2>
-      <div className="mt-4 space-y-4">
-        {bookings.length === 0 && <div className="text-muted-foreground">No bookings yet.</div>}
-        {bookings.map((b) => {
-          const expert = MOCK_EXPERTS.find((e) => e.id === b.expertId) || MOCK_EXPERTS.find((e) => e.userId === b.expertId);
-          const onExpertApprove = () => { updateBookingStatus(b.id, 'approved'); setTick(t => t+1); toast({ title: 'Request approved', description: `You approved booking request ${b.id}. Client can now pay to confirm.` }); };
-          const onExpertReject = () => { updateBookingStatus(b.id, 'cancelled'); setTick(t => t+1); toast({ title: 'Request rejected', description: `You rejected booking request ${b.id}.` }); };
-          const onClientCancel = () => { cancelBooking(b.id); setTick(t => t+1); toast({ title: 'Booking cancelled', description: `Booking ${b.id} was cancelled.` }); };
-          const onClientPay = () => { const updated = capturePayment(b.id, b.amount); setTick(t => t+1); toast({ title: 'Payment successful', description: `Booking confirmed. Meeting: ${updated?.meetingLink || 'N/A'}` }); };
-          return (
-            <div key={b.id} className="border rounded p-4 bg-background flex items-start justify-between">
-              <div>
-                <div className="font-medium">{b.service} {expert ? `— ${expert.name}` : ''}</div>
-                <div className="text-sm text-muted-foreground">{new Date(b.dateTime).toLocaleString()}</div>
-                <div className="text-sm text-muted-foreground mt-2">Status: <span className="font-medium">{b.status}</span></div>
-              </div>
-
-              <div className="flex flex-col items-end gap-2">
-                { /* Expert actions */ }
-                {user?.role === 'expert' && user?.id === expert?.userId && b.status === 'pending' && (
-                  <div className="flex gap-2">
-                    <Button onClick={onExpertApprove} size="sm">Approve</Button>
-                    <Button variant="ghost" onClick={onExpertReject} size="sm">Reject</Button>
-                  </div>
-                )}
-
-                { /* Client actions */ }
-                {user?.role === 'client' && user?.id === b.clientId && (
-                  <div className="flex flex-col items-end gap-2">
-                    {b.status === 'approved' && (
-                      <Button onClick={onClientPay} size="sm">Pay & Confirm</Button>
-                    )}
-                    {b.status === 'pending' && (
-                      <Button variant="ghost" onClick={onClientCancel} size="sm">Cancel</Button>
-                    )}
-                  </div>
-                )}
-
-                <div className="text-sm text-muted-foreground">Amount: Rs. {b.amount}</div>
-                {b.meetingLink && (
-                  <a href={b.meetingLink} target="_blank" rel="noreferrer" className="text-xs text-primary underline">Join Meeting</a>
-                )}
-                {b.status === 'confirmed' && (
-                  <div className="mt-2 flex gap-2">
-                    <a href={getICalHref(b)} download={`booking-${b.id}.ics`} className="text-xs text-muted-foreground underline">Add to iCal</a>
-                    <a href={getGoogleCalendarUrl(b)} target="_blank" rel="noreferrer" className="text-xs text-muted-foreground underline">Add to Google Calendar</a>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold">My Bookings</h2>
+        <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+          All times shown in Sri Lanka time (GMT+5:30)
+        </div>
       </div>
 
+      {loading && (
+        <div className="min-h-[40vh] flex items-center justify-center">
+          <Loader2 className="h-8 w-8 text-primary animate-spin mr-2" />
+          <p>Loading your bookings...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="mt-4 p-4 bg-red-50 text-red-600 rounded-md">
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && (
+        <div className="mt-4 space-y-4">
+          {bookings.length === 0 && (
+            <div className="text-muted-foreground">No bookings yet.</div>
+          )}
+
+          {bookings.map((booking) => {
+            // Get expert info from mock data for backward compatibility
+            const expertId = booking.gig_id;
+            const expert = MOCK_EXPERTS.find((e) => e.id === expertId);
+
+            // Get gig details from the API response
+            const gigDetails = booking.gig_details;
+
+            // Action handlers
+            const onExpertApprove = () =>
+              handleUpdateStatus(booking.id, "confirmed");
+            const onExpertReject = () =>
+              handleUpdateStatus(booking.id, "cancelled");
+            const onClientCancel = () =>
+              handleUpdateStatus(booking.id, "cancelled");
+            return (
+              <div
+                key={booking.id}
+                className="border rounded p-4 bg-background flex items-start justify-between"
+              >
+                <div className="flex-1">
+                  {/* Display service description if available */}
+                  <div className="font-medium">
+                    {gigDetails?.service_description
+                      ? gigDetails.service_description.substring(0, 50) +
+                        (gigDetails.service_description.length > 50
+                          ? "..."
+                          : "")
+                      : expert
+                      ? `Booking for Gig — ${expert.name}`
+                      : `Booking for Gig ID: ${booking.gig_id.substring(0, 8)}`}
+                  </div>
+
+                  {/* Display rate if available */}
+                  {gigDetails && (
+                    <div className="text-sm font-medium text-primary-600">
+                      {gigDetails.hourly_rate} {gigDetails.currency}/hour
+                    </div>
+                  )}
+
+                  <div className="text-sm text-muted-foreground mt-1">
+                    {toSriLankaTime(booking.scheduled_time)} (Sri Lanka time)
+                  </div>
+
+                  <div className="text-sm text-muted-foreground mt-2">
+                    Status:{" "}
+                    <span className="font-medium">{booking.status}</span>
+                  </div>
+                </div>
+
+                {/* Display thumbnail if available */}
+                {gigDetails?.thumbnail_url && (
+                  <div className="flex-shrink-0 ml-4 mr-4">
+                    <img
+                      src={gigDetails.thumbnail_url}
+                      alt="Gig thumbnail"
+                      className="w-16 h-16 object-cover rounded"
+                    />
+                  </div>
+                )}
+
+                <div className="flex flex-col items-end gap-2">
+                  {/* Expert actions */}
+                  {user?.role === "expert" &&
+                    user?.id === expert?.userId &&
+                    booking.status === "pending" && (
+                      <div className="flex gap-2">
+                        <Button onClick={onExpertApprove} size="sm">
+                          Approve
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={onExpertReject}
+                          size="sm"
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+
+                  {/* Client actions */}
+                  {user?.role === "client" &&
+                    booking.user_id === userId &&
+                    booking.status === "pending" && (
+                      <div className="flex flex-col items-end gap-2">
+                        <Button
+                          variant="ghost"
+                          onClick={onClientCancel}
+                          size="sm"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
+
+                  {/* We don't have amount in the API response, but if you add it, uncomment this
+                <div className="text-sm text-muted-foreground">
+                  Amount: Rs. {booking.amount || "N/A"}
+                </div> 
+                */}
+
+                  {/* Link would come from your database if you implement it */}
+                  {booking.status === "confirmed" && (
+                    <a
+                      href={`https://meet.mock/room-${booking.id.substring(
+                        0,
+                        8
+                      )}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-primary underline"
+                    >
+                      Join Meeting
+                    </a>
+                  )}
+
+                  {/* Calendar integration with Sri Lanka time */}
+                  {booking.status === "confirmed" && (
+                    <div className="mt-2 flex gap-2">
+                      <div className="dropdown">
+                        <a
+                          href="#"
+                          className="text-xs text-muted-foreground underline"
+                          onClick={(e) => {
+                            e.preventDefault();
+
+                            // Create calendar event based on scheduled time
+                            const startTime = new Date(booking.scheduled_time);
+                            // Assuming sessions last 1 hour
+                            const endTime = new Date(
+                              startTime.getTime() + 60 * 60 * 1000
+                            );
+
+                            // Format title and description
+                            const title = `Booking - ${
+                              gigDetails?.service_description?.substring(
+                                0,
+                                30
+                              ) || "Expert Session"
+                            }`;
+                            const description = `Booking session for ${
+                              gigDetails?.service_description ||
+                              "Expert Service"
+                            }.`;
+
+                            // Create Google Calendar URL
+                            const googleUrl = new URL(
+                              "https://calendar.google.com/calendar/render"
+                            );
+                            googleUrl.searchParams.append("action", "TEMPLATE");
+                            googleUrl.searchParams.append("text", title);
+                            googleUrl.searchParams.append(
+                              "details",
+                              description
+                            );
+                            googleUrl.searchParams.append(
+                              "dates",
+                              `${
+                                startTime
+                                  .toISOString()
+                                  .replace(/[-:]/g, "")
+                                  .split(".")[0]
+                              }Z/` +
+                                `${
+                                  endTime
+                                    .toISOString()
+                                    .replace(/[-:]/g, "")
+                                    .split(".")[0]
+                                }Z`
+                            );
+
+                            // Open in new window
+                            window.open(googleUrl.toString(), "_blank");
+                          }}
+                        >
+                          Add to Calendar
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
-
 
 export default MyBookings;
