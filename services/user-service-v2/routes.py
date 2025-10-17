@@ -1,7 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request, Form, File, UploadFile
 from sqlalchemy.orm import Session
-import os
-import shutil
 import logging
 from datetime import datetime
 from models import DocumentType
@@ -14,6 +12,7 @@ import uuid
 from uuid import UUID as UUID4
 from datetime import date, datetime, timedelta, time
 from auth import get_current_user_id
+from cloudinary_utils import upload_file as upload_to_cloudinary
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -43,9 +42,6 @@ from crud import (
 )
 from auth import get_current_user, get_current_admin, get_user_by_id_or_current, get_optional_user
 # Removing problematic relative import
-
-UPLOAD_DIRECTORY = "./uploads"
-os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
 
 router = APIRouter()
 
@@ -562,18 +558,26 @@ async def upload_verification_document(
                     )
                 target_user_id = target_user.id
                 
-        # Create a secure, unique filename
-        file_extension = os.path.splitext(file.filename)[1]
-        unique_filename = f"{uuid.uuid4()}{file_extension}"
-        file_location = os.path.join(UPLOAD_DIRECTORY, unique_filename)
+        # Upload file bytes to Cloudinary
+        contents = await file.read()
+        await file.seek(0)
 
-        # Save the file to the local directory
-        with open(file_location, "wb+") as file_object:
-            shutil.copyfileobj(file.file, file_object)
-        
-        # Create a URL path to access the file
-        # In a real app, this would be an S3 URL
-        document_url = f"/static/{unique_filename}"
+        folder = f"{settings.cloudinary_base_folder}/verification/{target_user_id}".strip("/")
+        folder_arg = folder or None
+        public_id = f"{target_user_id}/{uuid.uuid4()}"
+
+        try:
+            document_url = await upload_to_cloudinary(
+                file_bytes=contents,
+                folder=folder_arg,
+                public_id=public_id,
+                resource_type="auto",
+            )
+        except RuntimeError as cloudinary_error:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Cloudinary upload failed: {cloudinary_error}"
+            ) from cloudinary_error
 
         # Create the database record
         db_document = await create_verification_document(
