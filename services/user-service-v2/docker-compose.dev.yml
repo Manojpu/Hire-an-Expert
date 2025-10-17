@@ -1,0 +1,16 @@
+version: "3.9"
+services:
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hire-expert-user:dev
+    container_name: user-service
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - WATCHFILES_FORCE_POLLING=true
+    restart: unless-stopped

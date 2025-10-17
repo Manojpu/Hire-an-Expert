@@ -555,9 +555,9 @@ export const gigServiceAPI: GigServiceAPI = {
   }> {
     try {
       const token = await getIdToken();
-      const endpoint = gigId ? `/gigs/${gigId}/stats` : '/gigs/my/stats';
       
-      const response = await fetch(`${GIG_SERVICE_URL}${endpoint}`, {
+      // The /gigs/my/stats endpoint doesn't exist - calculate from /gigs/my/gigs
+      const response = await fetch(`${GIG_SERVICE_URL}/gigs/my/gigs`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -565,24 +565,35 @@ export const gigServiceAPI: GigServiceAPI = {
       });
       
       if (!response.ok) {
-        console.warn("Failed to get gig stats, using mock data");
-        // Return mock stats for development
+        console.warn("Failed to get gigs, returning zeros");
         return {
-          total_gigs: 3,
-          active_gigs: 2,
-          views: 156,
-          bookings: 23
+          total_gigs: 0,
+          active_gigs: 0,
+          views: 0,
+          bookings: 0
         };
       }
       
-      return response.json();
+      const gigs = await response.json();
+      interface GigStats { is_active?: boolean; status?: string; views?: number; bookings_count?: number; }
+      const activeGigs = gigs.filter((g: GigStats) => g.is_active || g.status === 'active');
+      
+      // Calculate totals from gig data
+      const totalViews = gigs.reduce((sum: number, g: GigStats) => sum + (g.views || 0), 0);
+      const totalBookings = gigs.reduce((sum: number, g: GigStats) => sum + (g.bookings_count || 0), 0);
+      
+      return {
+        total_gigs: gigs.length,
+        active_gigs: activeGigs.length,
+        views: totalViews,
+        bookings: totalBookings
+      };
     } catch (error) {
       console.error("Error getting gig stats:", error);
-      // Return mock stats on error
       return {
-        total_gigs: 3,
-        active_gigs: 2,
-        views: 156,
+        total_gigs: 0,
+        active_gigs: 0,
+        views: 0,
         bookings: 23
       };
     }

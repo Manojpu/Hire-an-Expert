@@ -5,9 +5,9 @@ def provision_missing_user():
     print("🔧 Manually provisioning missing user...")
     
     # The missing user from the 404 error
-    missing_firebase_uid = "H6osS6XiUTgbyS2NovcAgVCpCqE3"
+    missing_firebase_uid = "uvBxK1j1Aue0CTUcYQt8YNwpnmf2"
     
-    user_service_url = "http://127.0.0.1:8006/internal/users/provision"
+    user_service_url = "http://127.0.0.1:8001/internal/users/provision"
     payload = {
         "firebase_uid": missing_firebase_uid,
         "email": f"user_{missing_firebase_uid}@example.com",  # We don't know the real email
@@ -33,7 +33,7 @@ def provision_missing_user():
             
             # Now test the lookup
             print("\n🧪 Testing user lookup after provisioning...")
-            lookup_url = f"http://127.0.0.1:8006/users/firebase/{missing_firebase_uid}"
+            lookup_url = f"http://127.0.0.1:8001/users/firebase/{missing_firebase_uid}"
             lookup_response = requests.get(lookup_url)
             print(f"📥 Lookup Status: {lookup_response.status_code}")
             print(f"📥 Lookup Response: {lookup_response.text}")
