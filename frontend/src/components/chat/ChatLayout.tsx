@@ -88,25 +88,124 @@ export const ChatLayout = () => {
   };
 
   useEffect(() => {
-    if (user?.uid) {
-      loadConversations();
-    }
-  }, [user]);
-
-  const loadConversations = async () => {
-    try {
-      setLoading(true);
-      const data = await messageService.getConversations(user?.uid);
-      setConversations(data);
-      if (data.length > 0 && !selectedChat) {
-        setSelectedChat(data[0]);
+    let unsubscribeConversationUpdate: (() => void) | undefined;
+    
+    const loadConversations = async () => {
+      try {
+        setLoading(true);
+        const data = await messageService.getConversations(user?.uid);
+        setConversations(data);
+        if (data.length > 0 && !selectedChat) {
+          setSelectedChat(data[0]);
+        }
+      } catch (error) {
+        console.error('Failed to load conversations:', error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Failed to load conversations:', error);
-    } finally {
-      setLoading(false);
+    };
+    
+    if (user?.uid) {
+      // Connect to Socket.IO
+      console.log('🔌 Connecting to message service...');
+      messageService.connect(user.uid);
+      
+      loadConversations();
+      
+      // Listen for conversation updates globally (for all conversations)
+      unsubscribeConversationUpdate = messageService.onConversationUpdate((updatedConversation) => {
+        console.log('📬 Global conversation update received:', {
+          convId: updatedConversation._id,
+          lastMessage: updatedConversation.lastMessage,
+          senderId: updatedConversation.senderId,
+          receiverId: updatedConversation.receiverId,
+          unreadCount: updatedConversation.unreadCount,
+          currentUser: user?.uid
+        });
+        
+        setConversations(prev => {
+          // Find if this conversation exists
+          const existingIndex = prev.findIndex(conv => conv.id === updatedConversation._id);
+          
+          if (existingIndex >= 0) {
+            // Calculate new unread count based on whether current user is sender or receiver
+            const isSender = user?.uid === updatedConversation.senderId;
+            
+            console.log(`🔍 Debug unread count:`, {
+              'user.uid': user?.uid,
+              'conversation.senderId': updatedConversation.senderId,
+              'conversation.receiverId': updatedConversation.receiverId,
+              'senderId type': typeof updatedConversation.senderId,
+              'receiverId type': typeof updatedConversation.receiverId,
+              'user.uid type': typeof user?.uid,
+              'isSender': isSender,
+              'strict equality': user?.uid === updatedConversation.senderId,
+              'unreadCount object': updatedConversation.unreadCount,
+              'unreadCount.senderId': updatedConversation.unreadCount?.senderId,
+              'unreadCount.receiverId': updatedConversation.unreadCount?.receiverId
+            });
+            
+            // Make sure to convert to string for comparison
+            const currentUserIdStr = String(user?.uid);
+            const senderIdStr = String(updatedConversation.senderId);
+            const receiverIdStr = String(updatedConversation.receiverId);
+            const isSenderStrict = currentUserIdStr === senderIdStr;
+            
+            const newUnreadCount = isSenderStrict
+              ? updatedConversation.unreadCount?.senderId || 0
+              : updatedConversation.unreadCount?.receiverId || 0;
+            
+            const oldUnreadCount = prev[existingIndex].unreadCount;
+            
+            console.log(`📊 Unread count update - Current user is ${isSenderStrict ? 'SENDER' : 'RECEIVER'}, Old: ${oldUnreadCount}, New: ${newUnreadCount}`);
+            
+            // Update existing conversation
+            const updatedConv = {
+              ...prev[existingIndex],
+              lastMessage: updatedConversation.lastMessage,
+              timestamp: new Date(updatedConversation.updatedAt).toLocaleTimeString([], { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+              }),
+              updatedAt: updatedConversation.updatedAt,
+              unreadCount: newUnreadCount,
+            };
+            
+            // Only move to top if this is a NEW message (unread count increased)
+            // Don't move to top when just marking messages as read
+            const isNewMessage = newUnreadCount > oldUnreadCount;
+            
+            if (isNewMessage) {
+              // Move updated conversation to top
+              const newConversations = [...prev];
+              newConversations.splice(existingIndex, 1); // Remove from current position
+              newConversations.unshift(updatedConv); // Add to top
+              console.log(`✅ New message in conversation ${updatedConv.id}, moved to top, unread: ${updatedConv.unreadCount}`);
+              return newConversations;
+            } else {
+              // Just update in place (e.g., when marking as read)
+              const newConversations = [...prev];
+              newConversations[existingIndex] = updatedConv;
+              console.log(`✅ Updated conversation ${updatedConv.id} in place, unread: ${updatedConv.unreadCount}`);
+              return newConversations;
+            }
+          } else {
+            // New conversation - reload all conversations
+            console.log('🆕 New conversation detected, reloading...');
+            loadConversations();
+            return prev;
+          }
+        });
+      });
     }
-  };
+    
+    return () => {
+      // Cleanup the specific listener for this component
+      if (unsubscribeConversationUpdate) {
+        unsubscribeConversationUpdate();
+      }
+    };
+  }, [user, selectedChat]); // Added selectedChat to dependencies
 
   const filteredChats = conversations.filter(chat => {
     const matchesSearch = chat.name.toLowerCase().includes(searchQuery.toLowerCase());
