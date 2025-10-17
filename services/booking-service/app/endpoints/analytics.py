@@ -8,7 +8,8 @@ from sqlalchemy import func, extract, and_
 from datetime import datetime, timedelta
 from typing import Optional
 from app.db.session import get_db
-from app.db.models import Booking, BookingStatus, Gig
+from app.db.models import Booking, BookingStatus
+from app.utils.gig_service import get_gig_details
 from firebase_admin import auth
 import logging
 
@@ -64,14 +65,14 @@ async def get_gig_analytics(
         prev_week_start = week_start - timedelta(days=7)
         prev_month_start = (month_start - timedelta(days=1)).replace(day=1)
         
-        # Get the gig's hourly rate from the gigs table
-        gig_record = db.query(Gig).filter(Gig.id == gig_id).first()
+        # Get the gig's hourly rate from gig service
+        gig_data = get_gig_details(gig_id)
         
-        if not gig_record or not gig_record.hourly_rate:
+        if not gig_data or not gig_data.get("hourly_rate"):
             # Use default rate if gig not found or no rate set
             hourly_rate = 5000  # Default LKR rate
         else:
-            hourly_rate = float(gig_record.hourly_rate)
+            hourly_rate = float(gig_data["hourly_rate"])
         
         # Check if there are any bookings for this gig
         booking_exists = db.query(Booking).filter(Booking.gig_id == gig_id).first()
@@ -100,12 +101,10 @@ async def get_gig_analytics(
                 "currency": "LKR"
             }
         
-        # Revenue Calculations - Use actual booking amounts
+        # Revenue Calculations - Calculate from booking count * hourly_rate
         def calculate_revenue(start_date, end_date=None):
-            # First try to calculate from actual booking amounts
-            query = db.query(
-                func.coalesce(func.sum(Booking.amount), 0).label('total_amount')
-            ).filter(
+            # Count completed bookings in the period
+            query = db.query(func.count(Booking.id)).filter(
                 and_(
                     Booking.gig_id == gig_id,
                     Booking.status == BookingStatus.COMPLETED,
@@ -115,26 +114,10 @@ async def get_gig_analytics(
             if end_date:
                 query = query.filter(Booking.created_at < end_date)
             
-            total_amount = query.scalar() or 0
+            booking_count = query.scalar() or 0
             
-            # If no amounts are set, fallback to duration-based calculation
-            if total_amount == 0:
-                duration_query = db.query(
-                    func.sum(Booking.duration).label('total_minutes')
-                ).filter(
-                    and_(
-                        Booking.gig_id == gig_id,
-                        Booking.status == BookingStatus.COMPLETED,
-                        Booking.created_at >= start_date
-                    )
-                )
-                if end_date:
-                    duration_query = duration_query.filter(Booking.created_at < end_date)
-                
-                result = duration_query.scalar()
-                total_minutes = result or 0
-                total_hours = total_minutes / 60 if total_minutes else 0
-                total_amount = total_hours * hourly_rate
+            # Calculate revenue as: booking_count * hourly_rate
+            total_amount = booking_count * hourly_rate
             
             return round(float(total_amount), 2)
         
@@ -215,11 +198,10 @@ async def get_gig_analytics(
         
         chart_start = now - timedelta(days=days_back)
         
-        # Get daily revenue data using amount field (with fallback to duration)
+        # Get daily revenue data - count bookings per day and multiply by hourly_rate
         daily_data = db.query(
             func.date(Booking.created_at).label('date'),
-            func.coalesce(func.sum(Booking.amount), 0).label('total_amount'),
-            func.sum(Booking.duration).label('total_minutes')
+            func.count(Booking.id).label('booking_count')
         ).filter(
             and_(
                 Booking.gig_id == gig_id,
@@ -237,12 +219,8 @@ async def get_gig_analytics(
         for record in daily_data:
             date_str = record.date.strftime('%Y-%m-%d')
             
-            # Use amount if available, otherwise calculate from duration
-            if record.total_amount and record.total_amount > 0:
-                revenue = round(float(record.total_amount), 2)
-            else:
-                total_hours = (record.total_minutes or 0) / 60
-                revenue = round(total_hours * hourly_rate, 2)
+            # Calculate revenue as: booking_count * hourly_rate
+            revenue = round(record.booking_count * hourly_rate, 2)
             
             chart_data.append({
                 "date": date_str,

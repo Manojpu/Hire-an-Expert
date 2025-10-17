@@ -39,18 +39,11 @@ def is_slot_available(db: Session, gig_id: uuid.UUID, scheduled_time) -> bool:
 
 def create_booking(db: Session, booking: BookingCreate, user_id: str) -> Booking:
     """Create a new booking."""
-    # First check if the slot is available
-    if not is_slot_available(db, booking.gig_id, booking.scheduled_time):
-        return None
-        
     db_booking = Booking(
         gig_id=booking.gig_id,
         user_id=user_id,
-        scheduled_time=booking.scheduled_time,
-        duration=booking.duration,
-        service=booking.service,
-        type=booking.type,
-        notes=booking.notes
+        scheduled_time=booking.scheduled_time  # Include scheduled_time from request
+        # status defaults to PENDING, created_at auto-generated
     )
     db.add(db_booking)
     db.commit()
@@ -75,7 +68,7 @@ def create_booking(db: Session, booking: BookingCreate, user_id: str) -> Booking
             booking_id=str(db_booking.id),
             user_id=str(db_booking.user_id),
             expert_id=expert_id,
-            scheduled_time=db_booking.scheduled_time.isoformat(),
+            scheduled_time=db_booking.scheduled_time.isoformat(),  # Use actual scheduled_time
             service_name=service_name
         )
         
@@ -93,14 +86,13 @@ def create_booking(db: Session, booking: BookingCreate, user_id: str) -> Booking
 def get_booking(db: Session, booking_id: str) -> Booking:
     """Retrieve a booking by its ID."""
     try:
-        # Ensure booking_id is a valid UUID
+        # Convert booking_id to UUID
         try:
-            uuid_obj = uuid.UUID(booking_id)
+            booking_uuid = uuid.UUID(booking_id)
         except ValueError:
-            # Let the caller handle this - we'll validate at the API level
             raise ValueError(f"Invalid booking ID format: {booking_id}")
             
-        return db.query(Booking).filter(Booking.id == uuid_obj).first()
+        return db.query(Booking).filter(Booking.id == booking_uuid).first()
     except Exception as e:
         # Log and re-raise
         import logging
@@ -110,14 +102,13 @@ def get_booking(db: Session, booking_id: str) -> Booking:
 def update_booking(db: Session, booking_id: str, booking_update: BookingUpdate) -> Booking:
     """Update an existing booking."""
     try:
-        # Ensure booking_id is a valid UUID
+        # Convert booking_id to UUID
         try:
-            uuid_obj = uuid.UUID(booking_id)
+            booking_uuid = uuid.UUID(booking_id)
         except ValueError:
-            # Let the caller handle this - we'll validate at the API level
             raise ValueError(f"Invalid booking ID format: {booking_id}")
             
-        db_booking = db.query(Booking).filter(Booking.id == uuid_obj).first()
+        db_booking = db.query(Booking).filter(Booking.id == booking_uuid).first()
         if not db_booking:
             return None
 
@@ -129,14 +120,6 @@ def update_booking(db: Session, booking_id: str, booking_update: BookingUpdate) 
             db_booking.status = booking_update.status
         if booking_update.scheduled_time is not None:
             db_booking.scheduled_time = booking_update.scheduled_time
-        if booking_update.duration is not None:
-            db_booking.duration = booking_update.duration
-        if booking_update.service is not None:
-            db_booking.service = booking_update.service
-        if booking_update.type is not None:
-            db_booking.type = booking_update.type
-        if booking_update.notes is not None:
-            db_booking.notes = booking_update.notes
 
         db.commit()
         db.refresh(db_booking)
@@ -162,7 +145,7 @@ def update_booking(db: Session, booking_id: str, booking_update: BookingUpdate) 
                     booking_id=str(db_booking.id),
                     user_id=str(db_booking.user_id),
                     expert_id=expert_id,
-                    scheduled_time=db_booking.scheduled_time.isoformat(),
+                    scheduled_time=db_booking.scheduled_time.isoformat(),  # Use actual scheduled_time
                     service_name=service_name
                 )
                 
@@ -306,7 +289,7 @@ def get_booked_slots_for_date(db: Session, gig_id: uuid.UUID, date_str: str):
         # Query bookings for this gig on the specified date that are pending or confirmed
         bookings = db.query(Booking).filter(
             Booking.gig_id == gig_id,
-            cast(Booking.scheduled_time, Date) == target_date,
+            cast(Booking.scheduled_time, Date) == target_date,  # Use scheduled_time from DB
             Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED])
         ).all()
         

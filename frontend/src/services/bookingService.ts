@@ -12,8 +12,8 @@ export interface Booking {
   status: "pending" | "confirmed" | "completed" | "cancelled";
   created_at: string;
   scheduled_time?: string;
-  duration?: number;
-  amount?: number | string; // Total amount/payment for the booking
+  // duration field removed - doesn't exist in database
+  amount?: number | string; // Total amount/payment for the booking (from gig's price)
   service?: string;
   type?: string;
   notes?: string;

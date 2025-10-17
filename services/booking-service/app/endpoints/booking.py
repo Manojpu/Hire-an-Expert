@@ -1,8 +1,6 @@
 from app.db import session
 from app.db import crud
-from app.db.schemas import BookingCreate, BookingUpdate, BookingResponse, BookingWithDetails
-from app.db.models import User, Gig
-from app.db.schemas import BookingResponseWithGigDetails, GigDetails
+from app.db.schemas import BookingCreate, BookingUpdate, BookingResponse
 from app.db.models import Booking  # Import the Booking model
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, HTTPException, Path
@@ -13,8 +11,7 @@ import asyncio
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.core.firebase_auth import get_current_user_id
 from app.utils.gig_service import get_gig_details
-from typing import List
-import uuid
+from typing import List, Optional
 import uuid
 from app.core.config import settings
 
@@ -42,30 +39,21 @@ async def get_user_from_service(user_id: str):
         return {"id": user_id, "name": f"User {user_id}", "email": None}
 
 def transform_booking_with_details(db: Session, booking):
-    """Transform a booking object to include user and gig details."""
-    # Skip database lookups to avoid type mismatch issues for now
-    # Just return booking data with mock user/gig info
+    """Transform a booking object with calculated amount from gig service."""
+    # Get gig details to calculate amount
+    gig_details = get_gig_details(str(booking.gig_id))
+    amount = None
+    if gig_details and gig_details.get("hourly_rate"):
+        amount = float(gig_details["hourly_rate"])
+    
     return {
         "id": booking.id,
         "user_id": booking.user_id,
         "gig_id": booking.gig_id,
         "status": booking.status.value if hasattr(booking.status, 'value') else booking.status,
-        "scheduled_time": booking.scheduled_time,
-        "duration": booking.duration,
-        "service": booking.service,
-        "type": booking.type,
-        "notes": booking.notes,
+        "scheduled_time": booking.scheduled_time,  # Include scheduled_time from DB
         "created_at": booking.created_at,
-        "user": {
-            "id": booking.user_id,
-            "name": f"User {booking.user_id}",
-            "email": None
-        },
-        "gig": {
-            "id": booking.gig_id,
-            "title": f"Gig {booking.gig_id}",
-            "hourly_rate": 100.0  # Default rate
-        }
+        "amount": amount
     }
 # Define routes in order - fixed paths before path parameters
 
@@ -93,64 +81,60 @@ def get_bookings(skip: int = 0, limit: int = 100, db: Session = Depends(session.
         )
 
 # 2. User-specific endpoints - important that these come before path parameters
-@router.get("/by-current-user", response_model=List[BookingResponseWithGigDetails])
+@router.get("/by-current-user", response_model=List[BookingResponse])
 def get_bookings_by_user_new_endpoint(
     db: Session = Depends(session.get_db),
-    current_user_id: str = Depends(get_current_user_id),
-    include_gig_details: bool = True
+    current_user_id: str = Depends(get_current_user_id)
 ):
-    """Retrieve all bookings made by the current user with gig details (new endpoint)."""
+    """Retrieve all bookings made by the current user with calculated amounts from gig prices."""
     try:
         logger.info(f"Getting bookings for user: {current_user_id}")
         
-        # Get bookings using the current_user_id
+        # Validate user ID format
         try:
-            # Validate user ID if possible
-            try:
-                # Try to validate UUID format
-                uuid_user_id = str(uuid.UUID(current_user_id))
-            except ValueError:
-                # If not a valid UUID, use as is (logging a warning)
-                logger.warning(f"User ID {current_user_id} is not in UUID format, using as-is")
-                uuid_user_id = current_user_id
+            uuid_user_id = str(uuid.UUID(current_user_id))
+        except ValueError:
+            logger.warning(f"User ID {current_user_id} is not in UUID format, using as-is")
+            uuid_user_id = current_user_id
+            
+        # Query bookings by user_id
+        bookings = crud.get_bookings_by_user(db=db, user_id=uuid_user_id)
+        logger.info(f"Found {len(bookings)} bookings for user {uuid_user_id}")
+        
+        # Enrich bookings with calculated amount from gig service
+        enhanced_bookings = []
+        for booking in bookings:
+            # Create response dict with core fields from database
+            booking_dict = {
+                "id": booking.id,
+                "user_id": booking.user_id,
+                "gig_id": booking.gig_id,
+                "status": booking.status.value if hasattr(booking.status, 'value') else booking.status,
+                "scheduled_time": booking.scheduled_time,  # Include scheduled_time from DB
+                "created_at": booking.created_at,
+                "amount": None  # Will be calculated from gig price
+            }
+            
+            # Fetch gig details to get price/hourly_rate
+            gig_details = get_gig_details(str(booking.gig_id))
+            if gig_details:
+                # Use hourly_rate from gig as the booking amount
+                hourly_rate = gig_details.get("hourly_rate")
+                if hourly_rate is not None:
+                    booking_dict["amount"] = float(hourly_rate)
+                    logger.debug(f"Booking {booking.id}: amount={hourly_rate} from gig {booking.gig_id}")
+                else:
+                    logger.warning(f"No hourly_rate found for gig {booking.gig_id}")
+            else:
+                logger.warning(f"Could not fetch gig details for gig_id {booking.gig_id}")
                 
-            # Query bookings by user_id
-            bookings = crud.get_bookings_by_user(db=db, user_id=uuid_user_id)
-            logger.info(f"Found {len(bookings)} bookings for user {uuid_user_id}")
-            
-            # If gig details are requested, fetch them for each booking
-            if include_gig_details:
-                enhanced_bookings = []
-                for booking in bookings:
-                    # Create a copy of the booking as a dict for modification
-                    booking_dict = {
-                        "id": booking.id,
-                        "user_id": booking.user_id,
-                        "gig_id": booking.gig_id,
-                        "status": booking.status,
-                        "scheduled_time": booking.scheduled_time,
-                        "created_at": booking.created_at
-                    }
-                    
-                    # Fetch gig details from gig service
-                    gig_details = get_gig_details(str(booking.gig_id))
-                    if gig_details:
-                        booking_dict["gig_details"] = gig_details
-                    else:
-                        booking_dict["gig_details"] = None
-                        
-                    enhanced_bookings.append(booking_dict)
-                return enhanced_bookings
-            
-            return bookings
-        except Exception as inner_e:
-            logger.error(f"Error retrieving bookings for user {current_user_id}: {str(inner_e)}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Error retrieving bookings: {str(inner_e)}"
-            )
-    except HTTPException as he:
-        raise he
+            enhanced_bookings.append(booking_dict)
+        
+        logger.info(f"Returning {len(enhanced_bookings)} enriched bookings")
+        return enhanced_bookings
+        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting bookings for user {current_user_id}: {str(e)}")
         raise HTTPException(
@@ -449,42 +433,51 @@ def get_bookings_by_user(db: Session = Depends(session.get_db)):
             detail=f"Failed to get user bookings: {str(e)}"
         )
 
-@router.get("/gig/{gig_id}")
-async def get_bookings_by_gig(gig_id: str, db: Session = Depends(session.get_db)):
-    """Retrieve all bookings for a specific gig with user and gig details."""
+@router.get("/gig/{gig_id}", response_model=List[BookingResponse])
+def get_bookings_by_gig(gig_id: str, db: Session = Depends(session.get_db)):
+    """Retrieve all bookings for a specific gig with calculated amounts."""
     try:
         logger.info(f"Getting bookings for gig: {gig_id}")
         bookings = crud.get_bookings_by_gig(db=db, gig_id=gig_id)
         
-        # Transform bookings with user and gig details
+        logger.info(f"Found {len(bookings)} bookings for gig {gig_id}")
+        
+        # Get gig details once for all bookings (same gig) - with quick timeout
+        logger.info(f"Fetching gig details for gig_id: {gig_id}")
+        amount = None
+        
+        try:
+            gig_details = get_gig_details(gig_id)
+            if gig_details:
+                logger.info(f"Gig details fetched successfully")
+                if gig_details.get("hourly_rate"):
+                    amount = float(gig_details["hourly_rate"])
+                    logger.info(f"Amount set to: {amount}")
+            else:
+                logger.warning(f"Gig details returned None for gig_id: {gig_id}")
+        except Exception as gig_error:
+            # Don't fail the entire request if gig service is down
+            logger.error(f"Failed to fetch gig details: {str(gig_error)}")
+            logger.info("Continuing without amount calculation")
+        
+        # Transform bookings with calculated amount
         detailed_bookings = []
         for booking in bookings:
-            # Get real user data from user service
-            user_data = await get_user_from_service(str(booking.user_id))
-            
             detailed_booking = {
-                "id": booking.id,
-                "user_id": booking.user_id,
-                "gig_id": booking.gig_id,
+                "id": str(booking.id),  # Convert UUID to string for JSON serialization
+                "user_id": str(booking.user_id),
+                "gig_id": str(booking.gig_id),
                 "status": booking.status.value if hasattr(booking.status, 'value') else booking.status,
-                "scheduled_time": booking.scheduled_time,
-                "duration": booking.duration,
-                "service": booking.service,
-                "type": booking.type,
-                "notes": booking.notes,
+                "scheduled_time": booking.scheduled_time,  # Include scheduled_time from DB
                 "created_at": booking.created_at,
-                "user": user_data,
-                "gig": {
-                    "id": booking.gig_id,
-                    "title": f"Gig {booking.gig_id}",
-                    "hourly_rate": 100.0  # Default rate
-                }
+                "amount": amount
             }
-            detailed_bookings.append(detailed_booking)
+            detailed_bookings.append(detailed_bookings)
         
+        logger.info(f"Returning {len(detailed_bookings)} bookings")
         return detailed_bookings
     except Exception as e:
-        logger.error(f"Error getting bookings for gig {gig_id}: {str(e)}")
+        logger.error(f"Error getting bookings for gig {gig_id}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500, 
             detail=f"Failed to get gig bookings: {str(e)}"

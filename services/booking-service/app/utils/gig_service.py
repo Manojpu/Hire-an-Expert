@@ -15,10 +15,16 @@ def get_gig_details(gig_id: str) -> Optional[Dict[str, Any]]:
     """
     try:
         url = f"{settings.GIG_SERVICE_URL}/gigs/{gig_id}"
-        response = requests.get(url, timeout=5)
+        logger.info(f"Requesting gig details from: {url}")
+        
+        # Use a very short timeout - 2 seconds max
+        response = requests.get(url, timeout=2)
+        
+        logger.info(f"Gig service response status: {response.status_code}")
         
         if response.status_code == 200:
             gig_data = response.json()
+            logger.info(f"Successfully fetched gig details for {gig_id}")
             return {
                 "id": gig_data.get("id"),
                 "expert_id": gig_data.get("expert_id"),
@@ -28,11 +34,19 @@ def get_gig_details(gig_id: str) -> Optional[Dict[str, Any]]:
                 "currency": gig_data.get("currency", "LKR")
             }
         else:
-            logger.error(f"Failed to fetch gig details. Status code: {response.status_code}, Response: {response.text}")
+            logger.error(f"Failed to fetch gig details. Status code: {response.status_code}, Response: {response.text[:200]}")
             return None
             
+    except requests.exceptions.Timeout:
+        logger.error(f"Timeout fetching gig details for gig_id {gig_id} - request took longer than 2 seconds")
+        logger.error(f"Gig service URL: {settings.GIG_SERVICE_URL} - Check if service is running")
+        return None
+    except requests.exceptions.ConnectionError as e:
+        logger.error(f"Connection error fetching gig details for gig_id {gig_id}: {str(e)}")
+        logger.error(f"Gig service URL: {settings.GIG_SERVICE_URL} - Is gig service running on this URL?")
+        return None
     except Exception as e:
-        logger.error(f"Error fetching gig details for gig_id {gig_id}: {str(e)}")
+        logger.error(f"Unexpected error fetching gig details for gig_id {gig_id}: {str(e)}", exc_info=True)
         return None
 
 def get_expert_details_for_booking(gig_id: str) -> Optional[Dict[str, Any]]:
