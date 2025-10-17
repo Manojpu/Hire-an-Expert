@@ -35,5 +35,6 @@ app.get('/api/health', (req, res) => {
 
 app.use("/api/message", require("./routes/messageRoutes"));
 app.use("/api/conversations", require("./routes/conversationRoutes"));
+app.use("/api/upload", require("./routes/uploadRoutes"));
 
 module.exports = app;
