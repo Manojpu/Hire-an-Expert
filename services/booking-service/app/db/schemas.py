@@ -22,7 +22,7 @@ class BookingBase(BaseModel):
 
 class BookingCreate(BookingBase):
     """Schema for creating a new booking. user_id will be provided by the auth system."""
-    scheduled_time: datetime  # Required field matching database
+    scheduled_time: datetime  # Required field in database
 
 class BookingResponse(BookingBase):
     id: uuid.UUID

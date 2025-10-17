@@ -51,7 +51,7 @@ def transform_booking_with_details(db: Session, booking):
         "user_id": booking.user_id,
         "gig_id": booking.gig_id,
         "status": booking.status.value if hasattr(booking.status, 'value') else booking.status,
-        "scheduled_time": booking.scheduled_time,  # Include scheduled_time from DB
+        "scheduled_time": booking.scheduled_time,
         "created_at": booking.created_at,
         "amount": amount
     }

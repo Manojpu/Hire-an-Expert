@@ -39,11 +39,14 @@ def is_slot_available(db: Session, gig_id: uuid.UUID, scheduled_time) -> bool:
 
 def create_booking(db: Session, booking: BookingCreate, user_id: str) -> Booking:
     """Create a new booking."""
+    # First check if the slot is available
+    if not is_slot_available(db, booking.gig_id, booking.scheduled_time):
+        return None
+        
     db_booking = Booking(
         gig_id=booking.gig_id,
         user_id=user_id,
-        scheduled_time=booking.scheduled_time  # Include scheduled_time from request
-        # status defaults to PENDING, created_at auto-generated
+        scheduled_time=booking.scheduled_time
     )
     db.add(db_booking)
     db.commit()
@@ -68,7 +71,7 @@ def create_booking(db: Session, booking: BookingCreate, user_id: str) -> Booking
             booking_id=str(db_booking.id),
             user_id=str(db_booking.user_id),
             expert_id=expert_id,
-            scheduled_time=db_booking.scheduled_time.isoformat(),  # Use actual scheduled_time
+            scheduled_time=db_booking.scheduled_time.isoformat(),
             service_name=service_name
         )
         
@@ -102,20 +105,21 @@ def get_booking(db: Session, booking_id: str) -> Booking:
 def update_booking(db: Session, booking_id: str, booking_update: BookingUpdate) -> Booking:
     """Update an existing booking."""
     try:
-        # Convert booking_id to UUID
+        # Ensure booking_id is a valid UUID
         try:
-            booking_uuid = uuid.UUID(booking_id)
+            uuid_obj = uuid.UUID(booking_id)
         except ValueError:
+            # Let the caller handle this - we'll validate at the API level
             raise ValueError(f"Invalid booking ID format: {booking_id}")
             
-        db_booking = db.query(Booking).filter(Booking.id == booking_uuid).first()
+        db_booking = db.query(Booking).filter(Booking.id == uuid_obj).first()
         if not db_booking:
             return None
 
         # Store previous status for event publishing
         previous_status = db_booking.status
 
-        # Update fields if provided
+        # Update fields if provided (only core database fields)
         if booking_update.status is not None:
             db_booking.status = booking_update.status
         if booking_update.scheduled_time is not None:
