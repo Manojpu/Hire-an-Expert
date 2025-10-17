@@ -32,7 +32,7 @@ class User(Base):
     location = Column(String)  # User's geographical location (e.g., "New York, USA")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
-    is_expert = Column(Boolean, default=True)
+    is_expert = Column(Boolean, default=False)
     
     # Relationship
     expert_profiles = relationship("ExpertProfile", back_populates="user")
