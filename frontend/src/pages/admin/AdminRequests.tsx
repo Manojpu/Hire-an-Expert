@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { FileText, Users, UserCheck, Clock, Search, Filter, ChevronRight, Eye, CheckCircle, PauseCircle, XCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,7 @@ interface DataCache {
 }
 
 const AdminRequests = () => {
+  const navigate = useNavigate();
   const [gigs, setGigs] = useState<GigVerificationTableRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

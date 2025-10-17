@@ -1,20 +1,103 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ExpertGig } from '@/services/gigService';
 import BookingCard from '@/components/dashboard/BookingCard';
-import { Calendar, Filter, Search } from 'lucide-react';
+import { Calendar, Filter, Search, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { bookingService, Booking } from '@/services/bookingService';
 
 interface GigBookingsProps {
   gig: ExpertGig;
 }
 
+// Create a simpler interface for UI bookings to avoid conflicts
+interface UIBooking {
+  id: string;
+  clientName: string;
+  time: string;
+  date: string;
+  duration: string;
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  type: string;
+  price: number;
+  gigTitle: string;
+  dateTime: string;
+  client: { name: string };
+  service: string;
+  amount: number;
+}
+
 const GigBookings: React.FC<GigBookingsProps> = ({ gig }) => {
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [bookings, setBookings] = useState<UIBooking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock bookings data specific to this gig
+  // Load bookings from backend
+  const loadBookings = useCallback(async () => {
+    if (!gig?.id) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('Loading bookings for gig:', gig.id);
+      
+      const gigBookings = await bookingService.getBookingsByGig(gig.id);
+      console.log('Loaded bookings:', gigBookings);
+      
+      // Transform backend data to match frontend expectations
+      const transformedBookings = gigBookings.map((booking) => {
+        console.log('Transforming booking:', booking);
+        const hourlyRate = typeof booking.gig?.hourly_rate === 'string' 
+          ? parseFloat(booking.gig.hourly_rate) 
+          : (booking.gig?.hourly_rate as number) || gig.hourly_rate || 0;
+        const duration = booking.duration || 30;
+        const calculatedPrice = hourlyRate * duration / 60;
+        
+        return {
+          id: booking.id.toString(),
+          clientName: booking.user?.name || `User ${String(booking.user_id).substring(0, 8)}...`,
+          time: booking.scheduled_time 
+            ? new Date(booking.scheduled_time).toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit',
+                hour12: true 
+              })
+            : 'Time TBD',
+          date: booking.scheduled_time 
+            ? new Date(booking.scheduled_time).toLocaleDateString()
+            : new Date().toLocaleDateString(),
+          duration: `${duration} min`,
+          status: booking.status,
+          type: booking.type || 'standard',
+          price: calculatedPrice,
+          gigTitle: booking.gig?.title || gig.title,
+          dateTime: booking.scheduled_time || new Date().toISOString(),
+          client: { name: booking.user?.name || `User ${String(booking.user_id).substring(0, 8)}...` },
+          service: booking.service || 'Consultation',
+          amount: calculatedPrice
+        } as UIBooking;
+      });
+      
+      console.log('Transformed bookings:', transformedBookings);
+      setBookings(transformedBookings);
+    } catch (err) {
+      console.error('Error loading bookings:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load bookings');
+      // Fall back to empty array instead of mock data
+      setBookings([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [gig?.id, gig.hourly_rate, gig.title]);
+
+  useEffect(() => {
+    loadBookings();
+  }, [loadBookings]);
+
+  // Mock bookings data for fallback (keeping for reference)
   const mockBookings = [
     {
       id: '1',
@@ -78,18 +161,18 @@ const GigBookings: React.FC<GigBookingsProps> = ({ gig }) => {
     }
   ];
 
-  const filteredBookings = mockBookings.filter(booking => {
+  const filteredBookings = bookings.filter(booking => {
     const matchesFilter = filter === 'all' || booking.status === filter;
     const matchesSearch = booking.clientName.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesFilter && matchesSearch;
   });
 
   const statusCounts = {
-    all: mockBookings.length,
-    pending: mockBookings.filter(b => b.status === 'pending').length,
-    confirmed: mockBookings.filter(b => b.status === 'confirmed').length,
-    completed: mockBookings.filter(b => b.status === 'completed').length,
-    cancelled: mockBookings.filter(b => b.status === 'cancelled').length
+    all: bookings.length,
+    pending: bookings.filter(b => b.status === 'pending').length,
+    confirmed: bookings.filter(b => b.status === 'confirmed').length,
+    completed: bookings.filter(b => b.status === 'completed').length,
+    cancelled: bookings.filter(b => b.status === 'cancelled').length
   };
 
   return (
@@ -101,10 +184,16 @@ const GigBookings: React.FC<GigBookingsProps> = ({ gig }) => {
             <h1 className="text-2xl font-bold">Gig Bookings</h1>
             <p className="text-muted-foreground">Manage bookings for "{gig.title}"</p>
           </div>
-          <Button>
-            <Calendar className="h-4 w-4 mr-2" />
-            View Calendar
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={loadBookings} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              {loading ? 'Loading...' : 'Refresh'}
+            </Button>
+            <Button>
+              <Calendar className="h-4 w-4 mr-2" />
+              View Calendar
+            </Button>
+          </div>
         </div>
 
         {/* Filters and Search */}
@@ -134,11 +223,37 @@ const GigBookings: React.FC<GigBookingsProps> = ({ gig }) => {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center gap-2 text-red-800">
+              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+              <p className="font-medium">Error loading bookings</p>
+            </div>
+            <p className="text-red-600 mt-1 text-sm">{error}</p>
+            <Button 
+              onClick={loadBookings} 
+              className="mt-2 bg-red-500 hover:bg-red-600"
+              size="sm"
+            >
+              Try Again
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Bookings List */}
       <div className="space-y-4">
-        {filteredBookings.length === 0 ? (
+        {loading ? (
+          <div className="bg-white border border-border rounded-lg p-8 text-center">
+            <RefreshCw className="h-12 w-12 mx-auto text-muted-foreground mb-4 animate-spin" />
+            <h3 className="text-lg font-medium mb-2">Loading bookings...</h3>
+            <p className="text-muted-foreground">
+              Fetching booking data from the server.
+            </p>
+          </div>
+        ) : filteredBookings.length === 0 ? (
           <div className="bg-white border border-border rounded-lg p-8 text-center">
             <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No bookings found</h3>

@@ -31,5 +31,10 @@ build/
 .vscode/
 .idea/
 
+#coverage files
+htmlcov/
+.coverage
+.coverage.*
+.cache
 
 serviceAccountKey.json

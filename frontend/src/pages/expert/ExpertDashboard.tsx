@@ -29,8 +29,8 @@ const ExpertDashboardPage: React.FC = () => {
   }, [navigate]);
 
   const handleViewOverall = useCallback(() => {
-    setCurrentView("profile");
-    navigate("/expert/profile");
+    console.log("🔄 handleViewOverall called - navigating to profile");
+    navigate("/expert-profile");
   }, [navigate]);
 
   const handleBackToSelector = useCallback(() => {
@@ -46,19 +46,8 @@ const ExpertDashboardPage: React.FC = () => {
         const myGigs = await gigServiceAPI.getMyGigs();
         setGigs(myGigs);
 
-        // If user has no gigs, show the gig selector (they can choose to create or view profile)
-        if (myGigs.length === 0) {
-          setCurrentView("selector");
-          return;
-        }
-
-        // If user has only one gig, go directly to that gig's dashboard
-        if (myGigs.length === 1) {
-          handleGigSelect(myGigs[0]);
-          return;
-        }
-
-        // Otherwise show the gig selector
+        // Always show the gig selector first, regardless of number of gigs
+        // This allows users to choose between managing specific gigs or viewing overall profile
         setCurrentView("selector");
       } catch (error) {
         console.error("Error checking expert status:", error);
@@ -72,7 +61,7 @@ const ExpertDashboardPage: React.FC = () => {
     };
 
     checkExpertStatus();
-  }, [navigate, handleGigSelect]);
+  }, [navigate]);
 
   if (loading) {
     return (

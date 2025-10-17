@@ -1,33 +1,12 @@
 services:
-  booking-db:
-    # We will use the official PostgreSQL image, version 15.
-    image: postgres:17
-
-    # These environment variables configure PostgreSQL when it first starts.
-    environment:
-      - POSTGRES_USER=booking
-      - POSTGRES_PASSWORD=booking123
-      - POSTGRES_DB=booking_db
-
-    # Use unique port for booking service database
-    ports:
-      - "5433:5432"  # Booking DB port
-
-    # This makes sure your data is saved even if you stop or remove
-    # the container. Your data will be stored in a "volume" named 'booking_postgres_data'.
-    volumes:
-      - booking_postgres_data:/var/lib/postgresql/data/
-
-  # Optional: Booking service itself (for individual testing)
+  # Booking service using external AWS RDS database
   booking-service:
     build: .
     ports:
       - "8003:8003"
-    environment:
-      - DATABASE_URL=postgresql://booking:booking123@booking-db:5432/booking_db
-    depends_on:
-      - booking-db
-
-# This defines the named volume we used above.
-volumes:
-  booking_postgres_data:
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    command: uvicorn main:app --reload --host 0.0.0.0 --port 8003
