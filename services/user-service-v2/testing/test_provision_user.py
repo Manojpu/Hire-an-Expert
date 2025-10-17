@@ -18,7 +18,16 @@ def provision_payload():
         "expert_profiles": []
     }
 
-def test_provision_user_success(provision_payload):
+def test_provision_user_success(provision_payload, monkeypatch):
+    published = {}
+
+    def fake_publish(routing_key, message):
+        published.setdefault("count", 0)
+        published["count"] += 1
+        published["event"] = (routing_key, message)
+
+    monkeypatch.setattr("routes.publish_event", fake_publish)
+
     response = client.post(
         "/internal/users/provision",
         json=provision_payload,
@@ -29,8 +38,26 @@ def test_provision_user_success(provision_payload):
     assert data["email"] == provision_payload["email"]
     assert data["name"] == provision_payload["name"]
     assert data["is_expert"] == provision_payload["is_expert"]
+    assert published["count"] == 1
+    event_routing_key, payload = published["event"]
+    assert event_routing_key == "user.welcome"
+    assert payload["user_id"]
+    assert payload["user_type"] == ("expert" if provision_payload["is_expert"] else "user")
 
-def test_provision_user_invalid_secret(provision_payload):
+    response_repeat = client.post(
+        "/internal/users/provision",
+        json=provision_payload,
+        headers={"X-Webhook-Secret": WEBHOOK_SECRET}
+    )
+    assert response_repeat.status_code in {200, 201}
+    assert published["count"] == 1
+
+def test_provision_user_invalid_secret(provision_payload, monkeypatch):
+    def fail_publish(*args, **kwargs):  # pragma: no cover - should not run
+        raise AssertionError("publish_event should not be called")
+
+    monkeypatch.setattr("routes.publish_event", fail_publish)
+
     response = client.post(
         "/internal/users/provision",
         json=provision_payload,

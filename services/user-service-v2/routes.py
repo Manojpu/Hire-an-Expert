@@ -41,6 +41,7 @@ from crud import (
     get_user_analytics_data
 )
 from auth import get_current_user, get_current_admin, get_user_by_id_or_current, get_optional_user
+from event_bus import PublishEventError, publish_event
 # Removing problematic relative import
 
 router = APIRouter()
@@ -97,7 +98,7 @@ async def provision_user(request: Request, db: Session = Depends(get_db)):
     data = await request.json()
     payload = ProvisionIn(**data)
 
-    user = upsert_user(
+    user, created = upsert_user(
         db, 
         uid=payload.firebase_uid, 
         email=payload.email, 
@@ -105,6 +106,22 @@ async def provision_user(request: Request, db: Session = Depends(get_db)):
         is_expert=payload.is_expert,
         expert_profiles=payload.expert_profiles
     )
+    if created:
+        try:
+            publish_event(
+                "user.welcome",
+                {
+                    "user_id": str(user.id),
+                    "user_type": "expert" if payload.is_expert else "user",
+                },
+            )
+        except PublishEventError as exc:
+            logger.error(
+                "Failed to publish user.welcome event for firebase_uid=%s: %s",
+                payload.firebase_uid,
+                exc,
+            )
+
     return user
 
 

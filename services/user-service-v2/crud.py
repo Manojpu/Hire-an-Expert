@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm import Session 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple, Sequence
 import uuid
 from uuid import UUID as UUID4
 from datetime import datetime, date, time, timedelta
@@ -23,18 +23,32 @@ from sqlalchemy.orm import selectinload
 
 
 # User CRUD operations    
-def upsert_user(db: Session, uid: str, email: str, name: str, is_expert=True, expert_profiles=[]):  # Changed full_name to name
+def upsert_user(
+    db: Session,
+    uid: str,
+    email: str,
+    name: str,
+    is_expert: bool = True,
+    expert_profiles: Optional[Sequence[Any]] = None,
+) -> Tuple[User, bool]:
+    """Create or update a user and return the instance with a created flag."""
+
+    expert_profiles = expert_profiles or []
+
     user = db.query(User).filter(User.firebase_uid == uid).first()
+    created = False
+
     if user:
         user.email = email
-        user.name = name  # Changed from full_name to name
+        user.name = name
         user.is_expert = is_expert
     else:
-        user = User(firebase_uid=uid, email=email, name=name, is_expert=is_expert)  # Changed from full_name to name
+        user = User(firebase_uid=uid, email=email, name=name, is_expert=is_expert)
         db.add(user)
         db.commit()
         db.refresh(user)
-        
+        created = True
+
         # Create default preferences for new users
         default_preferences = [
             Preference(user_id=user.id, key="email_notifications", value="true"),
@@ -48,14 +62,15 @@ def upsert_user(db: Session, uid: str, email: str, name: str, is_expert=True, ex
 
     # handle expert profiles
     if is_expert and expert_profiles:
-        # delete existing
         db.query(ExpertProfile).filter(ExpertProfile.user_id == user.id).delete()
         for profile in expert_profiles:
-            ep = ExpertProfile(user_id=user.id, specialization=profile.specialization)
-            db.add(ep)
+            specialization = getattr(profile, "specialization", None)
+            if specialization:
+                db.add(ExpertProfile(user_id=user.id, specialization=specialization))
+
     db.commit()
     db.refresh(user)
-    return user
+    return user, created
     
 # Synchronous version of get_user_by_firebase_uid
 def get_user_by_firebase_uid(db: Session, firebase_uid: str) -> Optional[User]:

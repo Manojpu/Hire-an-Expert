@@ -36,6 +36,15 @@ class Settings(BaseSettings):
     cloudinary_api_key: Optional[str] = None
     cloudinary_api_secret: Optional[str] = None
     cloudinary_base_folder: str = "user-service"
+
+    # RabbitMQ / messaging
+    rabbitmq_host: str = "localhost"
+    rabbitmq_port: int = 5672
+    rabbitmq_user: str = "guest"
+    rabbitmq_pass: str = "guest"
+    rabbitmq_exchange: str = "hire_an_expert_events"
+    rabbitmq_heartbeat: int = 600
+    rabbitmq_blocked_connection_timeout: int = 300
     
     class Config:
         env_file = ".env"
