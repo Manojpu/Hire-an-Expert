@@ -110,7 +110,17 @@ export const userServiceAPI = {
       console.log("🔄 Fetching current user profile from user service...");
       
       const token = await getIdToken();
-      const response = await fetch(`${USER_SERVICE_URL}/users/me`, {
+      const { auth } = await import('@/firebase/firebase');
+      
+      if (!auth.currentUser) {
+        throw new Error("No authenticated user");
+      }
+
+      const firebaseUid = auth.currentUser.uid;
+      console.log("🔍 Using Firebase UID:", firebaseUid);
+      
+      // Use Firebase UID endpoint since there's no /users/me endpoint
+      const response = await fetch(`${USER_SERVICE_URL}/users/firebase/${firebaseUid}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',

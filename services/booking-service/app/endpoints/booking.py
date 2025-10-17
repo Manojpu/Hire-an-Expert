@@ -16,21 +16,21 @@ from app.utils.gig_service import get_gig_details
 from typing import List
 import uuid
 import uuid
+from app.core.config import settings
 
 # Create router with explicit prefix to avoid path parameter conflicts
 router = APIRouter()
-
-USER_SERVICE_URL = "http://localhost:8001"
 
 async def get_user_from_service(user_id: str):
     """Fetch user details from the user service."""
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{USER_SERVICE_URL}/users/{user_id}")
+            response = await client.get(f"{settings.USER_SERVICE_URL}/users/{user_id}")
             if response.status_code == 200:
                 user_data = response.json()
                 return {
                     "id": user_data.get("id", user_id),
+                    "firebase_uid": user_data.get("firebase_uid"),  # Include Firebase UID
                     "name": user_data.get("full_name") or user_data.get("name") or f"User {user_id}",
                     "email": user_data.get("email")
                 }
@@ -297,6 +297,76 @@ def get_booking(
         raise HTTPException(
             status_code=500, 
             detail=f"Failed to get booking: {str(e)}"
+        )
+
+@router.get("/verify/{booking_id}")
+def verify_booking_for_review(
+    booking_id: str = Path(..., description="The ID of the booking to verify"), 
+    db: Session = Depends(session.get_db)
+):
+    """
+    Verify booking status for review service.
+    Returns minimal booking data needed for creating a review.
+    """
+    try:
+        # Validate UUID format
+        try:
+            uuid_obj = uuid.UUID(booking_id)
+        except ValueError:
+            logger.warning(f"Invalid UUID format for booking_id: {booking_id}")
+            raise HTTPException(
+                status_code=400, 
+                detail="Invalid booking ID format. Must be a valid UUID."
+            )
+        
+        logger.info(f"Verifying booking {booking_id} for review")
+        db_booking = crud.get_booking(db=db, booking_id=str(uuid_obj))
+        
+        if not db_booking:
+            logger.warning(f"Booking with ID {booking_id} not found")
+            raise HTTPException(status_code=404, detail="Booking not found")
+        
+        # Get gig details to find the expert (seller)
+        try:
+            gig_data = get_gig_details(str(db_booking.gig_id))
+            seller_id = gig_data.get("expert_id") if gig_data else None
+            print(f"🔍 GIG DATA: {gig_data}")
+            print(f"🔍 SELLER ID (expert_id): {seller_id}")
+        except Exception as e:
+            logger.error(f"Error fetching gig details: {str(e)}")
+            seller_id = None
+        
+        # Get Firebase UID of the buyer from user service
+        buyer_firebase_uid = None
+        try:
+            user_data = asyncio.run(get_user_from_service(str(db_booking.user_id)))
+            print(f"🔍 USER DATA from user service: {user_data}")
+            print(f"🔍 user_data.get('firebase_uid'): {user_data.get('firebase_uid')}")
+            print(f"🔍 user_data.get('id'): {user_data.get('id')}")
+            # Try to get firebase_uid or fallback to id
+            buyer_firebase_uid = user_data.get("firebase_uid") or user_data.get("id")
+            print(f"🔍 Final buyer_firebase_uid: {buyer_firebase_uid}")
+            logger.info(f"Buyer Firebase UID: {buyer_firebase_uid} for user_id: {db_booking.user_id}")
+        except Exception as e:
+            logger.error(f"Error fetching user Firebase UID: {str(e)}")
+            buyer_firebase_uid = str(db_booking.user_id)  # Fallback to database ID
+        
+        # Return minimal data needed for review
+        return {
+            "booking_id": str(db_booking.id),
+            "buyer_id": buyer_firebase_uid,  # Firebase UID of the buyer
+            "seller_id": seller_id,  # expert_id from gig
+            "status": db_booking.status.value if hasattr(db_booking.status, 'value') else db_booking.status,
+            "gig_id": str(db_booking.gig_id)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error verifying booking {booking_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to verify booking: {str(e)}"
         )
 
 @router.put("/{booking_id}", response_model=BookingResponse)

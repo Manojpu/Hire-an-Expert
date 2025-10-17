@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { getICalHref, getGoogleCalendarUrl } from "@/lib/calendar";
 import { bookingService, Booking } from "@/services/bookingService";
+import { reviewServiceAPI } from "@/services/reviewService";
 import { toSriLankaTime } from "@/utils/dateUtils";
 import { Loader2 } from "lucide-react";
+import ReviewModal from "@/components/modals/ReviewModal";
 
 const MyBookings = () => {
   const { user } = useAuth();
@@ -14,6 +16,12 @@ const MyBookings = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [joinedBookings, setJoinedBookings] = useState<Set<string>>(new Set()); // Track which bookings have been joined
+  const [reviewModalOpen, setReviewModalOpen] = useState<boolean>(false);
+  const [currentReviewBookingId, setCurrentReviewBookingId] = useState<string | null>(null);
+  const [currentReviewGigId, setCurrentReviewGigId] = useState<string | null>(null);
+  const [currentReviewExpertName, setCurrentReviewExpertName] = useState<string>("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState<boolean>(false);
 
   // Fetch bookings from API when component mounts or userId changes
   useEffect(() => {
@@ -46,7 +54,7 @@ const MyBookings = () => {
   // Modified action handlers for the API
   const handleUpdateStatus = async (bookingId: string, status: string) => {
     try {
-      await bookingService.updateBookingStatus(bookingId, status);
+      await bookingService.updateBooking(bookingId, { status });
       // Refresh bookings after update
       const updatedBookings = await bookingService.getUserBookings();
       setBookings(updatedBookings);
@@ -62,6 +70,89 @@ const MyBookings = () => {
         description: "Failed to update booking status",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleJoinMeeting = (bookingId: string, meetingLink: string) => {
+    // Mark this booking as joined
+    setJoinedBookings(prev => new Set(prev).add(bookingId));
+    // Open meeting link
+    if (meetingLink) {
+      window.open(meetingLink, '_blank');
+    }
+  };
+
+  const handleCompleteBooking = async (bookingId: string, gigId: string, expertName: string) => {
+    try {
+      await bookingService.completeBooking(bookingId);
+      // Refresh bookings after completion
+      const updatedBookings = await bookingService.getUserBookings();
+      setBookings(updatedBookings);
+      // Remove from joined bookings
+      setJoinedBookings(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(bookingId);
+        return newSet;
+      });
+
+      toast({
+        title: "Booking completed",
+        description: "Booking has been marked as completed",
+      });
+
+      // Open review modal after completing
+      setCurrentReviewBookingId(bookingId);
+      setCurrentReviewGigId(gigId);
+      setCurrentReviewExpertName(expertName);
+      setReviewModalOpen(true);
+    } catch (err) {
+      console.error(`Failed to complete booking:`, err);
+      toast({
+        title: "Update failed",
+        description: "Failed to complete booking",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSubmitReview = async (rating: number, comment: string) => {
+    if (!currentReviewBookingId || !currentReviewGigId) {
+      toast({
+        title: "Error",
+        description: "Missing booking or gig information",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmittingReview(true);
+    try {
+      await reviewServiceAPI.submitReview(
+        currentReviewBookingId,
+        currentReviewGigId,
+        rating,
+        comment || undefined
+      );
+
+      toast({
+        title: "Review submitted",
+        description: "Thank you for your feedback!",
+      });
+
+      setReviewModalOpen(false);
+      setCurrentReviewBookingId(null);
+      setCurrentReviewGigId(null);
+      setCurrentReviewExpertName("");
+    } catch (err) {
+      console.error("Failed to submit review:", err);
+      const errorMessage = err instanceof Error ? err.message : "Failed to submit review. Please try again.";
+      toast({
+        title: "Submission failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmittingReview(false);
     }
   };
 
@@ -207,19 +298,30 @@ const MyBookings = () => {
                 </div> 
                 */}
 
-                  {/* Link would come from your database if you implement it */}
-                  {booking.status === "confirmed" && (
-                    <a
-                      href={`https://meet.mock/room-${booking.id.substring(
-                        0,
-                        8
-                      )}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-primary underline"
+                  {/* Join/Done button workflow */}
+                  {booking.status === "confirmed" && !joinedBookings.has(String(booking.id)) && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleJoinMeeting(
+                        String(booking.id),
+                        `https://meet.mock/room-${String(booking.id).substring(0, 8)}`
+                      )}
                     >
                       Join Meeting
-                    </a>
+                    </Button>
+                  )}
+                  
+                  {booking.status === "confirmed" && joinedBookings.has(String(booking.id)) && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleCompleteBooking(
+                        String(booking.id),
+                        booking.gig_id,
+                        expert?.name || gigDetails?.service_description || "Expert"
+                      )}
+                    >
+                      Done
+                    </Button>
                   )}
 
                   {/* Calendar integration with Sri Lanka time */}
@@ -292,6 +394,20 @@ const MyBookings = () => {
           })}
         </div>
       )}
+
+      {/* Review Modal */}
+      <ReviewModal
+        isOpen={reviewModalOpen}
+        onClose={() => {
+          setReviewModalOpen(false);
+          setCurrentReviewBookingId(null);
+          setCurrentReviewExpertName("");
+        }}
+        onSubmit={handleSubmitReview}
+        bookingId={currentReviewBookingId || ""}
+        expertName={currentReviewExpertName}
+        isSubmitting={isSubmittingReview}
+      />
     </div>
   );
 };

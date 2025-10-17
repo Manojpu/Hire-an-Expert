@@ -19,14 +19,23 @@ interface BookingCardProps {
   onAccept?: (id: string) => void;
   onReject?: (id: string) => void;
   onJoin?: (link: string) => void;
+  onComplete?: (id: string) => void;
+  isLoading?: boolean;
 }
 
-const BookingCard: React.FC<BookingCardProps> = ({ booking, onAccept, onReject, onJoin }) => {
+const BookingCard: React.FC<BookingCardProps> = ({ booking, onAccept, onReject, onJoin, onComplete, isLoading }) => {
+  const [hasJoined, setHasJoined] = React.useState(false);
+
   const formatDateTime = (dateTime: string | undefined) => {
     if (!dateTime) return 'No date specified';
     const date = new Date(dateTime);
     if (!isValid(date)) return 'Invalid date';
     return format(date, 'PPpp');
+  };
+
+  const handleJoin = (link: string | undefined) => {
+    setHasJoined(true);
+    onJoin?.(link);
   };
 
   return (
@@ -44,12 +53,36 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onAccept, onReject, 
           <div className="flex gap-2">
             {booking.status === 'pending' && (
               <>
-                <Button variant="ghost" size="sm" onClick={() => onReject?.(booking.id)}>Reject</Button>
-                <Button size="sm" onClick={() => onAccept?.(booking.id)}>Accept</Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => onReject?.(booking.id)}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Processing...' : 'Reject'}
+                </Button>
+                <Button 
+                  size="sm" 
+                  onClick={() => onAccept?.(booking.id)}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Processing...' : 'Accept'}
+                </Button>
               </>
             )}
-            {booking.status === 'confirmed' && (
-              <Button size="sm" onClick={() => onJoin?.(booking.meetingLink)}>Join</Button>
+            {booking.status === 'confirmed' && !hasJoined && (
+              <Button size="sm" onClick={() => handleJoin(booking.meetingLink)}>
+                Join
+              </Button>
+            )}
+            {booking.status === 'confirmed' && hasJoined && (
+              <Button 
+                size="sm" 
+                onClick={() => onComplete?.(booking.id)}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Processing...' : 'Done'}
+              </Button>
             )}
           </div>
         </div>

@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+.env
+.env.*
+.venv/
+venv/
+.git/
+.gitignore
+Dockerfile*
+Dockerfile
+.dockerignore
+alembic/versions/__pycache__/
+logs/

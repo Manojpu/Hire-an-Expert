@@ -34,6 +34,7 @@ const GigBookings: React.FC<GigBookingsProps> = ({ gig }) => {
   const [bookings, setBookings] = useState<UIBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Load bookings from backend
   const loadBookings = useCallback(async () => {
@@ -96,6 +97,46 @@ const GigBookings: React.FC<GigBookingsProps> = ({ gig }) => {
   useEffect(() => {
     loadBookings();
   }, [loadBookings]);
+
+  // Handle booking actions
+  const handleAcceptBooking = async (bookingId: string) => {
+    try {
+      setActionLoading(bookingId);
+      await bookingService.confirmBooking(bookingId);
+      await loadBookings(); // Reload bookings
+    } catch (err) {
+      console.error('Error accepting booking:', err);
+      setError('Failed to accept booking');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRejectBooking = async (bookingId: string) => {
+    try {
+      setActionLoading(bookingId);
+      await bookingService.cancelBooking(bookingId);
+      await loadBookings(); // Reload bookings
+    } catch (err) {
+      console.error('Error rejecting booking:', err);
+      setError('Failed to reject booking');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCompleteBooking = async (bookingId: string) => {
+    try {
+      setActionLoading(bookingId);
+      await bookingService.completeBooking(bookingId);
+      await loadBookings(); // Reload bookings
+    } catch (err) {
+      console.error('Error completing booking:', err);
+      setError('Failed to complete booking');
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   // Mock bookings data for fallback (keeping for reference)
   const mockBookings = [
@@ -266,7 +307,15 @@ const GigBookings: React.FC<GigBookingsProps> = ({ gig }) => {
           </div>
         ) : (
           filteredBookings.map(booking => (
-            <BookingCard key={booking.id} booking={booking} />
+            <BookingCard 
+              key={booking.id} 
+              booking={booking}
+              onAccept={() => handleAcceptBooking(booking.id)}
+              onReject={() => handleRejectBooking(booking.id)}
+              onJoin={(link) => link && window.open(link, '_blank')}
+              onComplete={() => handleCompleteBooking(booking.id)}
+              isLoading={actionLoading === booking.id}
+            />
           ))
         )}
       </div>

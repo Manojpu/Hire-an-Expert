@@ -1,0 +1,16 @@
+version: "3.9"
+services:
+  gig-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hire-expert-gig:dev
+    container_name: gig-service
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - WATCHFILES_FORCE_POLLING=true
+    restart: unless-stopped
