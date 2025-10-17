@@ -1,10 +1,17 @@
 import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ChatLayout } from '@/components/chat/ChatLayout';
 import { useAuth } from '@/context/auth/AuthContext';
 import { messageService } from '@/services/messageService';
 
 const MessagesPage = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  
+  // Get conversation details from navigation state (if coming from GigView)
+  const initialConversationId = location.state?.conversationId;
+  const expertId = location.state?.expertId;
+  const expertName = location.state?.expertName;
 
   useEffect(() => {
     if (user?.uid) {
@@ -35,7 +42,11 @@ const MessagesPage = () => {
 
   return (
     <div className="h-screen overflow-hidden">
-      <ChatLayout />
+      <ChatLayout 
+        initialConversationId={initialConversationId}
+        expertId={expertId}
+        expertName={expertName}
+      />
     </div>
   );
 };

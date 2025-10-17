@@ -18,12 +18,19 @@ import type { Chat } from './types';
 import { ChatSidebar } from '@/components/chat/ChatSidebar';
 import { ChatConversation } from '@/components/chat/ChatConversation';
 
-export const ChatLayout = () => {
+interface ChatLayoutProps {
+  initialConversationId?: string;
+  expertId?: string;
+  expertName?: string;
+}
+
+export const ChatLayout = ({ initialConversationId, expertId, expertName }: ChatLayoutProps) => {
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread'>('all');
   const [conversations, setConversations] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasSelectedInitialChat, setHasSelectedInitialChat] = useState(false); // Track if we've already selected the initial chat
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -95,8 +102,25 @@ export const ChatLayout = () => {
         setLoading(true);
         const data = await messageService.getConversations(user?.uid);
         setConversations(data);
-        if (data.length > 0 && !selectedChat) {
+        
+        // If we have an initial conversation ID from navigation AND haven't selected it yet
+        if (initialConversationId && !hasSelectedInitialChat) {
+          const targetConversation = data.find(conv => conv.id === initialConversationId);
+          if (targetConversation) {
+            console.log(`🎯 Selecting conversation from GigView: ${initialConversationId}`);
+            setSelectedChat(targetConversation);
+            setHasSelectedInitialChat(true); // Mark as selected to prevent re-selection
+          } else {
+            console.log(`⚠️ Initial conversation not found in list, selecting first`);
+            if (data.length > 0) {
+              setSelectedChat(data[0]);
+            }
+            setHasSelectedInitialChat(true);
+          }
+        } else if (data.length > 0 && !selectedChat && !hasSelectedInitialChat) {
+          // Default behavior: select first conversation only if we haven't selected anything yet
           setSelectedChat(data[0]);
+          setHasSelectedInitialChat(true);
         }
       } catch (error) {
         console.error('Failed to load conversations:', error);
@@ -205,7 +229,7 @@ export const ChatLayout = () => {
         unsubscribeConversationUpdate();
       }
     };
-  }, [user, selectedChat]); // Added selectedChat to dependencies
+  }, [user, selectedChat]); // Removed initialConversationId from dependencies to prevent infinite loop
 
   const filteredChats = conversations.filter(chat => {
     const matchesSearch = chat.name.toLowerCase().includes(searchQuery.toLowerCase());
