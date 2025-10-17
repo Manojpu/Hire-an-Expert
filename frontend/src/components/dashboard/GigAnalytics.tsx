@@ -1,58 +1,88 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ExpertGig } from '@/services/gigService';
 import EarningsChart from '@/components/dashboard/EarningsChart';
 import StatsCard from '@/components/dashboard/StatsCard';
-import { TrendingUp, TrendingDown, DollarSign, Users, Clock, Star } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Users, Clock, Star, Loader2 } from 'lucide-react';
+import { gigAnalyticsService, GigAnalyticsData } from '@/services/gigAnalyticsService';
+import { reviewAnalyticsService, GigRatingAnalytics } from '@/services/reviewAnalyticsService';
 
 interface GigAnalyticsProps {
   gig: ExpertGig;
 }
 
 const GigAnalytics: React.FC<GigAnalyticsProps> = ({ gig }) => {
-  // Mock analytics data specific to this gig
-  const analytics = {
-    revenue: {
-      today: 7500,
-      week: 25000,
-      month: 85000,
-      growth: {
-        daily: 15,
-        weekly: 8,
-        monthly: 12
+  const [analytics, setAnalytics] = useState<GigAnalyticsData | null>(null);
+  const [ratingAnalytics, setRatingAnalytics] = useState<GigRatingAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [timePeriod, setTimePeriod] = useState<'week' | 'month' | 'year'>('month');
+  const [chartLoading, setChartLoading] = useState(false);
+
+  // Initial load
+  useEffect(() => {
+    const loadAnalytics = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Fetch both analytics data in parallel
+        const [analyticsData, ratingData] = await Promise.all([
+          gigAnalyticsService.fetchGigAnalytics(gig.id, timePeriod),
+          reviewAnalyticsService.fetchGigRatingAnalytics(gig.id)
+        ]);
+
+        setAnalytics(analyticsData);
+        setRatingAnalytics(ratingData);
+
+      } catch (err) {
+        console.error('Error loading analytics:', err);
+        setError('Failed to load analytics data');
+      } finally {
+        setLoading(false);
       }
-    },
-    bookings: {
-      total: gig.total_consultations,
-      thisMonth: 28,
-      completed: 25,
-      cancelled: 3,
-      completionRate: 89.3
-    },
-    performance: {
-      rating: gig.rating,
-      totalReviews: gig.total_reviews,
-      responseTime: gig.response_time,
-      repeatCustomers: 18,
-      avgSessionDuration: '45 min'
-    },
-    chartData: [
-      { date: '2024-01-01', revenue: 3000 },
-      { date: '2024-01-02', revenue: 4500 },
-      { date: '2024-01-03', revenue: 3200 },
-      { date: '2024-01-04', revenue: 5800 },
-      { date: '2024-01-05', revenue: 7200 },
-      { date: '2024-01-06', revenue: 6100 },
-      { date: '2024-01-07', revenue: 8500 },
-      { date: '2024-01-08', revenue: 7800 },
-      { date: '2024-01-09', revenue: 9200 },
-      { date: '2024-01-10', revenue: 8800 },
-      { date: '2024-01-11', revenue: 10500 },
-      { date: '2024-01-12', revenue: 12000 },
-      { date: '2024-01-13', revenue: 11200 },
-      { date: '2024-01-14', revenue: 13500 },
-      { date: '2024-01-15', revenue: 15000 }
-    ]
+    };
+
+    if (gig.id) {
+      loadAnalytics();
+    }
+  }, [gig.id, timePeriod]);
+
+  // Handle time period change - only reload chart data
+  const handleTimePeriodChange = async (newPeriod: 'week' | 'month' | 'year') => {
+    setTimePeriod(newPeriod);
+    setChartLoading(true);
+    
+    try {
+      const data = await gigAnalyticsService.fetchGigAnalytics(gig.id, newPeriod);
+      setAnalytics(data);
+    } catch (err) {
+      console.error('Error loading chart data:', err);
+    } finally {
+      setChartLoading(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Loading analytics data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !analytics) {
+    return (
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+        <p className="text-yellow-800">{error || 'No analytics data available'}</p>
+        <p className="text-sm text-yellow-600 mt-2">
+          Analytics will be available once you have bookings for this gig.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -67,22 +97,22 @@ const GigAnalytics: React.FC<GigAnalyticsProps> = ({ gig }) => {
         <StatsCard 
           title="Today's Revenue" 
           value={`Rs. ${analytics.revenue.today.toLocaleString()}`} 
-          change={`+${analytics.revenue.growth.daily}%`}
-          changeType="positive"
+          change={analytics.revenue.growth.daily >= 0 ? `+${analytics.revenue.growth.daily}%` : `${analytics.revenue.growth.daily}%`}
+          changeType={analytics.revenue.growth.daily >= 0 ? "positive" : "negative"}
           icon={<DollarSign className="h-4 w-4" />}
         />
         <StatsCard 
           title="Weekly Revenue" 
           value={`Rs. ${analytics.revenue.week.toLocaleString()}`} 
-          change={`+${analytics.revenue.growth.weekly}%`}
-          changeType="positive"
+          change={analytics.revenue.growth.weekly >= 0 ? `+${analytics.revenue.growth.weekly}%` : `${analytics.revenue.growth.weekly}%`}
+          changeType={analytics.revenue.growth.weekly >= 0 ? "positive" : "negative"}
           icon={<TrendingUp className="h-4 w-4" />}
         />
         <StatsCard 
           title="Monthly Revenue" 
           value={`Rs. ${analytics.revenue.month.toLocaleString()}`} 
-          change={`+${analytics.revenue.growth.monthly}%`}
-          changeType="positive"
+          change={analytics.revenue.growth.monthly >= 0 ? `+${analytics.revenue.growth.monthly}%` : `${analytics.revenue.growth.monthly}%`}
+          changeType={analytics.revenue.growth.monthly >= 0 ? "positive" : "negative"}
           icon={<TrendingUp className="h-4 w-4" />}
         />
       </div>
@@ -90,8 +120,51 @@ const GigAnalytics: React.FC<GigAnalyticsProps> = ({ gig }) => {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white border border-border rounded-lg p-6">
-          <h3 className="text-lg font-semibold mb-4">Revenue Trend</h3>
-          <EarningsChart data={analytics.chartData} />
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Revenue Trend</h3>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleTimePeriodChange('week')}
+                disabled={chartLoading}
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  timePeriod === 'week'
+                    ? 'bg-primary text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                } ${chartLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                Week
+              </button>
+              <button
+                onClick={() => handleTimePeriodChange('month')}
+                disabled={chartLoading}
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  timePeriod === 'month'
+                    ? 'bg-primary text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                } ${chartLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                Month
+              </button>
+              <button
+                onClick={() => handleTimePeriodChange('year')}
+                disabled={chartLoading}
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  timePeriod === 'year'
+                    ? 'bg-primary text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                } ${chartLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                Year
+              </button>
+            </div>
+          </div>
+          {chartLoading ? (
+            <div className="h-[300px] flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <EarningsChart data={analytics.chartData} period={timePeriod} />
+          )}
         </div>
         
         <div className="bg-white border border-border rounded-lg p-6">
@@ -126,11 +199,13 @@ const GigAnalytics: React.FC<GigAnalyticsProps> = ({ gig }) => {
         <div className="bg-white border border-border rounded-lg p-6">
           <div className="flex items-center justify-between mb-2">
             <Star className="h-5 w-5 text-yellow-500" />
-            <span className="text-2xl font-bold">{analytics.performance.rating.toFixed(1)}</span>
+            <span className="text-2xl font-bold">
+              {ratingAnalytics ? ratingAnalytics.average_rating.toFixed(1) : 'N/A'}
+            </span>
           </div>
           <div className="text-sm text-muted-foreground">Average Rating</div>
           <div className="text-xs text-muted-foreground mt-1">
-            {analytics.performance.totalReviews} reviews
+            {ratingAnalytics ? `${ratingAnalytics.total_reviews} reviews` : 'No reviews'}
           </div>
         </div>
 

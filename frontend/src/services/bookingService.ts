@@ -13,6 +13,7 @@ export interface Booking {
   created_at: string;
   scheduled_time?: string;
   duration?: number;
+  amount?: number | string; // Total amount/payment for the booking
   service?: string;
   type?: string;
   notes?: string;
@@ -142,10 +143,15 @@ class BookingService {
     completed_bookings: number;
     average_rating: number;
   }> {
-    const endpoint = expertId
-      ? `/bookings/expert/${expertId}/revenue`
-      : "/bookings/my/revenue";
-    return this.makeRequest(endpoint);
+    // These endpoints don't exist - return mock data for now
+    // TODO: Implement proper analytics aggregation from gig-level analytics
+    console.warn("getExpertRevenue: endpoint not implemented, returning mock data");
+    return {
+      total_revenue: 0,
+      monthly_revenue: 0,
+      completed_bookings: 0,
+      average_rating: 0
+    };
   }
 
   async getExpertConsultations(expertId?: string): Promise<{
@@ -154,14 +160,41 @@ class BookingService {
     pending_consultations: number;
     confirmed_consultations: number;
   }> {
-    const endpoint = expertId
-      ? `/bookings/expert/${expertId}/consultations`
-      : "/bookings/my/consultations";
-    return this.makeRequest(endpoint);
+    // These endpoints don't exist - calculate from actual bookings
+    try {
+      const bookings = await this.makeRequest<Booking[]>(`/bookings/by-current-user`);
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      
+      return {
+        total_consultations: bookings.length,
+        monthly_consultations: bookings.filter(b => new Date(b.created_at) >= monthStart).length,
+        pending_consultations: bookings.filter(b => b.status === 'pending').length,
+        confirmed_consultations: bookings.filter(b => b.status === 'confirmed').length
+      };
+    } catch (error) {
+      console.error("Error calculating consultation stats:", error);
+      return {
+        total_consultations: 0,
+        monthly_consultations: 0,
+        pending_consultations: 0,
+        confirmed_consultations: 0
+      };
+    }
   }
 
   async getRecentBookings(limit = 5): Promise<Booking[]> {
-    return this.makeRequest<Booking[]>(`/bookings/my/recent?limit=${limit}`);
+    try {
+      // Use /by-current-user endpoint and limit results on frontend
+      const allBookings = await this.makeRequest<Booking[]>(`/bookings/by-current-user`);
+      // Sort by created_at descending and take the first 'limit' items
+      return allBookings
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, limit);
+    } catch (error) {
+      console.error("Error fetching recent bookings:", error);
+      return [];
+    }
   }
 }
 

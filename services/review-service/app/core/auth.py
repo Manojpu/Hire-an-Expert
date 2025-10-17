@@ -26,13 +26,18 @@ class TokenData(BaseModel):
 # Initialize Firebase Admin SDK
 if not firebase_admin._apps:
     try:
-        # Try to load from service account key file
-        if os.path.exists("serviceAccountKey.json"):
-            cred = credentials.Certificate("serviceAccountKey.json")
+        # Try to load from service account key file (use absolute path)
+        service_account_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "serviceAccountKey.json")
+        if os.path.exists(service_account_path):
+            cred = credentials.Certificate(service_account_path)
             firebase_admin.initialize_app(cred)
-            logger.info("✅ Firebase initialized with service account key file")
+            logger.info(f"✅ Firebase initialized successfully from {service_account_path}")
+        elif os.path.exists("/app/serviceAccountKey.json"):
+            cred = credentials.Certificate("/app/serviceAccountKey.json")
+            firebase_admin.initialize_app(cred)
+            logger.info("✅ Firebase initialized successfully from /app/serviceAccountKey.json")
         else:
-            logger.warning("⚠️ serviceAccountKey.json not found - Firebase authentication disabled")
+            logger.warning(f"⚠️ serviceAccountKey.json not found at {service_account_path} or /app/serviceAccountKey.json - Firebase authentication disabled")
     except Exception as e:
         logger.warning(f"⚠️ Could not initialize Firebase: {e}")
 

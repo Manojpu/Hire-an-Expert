@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Expert API</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Test Expert Profile API</h1>
+    <button onclick="testAPI()">Test API Call</button>
+    <div id="result"></div>
+
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>Loading...</p>';
+            
+            try {
+                const firebaseUid = 'uvBxK1j1Aue0CTUcYQt8YNwpnmf2';
+                const url = `http://localhost:8001/users/firebase/${firebaseUid}`;
+                
+                console.log('Fetching from:', url);
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    resultDiv.innerHTML = `<p class="error">Error: ${response.status}</p><pre>${errorText}</pre>`;
+                    return;
+                }
+                
+                const data = await response.json();
+                console.log('Data received:', data);
+                
+                resultDiv.innerHTML = `
+                    <p class="success">✅ Success!</p>
+                    <h3>Expert Data:</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                    <h3>Checking fields:</h3>
+                    <ul>
+                        <li>Name: ${data.name || 'NOT FOUND'}</li>
+                        <li>Email: ${data.email || 'NOT FOUND'}</li>
+                        <li>Is Expert: ${data.is_expert}</li>
+                        <li>Expert Profiles: ${data.expert_profiles ? 'EXISTS' : 'MISSING'}</li>
+                        <li>Profile Image: ${data.profile_image_url || 'null'}</li>
+                    </ul>
+                `;
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            }
+        }
+        
+        // Auto-run on load
+        window.onload = testAPI;
+    </script>
+</body>
+</html>

@@ -1,8 +1,9 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from datetime import datetime
 from app.db.models import BookingStatus
-from typing import Optional
+from typing import Optional, Union
 from decimal import Decimal
+import uuid
 
 # Nested schemas for related data
 class UserInfo(BaseModel):
@@ -23,7 +24,15 @@ class GigInfo(BaseModel):
 
 # Base properties shared by all Booking schemas
 class BookingBase(BaseModel):
-    gig_id: str  # Changed to string to handle UUID
+    gig_id: Union[str, uuid.UUID]  # Accept both string and UUID
+    
+    @field_validator('gig_id', mode='before')
+    @classmethod
+    def convert_gig_id_to_string(cls, v):
+        """Convert UUID to string if needed"""
+        if isinstance(v, uuid.UUID):
+            return str(v)
+        return v
 
 class BookingCreate(BookingBase):
     """Schema for creating a new booking. user_id will be provided by the auth system."""

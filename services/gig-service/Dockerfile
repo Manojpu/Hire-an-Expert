@@ -21,5 +21,5 @@ EXPOSE 8002
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8002/ || exit 1
 
-# Start the application
+# Start the application with hot reload (main.py already has reload=True)
 CMD ["python", "main.py"]

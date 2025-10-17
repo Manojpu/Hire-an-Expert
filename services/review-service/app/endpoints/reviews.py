@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 import httpx
 import os
 import math
+import logging
 from dotenv import load_dotenv
 from typing import List, Optional
 from app.db.database import get_db
@@ -14,6 +15,8 @@ from app.crud import review as review_crud
 from app.core.auth import get_current_user, TokenData, get_user_by_id_or_current, User
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 BOOKING_SERVICE_URL = os.getenv("BOOKING_SERVICE_URL", "http://booking-service:8003")
@@ -39,21 +42,37 @@ async def create_review(
     
     # Validate booking exists and is completed
     try:
+        print(f"🔍 Verifying booking {review_in.booking_id} for user {buyer_id}")
+        logger.info(f"Verifying booking {review_in.booking_id} for user {buyer_id}")
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{BOOKING_SERVICE_URL}/api/bookings/verify/{review_in.booking_id}",
+                f"{BOOKING_SERVICE_URL}/bookings/verify/{review_in.booking_id}",
                 headers={"Authorization": f"Bearer {current_user.original_token}"}
             )
         
+        print(f"📊 Booking verification response: status={response.status_code}")
+        print(f"📊 Response body: {response.text[:1000]}")
+        logger.info(f"Booking verification response: status={response.status_code}, body={response.text[:500]}")
+        
         if response.status_code != 200:
+            logger.error(f"Booking verification failed: {response.status_code}, {response.text}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Could not verify booking status"
             )
             
         booking_data = response.json()
+        print(f"📋 Booking data: {booking_data}")
+        print(f"🔑 Comparing buyer_id: '{booking_data.get('buyer_id')}' == '{buyer_id}' = {booking_data.get('buyer_id') == buyer_id}")
+        print(f"📝 Booking status: '{booking_data.get('status')}'")
+        logger.info(f"Booking data: {booking_data}")
+        logger.info(f"Comparing buyer_id: {booking_data.get('buyer_id')} == {buyer_id}")
+        logger.info(f"Booking status: {booking_data.get('status')}")
+        
         if (booking_data.get("buyer_id") != buyer_id or 
             booking_data.get("status") != "completed"):
+            print(f"❌ Authorization failed: buyer_id match={booking_data.get('buyer_id') == buyer_id}, status={booking_data.get('status')}")
+            logger.warning(f"Authorization failed: buyer_id match={booking_data.get('buyer_id') == buyer_id}, status={booking_data.get('status')}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You are not authorized to review this booking or booking is not completed"
@@ -186,6 +205,16 @@ def get_gig_reviews(
 def get_gig_review_stats(gig_id: str, db: Session = Depends(get_db)):
     """Get review statistics for a specific gig"""
     return review_crud.get_review_stats_for_gig(db, gig_id)
+
+@router.get("/gig/{gig_id}/average-rating", response_model=dict)
+def get_gig_average_rating(gig_id: str, db: Session = Depends(get_db)):
+    """Get the average rating for a specific gig."""
+    stats = review_crud.get_review_stats_for_gig(db, gig_id)
+    return {
+        "gig_id": gig_id,
+        "average_rating": stats.average_rating,
+        "total_reviews": stats.total_reviews
+    }
 
 # Get Reviews by Buyer (Current User)
 @router.get("/buyer/my-reviews", response_model=ReviewList)

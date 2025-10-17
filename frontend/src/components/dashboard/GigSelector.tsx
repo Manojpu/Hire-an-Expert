@@ -6,6 +6,7 @@ import { Plus, ChevronRight, Star, DollarSign, Users } from 'lucide-react';
 import { ExpertGig, gigServiceAPI } from '@/services/gigService';
 import { useAuth } from '@/context/auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { reviewAnalyticsService } from '@/services/reviewAnalyticsService';
 
 // Extended type to handle category object from API response
 interface ExpertGigWithCategory extends ExpertGig {
@@ -21,6 +22,27 @@ interface GigSelectorProps {
   onCreateNew: () => void;
   onViewOverall: () => void;
 }
+
+// Small component to show live rating for each gig
+const GigRating: React.FC<{ gigId: string }> = ({ gigId }) => {
+  const [rating, setRating] = useState({ average: 0, count: 0 });
+
+  useEffect(() => {
+    reviewAnalyticsService.fetchGigRatingAnalytics(gigId)
+      .then(data => setRating({ average: data.average_rating, count: data.total_reviews }))
+      .catch(() => setRating({ average: 0, count: 0 }));
+  }, [gigId]);
+
+  return (
+    <>
+      <span className="flex items-center gap-1">
+        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+        {rating.average.toFixed(1)}
+      </span>
+      <span>{rating.count} reviews</span>
+    </>
+  );
+};
 
 const GigSelector: React.FC<GigSelectorProps> = ({ onGigSelect, onCreateNew, onViewOverall }) => {
   const [gigs, setGigs] = useState<ExpertGigWithCategory[]>([]);
@@ -360,11 +382,7 @@ const GigSelector: React.FC<GigSelectorProps> = ({ onGigSelect, onCreateNew, onV
                     
                     <div className="space-y-2 mb-4">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="flex items-center gap-1">
-                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                          {(gig.rating || 0).toFixed(1)}
-                        </span>
-                        <span>{gig.total_reviews || 0} reviews</span>
+                        <GigRating gigId={gig.id} />
                       </div>
                       
                       <div className="flex items-center justify-between text-sm">

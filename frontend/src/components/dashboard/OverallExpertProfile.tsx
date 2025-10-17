@@ -10,7 +10,8 @@ import {
   UserPreference 
 } from "@/services/userService";
 import { reviewServiceAPI } from "@/services/reviewService";
-import { bookingService } from "@/services/bookingService";
+import { reviewAnalyticsService } from "@/services/reviewAnalyticsService";
+import { bookingService, Booking } from "@/services/bookingService";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -79,38 +80,60 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({
   const [availabilityRules, setAvailabilityRules] = useState<AvailabilityRule[]>([]);
   const [dateOverrides, setDateOverrides] = useState<DateOverride[]>([]);
   const [userPreferences, setUserPreferences] = useState<UserPreference[]>([]);
+  const [gigRatings, setGigRatings] = useState<Map<string, { average_rating: number; total_reviews: number }>>(new Map());
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       
-      // Load user and expert profile data
-      if (isAdminView && expertId) {
-        // Admin viewing specific expert
-        const user = await userServiceAPI.getUserById(expertId);
-        setUserData(user);
-        // Get the first expert profile if available
-        if (user.expert_profiles && user.expert_profiles.length > 0) {
-          setExpertProfile(user.expert_profiles[0]);
+      // Load user and expert profile data from user service
+      try {
+        if (isAdminView && expertId) {
+          // Admin viewing specific expert
+          const user = await userServiceAPI.getUserById(expertId);
+          setUserData(user);
+          // Get the first expert profile if available
+          if (user.expert_profiles && user.expert_profiles.length > 0) {
+            setExpertProfile(user.expert_profiles[0]);
+          }
+        } else {
+          // Expert viewing their own profile - fetch from /users/me
+          const currentUser = await userServiceAPI.getCurrentUserProfile();
+          setUserData(currentUser);
+          // Get the first expert profile if available
+          if (currentUser.expert_profiles && currentUser.expert_profiles.length > 0) {
+            setExpertProfile(currentUser.expert_profiles[0]);
+          }
         }
-      } else {
-        // Expert viewing their own profile
-        const profile = await userServiceAPI.getCurrentUserProfile();
-        setUserData(profile);
-        // Get the first expert profile if available
-        if (profile.expert_profiles && profile.expert_profiles.length > 0) {
-          setExpertProfile(profile.expert_profiles[0]);
-        }
+      } catch (err) {
+        console.error("Failed to load user data:", err);
+        // Continue loading other data even if user profile fails
       }
 
-      // Load gigs data
+      // Load gigs data (this works without user profile)
       let gigs;
-      if (isAdminView && expertId) {
-        gigs = await gigServiceAPI.getMyGigs(); // TODO: Add admin endpoint
-      } else {
-        gigs = await gigServiceAPI.getMyGigs();
+      try {
+        if (isAdminView && expertId) {
+          gigs = await gigServiceAPI.getMyGigs(); // TODO: Add admin endpoint
+        } else {
+          gigs = await gigServiceAPI.getMyGigs();
+        }
+        setGigs(gigs);
+      } catch (err) {
+        console.error("Failed to load gigs:", err);
+        setGigs([]);
       }
-      setGigs(gigs);
+
+      // Fetch live ratings for all gigs
+      if (gigs && gigs.length > 0) {
+        const ratingPromises = gigs.map(gig => 
+          reviewAnalyticsService.fetchGigRatingAnalytics(gig.id)
+            .catch(() => ({ gig_id: gig.id, average_rating: 0, total_reviews: 0 }))
+        );
+        const ratingsData = await Promise.all(ratingPromises);
+        const ratingsMap = new Map(ratingsData.map(r => [r.gig_id, { average_rating: r.average_rating, total_reviews: r.total_reviews }]));
+        setGigRatings(ratingsMap);
+      }
 
       // Load statistics
       const [gigStatsData, revenueData, consultationData] = await Promise.all([
@@ -132,15 +155,17 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({
       setRevenueStats(revenueData);
       setConsultationStats(consultationData);
 
+      // Load all bookings to calculate revenue from completed ones
+      const allBookings = await bookingService.getRecentBookings(100).catch(err => {
+        console.warn("Failed to load bookings:", err);
+        return [];
+      });
+
       // Load recent data and user service data
-      const [reviews, bookings, verificationDocs, availabilityData, dateOverrideData, preferences] = await Promise.all([
+      const [reviews, verificationDocs, availabilityData, dateOverrideData, preferences] = await Promise.all([
         reviewServiceAPI.getMyReviews().catch(err => {
           console.warn("Failed to load reviews:", err);
-          return { reviews: [], total_reviews: 0, average_rating: 0 };
-        }),
-        bookingService.getRecentBookings(5).catch(err => {
-          console.warn("Failed to load recent bookings:", err);
-          return [];
+          return { reviews: [], total_reviews: 0, average_rating: 0, recent_reviews: [], monthly_stats: [] };
         }),
         userServiceAPI.getVerificationDocuments().catch(err => {
           console.warn("Failed to load verification documents:", err);
@@ -161,12 +186,17 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({
       ]);
 
       // Handle reviews response (it returns ExpertReviewSummary with recent_reviews array)
-      const reviewsData = Array.isArray(reviews) 
-        ? reviews 
-        : ('recent_reviews' in reviews ? reviews.recent_reviews : 
-           ('reviews' in reviews ? reviews.reviews : []));
+      let reviewsData = [];
+      if (reviews) {
+        if (Array.isArray(reviews)) {
+          reviewsData = reviews;
+        } else if (reviews.recent_reviews && reviews.recent_reviews.length > 0) {
+          reviewsData = reviews.recent_reviews;
+        }
+      }
       setRecentReviews(reviewsData);
-      setRecentBookings(bookings);
+      // Store ALL bookings for revenue calculation, not just 5 most recent
+      setRecentBookings(allBookings); // Use all bookings for revenue calculations
       setVerificationDocuments(verificationDocs);
       setAvailabilityRules(availabilityData);
       setDateOverrides(dateOverrideData);
@@ -183,37 +213,84 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({
     loadData();
   }, [loadData]);
 
+  // Calculate revenue from completed bookings using amount field
+  const completedBookings = recentBookings.filter(b => b.status === 'completed');
+  console.log('📊 === REVENUE DEBUG ===');
+  console.log('📊 Total bookings loaded:', recentBookings.length);
+  console.log('📊 Completed bookings:', completedBookings.length);
+  console.log('📊 All bookings statuses:', recentBookings.map(b => ({ id: b.id, status: b.status, amount: b.amount, created_at: b.created_at })));
+  console.log('📊 First completed booking:', completedBookings[0]);
+  console.log('📊 All completed bookings:', completedBookings.map(b => ({ id: b.id, amount: b.amount, created_at: b.created_at, scheduled_time: b.scheduled_time })));
+  
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay());
+
+  // Calculate total revenue from completed bookings amount field
+  const totalRevenue = completedBookings.reduce((sum, booking) => {
+    const amount = Number(booking.amount) || 0;
+    return sum + amount;
+  }, 0);
+
+  const monthlyRevenue = completedBookings
+    .filter(b => new Date(b.created_at) >= monthStart)
+    .reduce((sum, booking) => {
+      const amount = Number(booking.amount) || 0;
+      return sum + amount;
+    }, 0);
+
+  const weeklyRevenue = completedBookings
+    .filter(b => new Date(b.created_at) >= weekStart)
+    .reduce((sum, booking) => {
+      const amount = Number(booking.amount) || 0;
+      return sum + amount;
+    }, 0);
+
   // Calculate aggregate statistics using real API data
   const aggregateStats = {
     totalGigs: gigStats.total_gigs || gigs.length,
     activeGigs: gigStats.active_gigs || gigs.filter((g) => g.status === "active").length,
     totalConsultations: consultationStats.total_consultations || 
       gigs.reduce((sum, g) => sum + (g.total_consultations || 0), 0),
-    totalReviews: gigs.reduce((sum, g) => sum + (g.total_reviews || 0), 0),
-    averageRating: revenueStats.average_rating || 
-      (gigs.length > 0 ? gigs.reduce((sum, g) => sum + (g.rating || 0), 0) / gigs.length : 0),
-    totalRevenue: revenueStats.total_revenue || 0,
-    monthlyRevenue: revenueStats.monthly_revenue || 0,
-    weeklyRevenue: Math.round(revenueStats.monthly_revenue / 4) || 0, // Estimated weekly from monthly
+    totalReviews: Array.from(gigRatings.values()).reduce((sum, r) => sum + r.total_reviews, 0),
+    averageRating: gigRatings.size > 0 
+      ? Array.from(gigRatings.values()).reduce((sum, r) => sum + r.average_rating, 0) / gigRatings.size
+      : 0,
+    totalRevenue: totalRevenue,
+    monthlyRevenue: monthlyRevenue,
+    weeklyRevenue: weeklyRevenue,
   };
 
-  const chartData = [
-    { date: "2024-01-01", revenue: 15000 },
-    { date: "2024-01-02", revenue: 18000 },
-    { date: "2024-01-03", revenue: 22000 },
-    { date: "2024-01-04", revenue: 19000 },
-    { date: "2024-01-05", revenue: 25000 },
-    { date: "2024-01-06", revenue: 28000 },
-    { date: "2024-01-07", revenue: 32000 },
-    { date: "2024-01-08", revenue: 29000 },
-    { date: "2024-01-09", revenue: 35000 },
-    { date: "2024-01-10", revenue: 38000 },
-    { date: "2024-01-11", revenue: 42000 },
-    { date: "2024-01-12", revenue: 45000 },
-    { date: "2024-01-13", revenue: 48000 },
-    { date: "2024-01-14", revenue: 52000 },
-    { date: "2024-01-15", revenue: 55000 },
-  ];
+  // Generate chart data from completed bookings (last 15 days)
+  const chartData = [];
+  for (let i = 14; i >= 0; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toISOString().split('T')[0];
+    
+    // Sum all completed booking amounts for this specific day
+    // Use scheduled_time if available, otherwise use created_at
+    const dayBookings = completedBookings.filter(b => {
+      const bookingDateStr = b.scheduled_time || b.created_at;
+      if (!bookingDateStr) return false;
+      const bookingDate = bookingDateStr.split('T')[0]; // Get YYYY-MM-DD part
+      return bookingDate === dateStr;
+    });
+    
+    const dayRevenue = dayBookings.reduce((sum, booking) => {
+      const amount = Number(booking.amount) || 0;
+      return sum + amount;
+    }, 0);
+    
+    if (dayBookings.length > 0) {
+      console.log(`📊 ${dateStr}: ${dayBookings.length} bookings, revenue: ${dayRevenue}`, dayBookings.map(b => ({ id: b.id, amount: b.amount, date: b.scheduled_time || b.created_at })));
+    }
+    
+    chartData.push({ date: dateStr, revenue: dayRevenue });
+  }
+  
+  console.log('📊 Chart data summary:', chartData.filter(d => d.revenue > 0));
 
   const getStatusColor = (status: ExpertGig["status"]) => {
     switch (status) {
@@ -619,13 +696,13 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({
                     <div className="flex items-center gap-6 text-sm text-muted-foreground">
                       <div className="text-center">
                         <div className="font-medium text-foreground">
-                          {(gig.rating || 0).toFixed(1)}
+                          {(gigRatings.get(gig.id)?.average_rating || 0).toFixed(1)}
                         </div>
                         <div>Rating</div>
                       </div>
                       <div className="text-center">
                         <div className="font-medium text-foreground">
-                          {gig.total_reviews || 0}
+                          {gigRatings.get(gig.id)?.total_reviews || 0}
                         </div>
                         <div>Reviews</div>
                       </div>
