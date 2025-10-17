@@ -122,17 +122,71 @@ class MessageService {
   async createConversation(senderId: string, receiverId: string) {
     try {
       const headers = await this.getAuthHeaders();
-      const response = await fetch(`${this.baseURL}/api/conversations`, {
+      // Use direct msg-service URL since API Gateway route expects a path parameter
+      // The msg-service route is POST /api/conversations/
+      const response = await fetch(`http://localhost:8005/api/conversations`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ senderId, receiverId }),
       });
       if (!response.ok) {
-        throw new Error('Failed to create conversation');
+        const errorText = await response.text();
+        console.error('Create conversation error:', response.status, errorText);
+        throw new Error(`Failed to create conversation: ${response.status}`);
       }
       return await response.json();
     } catch (error) {
       console.error('Error creating conversation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Creates or gets an existing conversation and returns the conversation data
+   * This is useful when initiating a chat from external sources like GigView
+   */
+  async getOrCreateConversation(senderId: string, receiverId: string) {
+    try {
+      console.log(`🔍 Getting or creating conversation between ${senderId} and ${receiverId}`);
+      
+      // First, try to get existing conversations
+      const conversations = await this.getConversations(senderId);
+      console.log(`📋 Found ${conversations.length} existing conversations`);
+      
+      // Check if a conversation already exists with this receiver
+      const existingConversation = conversations.find((conv: any) => 
+        (conv.senderId === senderId && conv.receiverId === receiverId) ||
+        (conv.senderId === receiverId && conv.receiverId === senderId)
+      );
+      
+      if (existingConversation) {
+        console.log(`✅ Found existing conversation: ${existingConversation.id}`);
+        return existingConversation;
+      }
+      
+      // If no existing conversation, create a new one
+      console.log(`📝 Creating new conversation between ${senderId} and ${receiverId}...`);
+      const newConversation = await this.createConversation(senderId, receiverId);
+      console.log(`✅ New conversation created:`, newConversation);
+      
+      // Transform the response to match the expected format
+      return {
+        id: newConversation._id,
+        name: 'New Conversation',
+        lastMessage: newConversation.lastMessage || 'Start a conversation',
+        timestamp: new Date(newConversation.updatedAt).toLocaleTimeString([], { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }),
+        unreadCount: 0,
+        isOnline: false,
+        avatar: '/placeholder.svg',
+        senderId: newConversation.senderId,
+        receiverId: newConversation.receiverId,
+        updatedAt: newConversation.updatedAt
+      };
+    } catch (error) {
+      console.error('❌ Error getting or creating conversation:', error);
       throw error;
     }
   }
