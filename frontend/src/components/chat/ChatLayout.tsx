@@ -90,6 +90,21 @@ export const ChatLayout = () => {
   useEffect(() => {
     let unsubscribeConversationUpdate: (() => void) | undefined;
     
+    const loadConversations = async () => {
+      try {
+        setLoading(true);
+        const data = await messageService.getConversations(user?.uid);
+        setConversations(data);
+        if (data.length > 0 && !selectedChat) {
+          setSelectedChat(data[0]);
+        }
+      } catch (error) {
+        console.error('Failed to load conversations:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
     if (user?.uid) {
       // Connect to Socket.IO
       console.log('🔌 Connecting to message service...');
@@ -190,22 +205,7 @@ export const ChatLayout = () => {
         unsubscribeConversationUpdate();
       }
     };
-  }, [user]);
-
-  const loadConversations = async () => {
-    try {
-      setLoading(true);
-      const data = await messageService.getConversations(user?.uid);
-      setConversations(data);
-      if (data.length > 0 && !selectedChat) {
-        setSelectedChat(data[0]);
-      }
-    } catch (error) {
-      console.error('Failed to load conversations:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [user, selectedChat]); // Added selectedChat to dependencies
 
   const filteredChats = conversations.filter(chat => {
     const matchesSearch = chat.name.toLowerCase().includes(searchQuery.toLowerCase());

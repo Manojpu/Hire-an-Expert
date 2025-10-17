@@ -23,10 +23,18 @@ class MessageService {
 
   connect(userId: string) {
     if (this.socket?.connected) {
+      console.log('🔌 Socket already connected, rejoining rooms...');
+      this.socket?.emit('registerUser', userId);
+      this.socket?.emit('joinAllConversations', userId);
       return;
     }
 
-    this.socket = io(this.socketURL);
+    console.log('🔌 Creating new Socket.IO connection...');
+    this.socket = io(this.socketURL, {
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5
+    });
 
     this.socket.on('connect', () => {
       console.log('✅ Connected to message service');
@@ -36,12 +44,18 @@ class MessageService {
       console.log('📬 Joined all conversations for real-time updates');
     });
 
-    this.socket.on('disconnect', () => {
-      console.log('Disconnected from message service');
+    this.socket.on('reconnect', (attemptNumber) => {
+      console.log(`🔄 Reconnected to message service after ${attemptNumber} attempts`);
+      this.socket?.emit('registerUser', userId);
+      this.socket?.emit('joinAllConversations', userId);
+    });
+
+    this.socket.on('disconnect', (reason) => {
+      console.log('❌ Disconnected from message service:', reason);
     });
 
     this.socket.on('connect_error', (error) => {
-      console.error('Connection error:', error);
+      console.error('⚠️ Connection error:', error);
     });
   }
 
