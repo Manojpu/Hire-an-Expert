@@ -14,7 +14,7 @@ class ExpertProfileIn(BaseModel):
 class ProvisionIn(BaseModel):
     firebase_uid: str
     email: str
-    name: str  # Changed from full_name to name
+    name: Optional[str] = None  # Optional during signup, can be updated later
     is_expert: Optional[bool] = True
     expert_profiles: Optional[List[ExpertProfileIn]] = []
 

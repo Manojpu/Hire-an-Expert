@@ -13,6 +13,7 @@ export default defineConfig(async ({ mode }) => {
     server: {
       host: "::",
       port: 3000,
+      strictPort: false,
     },
     plugins: [react(), taggerPlugin].filter(Boolean),
     resolve: {

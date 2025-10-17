@@ -1,243 +1,169 @@
-import { toast } from "sonner";
-import { getAuth, getIdToken } from "firebase/auth";
-import { auth } from "../firebase/firebase"; // Import the Firebase auth instance directly
+import { getIdToken } from "firebase/auth";
+import { auth } from "../firebase/firebase";
 
-const API_URL = "http://localhost:8003/bookings"; // Assuming booking service is on port 8003
+const BOOKING_SERVICE_BASE_URL =
+  import.meta.env.VITE_BOOKING_SERVICE_URL || "http://localhost:8003";
 
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 1000; // 1 second
-
-async function fetchWithRetry(
-  url: string,
-  options?: RequestInit,
-  retries = MAX_RETRIES
-): Promise<Response> {
-  try {
-    const response = await fetch(url, options);
-    return response;
-  } catch (error) {
-    if (retries > 0) {
-      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
-      return fetchWithRetry(url, options, retries - 1);
-    }
-    throw error;
-  }
-}
-
-// Type definitions from your lib/bookings.ts, but aligned with backend format
-export interface GigDetails {
-  id: string;
-  service_description: string;
-  thumbnail_url?: string;
-  hourly_rate: number;
-  currency: string;
-}
-
+// Types used by components
 export interface Booking {
-  id: string;
-  user_id: string; // matches backend format
-  gig_id: string; // matches backend format
-  status: "pending" | "confirmed" | "completed" | "cancelled";
-  scheduled_time: string; // ISO format from backend
-  created_at: string;
-  gig_details?: GigDetails; // The gig details from the enhanced response
-}
-
-// Get all bookings for the current user
-export async function getUserBookings() {
-  try {
-    // We're using the imported auth instance directly from firebase.js
-    const currentUser = auth.currentUser;
-
-    if (!currentUser) {
-      console.error("User not authenticated");
-      throw new Error("Authentication required");
-    }
-
-    // Get the token directly from Firebase
-    const token = await getIdToken(currentUser);
-
-    const response = await fetchWithRetry(`${API_URL}/by-current-user`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || "Failed to fetch bookings");
-    }
-
-    const bookings = await response.json();
-    return bookings as Booking[];
-  } catch (error) {
-    console.error("Failed to fetch user bookings:", error);
-
-    // Provide more specific error messages
-    if (error instanceof Error && error.message === "Authentication required") {
-      toast.error("Please sign in to view your bookings");
-    } else {
-      toast.error("Could not load your bookings");
-    }
-
-    return [];
-  }
-}
-
-// Create a new booking
-export async function createBooking(bookingData: {
+  id: number | string;
+  user_id: number | string;
   gig_id: string;
-  scheduled_time: string;
-}) {
-  try {
-    // We're using the imported auth instance directly from firebase.js
-    const currentUser = auth.currentUser;
+  status: "pending" | "confirmed" | "completed" | "cancelled";
+  created_at: string;
+  scheduled_time?: string;
+  duration?: number;
+  service?: string;
+  type?: string;
+  notes?: string;
+  // Optional nested data from backend
+  user?: {
+    id: number | string;
+    name?: string;
+    email?: string;
+  };
+  gig?: {
+    id: number | string;
+    title?: string;
+    hourly_rate?: string | number;
+  };
+}
 
-    if (!currentUser) {
-      console.error("User not authenticated");
-      throw new Error("Authentication required");
+export interface BookingCreate {
+  gig_id: string;
+  scheduled_time?: string;
+  notes?: string;
+}
+
+export interface BookingUpdate {
+  status?: string;
+  scheduled_time?: string;
+  notes?: string;
+}
+
+class BookingService {
+  private baseUrl: string;
+
+  constructor() {
+    this.baseUrl = BOOKING_SERVICE_BASE_URL;
+  }
+
+  private async authHeaders() {
+    if (auth.currentUser) {
+      const token = await getIdToken(auth.currentUser);
+      return { Authorization: `Bearer ${token}` };
+    }
+    return {} as Record<string, string>;
+  }
+
+  private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const url = `${this.baseUrl}${endpoint}`;
+    const defaultHeaders: HeadersInit = {
+      "Content-Type": "application/json",
+      ...(await this.authHeaders()),
+    };
+
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...defaultHeaders,
+        ...(options.headers || {}),
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorData}`);
     }
 
-    // Get the token directly from Firebase
-    const token = await getIdToken(currentUser);
+    if (response.status === 204) {
+      // Return a safe empty object cast for endpoints that return no content
+      return {} as T;
+    }
 
-    const response = await fetchWithRetry(`${API_URL}/`, {
+    return (await response.json()) as T;
+  }
+
+  // Queries used by multiple components
+  async getAllBookings(skip = 0, limit = 100): Promise<Booking[]> {
+    return this.makeRequest<Booking[]>(`/bookings/?skip=${skip}&limit=${limit}`);
+  }
+
+  async getBookingsByGig(gigId: string): Promise<Booking[]> {
+    return this.makeRequest<Booking[]>(`/bookings/gig/${gigId}`);
+  }
+
+  async getUserBookings(): Promise<Booking[]> {
+    return this.makeRequest<Booking[]>("/bookings/user");
+  }
+
+  async getBooking(bookingId: string): Promise<Booking> {
+    return this.makeRequest<Booking>(`/bookings/${bookingId}`);
+  }
+
+  async createBooking(booking: BookingCreate): Promise<Booking> {
+    return this.makeRequest<Booking>("/bookings/", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(bookingData),
+      body: JSON.stringify(booking),
     });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || "Failed to create booking");
-    }
-
-    const booking = await response.json();
-    return booking as Booking;
-  } catch (error) {
-    console.error("Failed to create booking:", error);
-    toast.error("Could not create booking");
-    throw error;
   }
-}
 
-// Get a specific booking by ID
-export async function getBookingById(bookingId: string) {
-  try {
-    // We're using the imported auth instance directly from firebase.js
-    const currentUser = auth.currentUser;
-
-    if (!currentUser) {
-      console.error("User not authenticated");
-      throw new Error("Authentication required");
-    }
-
-    // Get the token directly from Firebase
-    const token = await getIdToken(currentUser);
-
-    const response = await fetchWithRetry(`${API_URL}/${bookingId}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || "Failed to fetch booking");
-    }
-
-    const booking = await response.json();
-    return booking as Booking;
-  } catch (error) {
-    console.error(`Failed to fetch booking ${bookingId}:`, error);
-    toast.error("Could not load booking details");
-    return null;
-  }
-}
-
-// Update a booking's status
-export async function updateBookingStatus(bookingId: string, status: string) {
-  try {
-    // We're using the imported auth instance directly from firebase.js
-    const currentUser = auth.currentUser;
-
-    if (!currentUser) {
-      console.error("User not authenticated");
-      throw new Error("Authentication required");
-    }
-
-    // Get the token directly from Firebase
-    const token = await getIdToken(currentUser);
-
-    const response = await fetchWithRetry(`${API_URL}/${bookingId}`, {
+  async updateBooking(bookingId: string, updates: BookingUpdate): Promise<Booking> {
+    return this.makeRequest<Booking>(`/bookings/${bookingId}`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(updates),
     });
+  }
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || "Failed to update booking");
-    }
+  async deleteBooking(bookingId: string): Promise<void> {
+    await this.makeRequest<void>(`/bookings/${bookingId}`, { method: "DELETE" });
+  }
 
-    const booking = await response.json();
-    return booking as Booking;
-  } catch (error) {
-    console.error(`Failed to update booking ${bookingId}:`, error);
-    toast.error("Could not update booking status");
-    throw error;
+  async confirmBooking(bookingId: string): Promise<Booking> {
+    return this.updateBooking(bookingId, { status: "confirmed" });
+  }
+
+  async cancelBooking(bookingId: string): Promise<Booking> {
+    return this.updateBooking(bookingId, { status: "cancelled" });
+  }
+
+  async completeBooking(bookingId: string): Promise<Booking> {
+    return this.updateBooking(bookingId, { status: "completed" });
+  }
+
+  async healthCheck(): Promise<{ status: string; service: string; port: number }> {
+    return this.makeRequest<{ status: string; service: string; port: number }>("/health");
+  }
+
+  // Stats used by OverallExpertProfile and dashboards
+  async getExpertRevenue(expertId?: string): Promise<{
+    total_revenue: number;
+    monthly_revenue: number;
+    completed_bookings: number;
+    average_rating: number;
+  }> {
+    const endpoint = expertId
+      ? `/bookings/expert/${expertId}/revenue`
+      : "/bookings/my/revenue";
+    return this.makeRequest(endpoint);
+  }
+
+  async getExpertConsultations(expertId?: string): Promise<{
+    total_consultations: number;
+    monthly_consultations: number;
+    pending_consultations: number;
+    confirmed_consultations: number;
+  }> {
+    const endpoint = expertId
+      ? `/bookings/expert/${expertId}/consultations`
+      : "/bookings/my/consultations";
+    return this.makeRequest(endpoint);
+  }
+
+  async getRecentBookings(limit = 5): Promise<Booking[]> {
+    return this.makeRequest<Booking[]>(`/bookings/my/recent?limit=${limit}`);
   }
 }
 
-// Delete a booking
-export async function deleteBooking(bookingId: string) {
-  try {
-    // We're using the imported auth instance directly from firebase.js
-    const currentUser = auth.currentUser;
-
-    if (!currentUser) {
-      console.error("User not authenticated");
-      throw new Error("Authentication required");
-    }
-
-    // Get the token directly from Firebase
-    const token = await getIdToken(currentUser);
-
-    const response = await fetchWithRetry(`${API_URL}/${bookingId}`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || "Failed to delete booking");
-    }
-
-    return true;
-  } catch (error) {
-    console.error(`Failed to delete booking ${bookingId}:`, error);
-    toast.error("Could not delete booking");
-    throw error;
-  }
-}
-
-export const bookingService = {
-  getUserBookings,
-  createBooking,
-  getBookingById,
-  updateBookingStatus,
-  deleteBooking,
-};
+export const bookingService = new BookingService();
+export default bookingService;

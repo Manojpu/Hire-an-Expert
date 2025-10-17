@@ -1,21 +1,48 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.endpoints.reviews import router as reviews_router
 from app.db.database import engine
-from app.models import review as review_model
+from app.models import review, review_helpful
+from app.core.config import settings
 
-# Create tables if they don't exist
-try:
-    review_model.Base.metadata.create_all(bind=engine)
-except Exception as e:
-    print(f"Error creating tables: {e}")
+# Note: Tables are now created using Alembic migrations
+# Run: alembic upgrade head to create/update database tables
 
-app = FastAPI(title = "Review Service")
+app = FastAPI(
+    title="Review Service API",
+    description="A comprehensive review system for the Hire-an-Expert platform",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
 
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include routers
 app.include_router(reviews_router, prefix="/api/reviews", tags=["reviews"])
 
 @app.get("/")
 def read_root():
-    return {"service": "Review Service is running"}
+    return {
+        "service": "Review Service",
+        "status": "running",
+        "version": "1.0.0",
+        "description": "Comprehensive review system for Hire-an-Expert platform"
+    }
+
+@app.get("/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "service": "review-service"
+    }
 
 
 

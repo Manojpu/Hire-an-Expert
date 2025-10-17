@@ -4,7 +4,6 @@
 
 # Change to the script's directory
 cd "$(dirname "$0")"
-cd ..
 
 # Check if we need to install test dependencies
 if [ "$1" == "--install" ] || [ "$1" == "-i" ]; then
@@ -21,7 +20,7 @@ fi
 
 # Run the tests with coverage
 echo "Running tests: $test_path"
-python -m pytest --cov=app $test_path -v
+python3 -m pytest --cov=app $test_path -v
 
 # Return the exit code from pytest
 exit $?

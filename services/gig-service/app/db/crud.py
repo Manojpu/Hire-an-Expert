@@ -121,14 +121,22 @@ def get_gig(db: Session, gig_id: str) -> Optional[Gig]:
 def get_gigs_by_expert(db: Session, expert_id: str, skip: int = 0, limit: int = 100) -> list[type[Gig]]:
     """Retrieves all gigs created by a specific expert."""
     logger.info(f"Retrieving gigs for expert ID: {expert_id} with skip={skip}, limit={limit}")
-    gigs = db.query(Gig).filter(Gig.expert_id == expert_id).offset(skip).limit(limit).all()
+    gigs = (db.query(Gig)
+            .options(joinedload(Gig.category))
+            .filter(Gig.expert_id == expert_id)
+            .offset(skip)
+            .limit(limit)
+            .all())
     logger.info(f"Found {len(gigs)} gigs for expert ID: {expert_id}")
     return gigs
 
 def get_gig_by_expert(db: Session, expert_id: str) -> Optional[Gig]:
     """Retrieves a single gig by expert ID (since one expert can have only one gig)."""
     logger.info(f"Retrieving gig for expert ID: {expert_id}")
-    gig = db.query(Gig).filter(Gig.expert_id == expert_id).first()
+    gig = (db.query(Gig)
+           .options(joinedload(Gig.category))
+           .filter(Gig.expert_id == expert_id)
+           .first())
     if gig:
         logger.info(f"Found gig ID: {gig.id} for expert ID: {expert_id}")
     else:
