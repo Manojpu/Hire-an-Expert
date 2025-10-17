@@ -19,6 +19,8 @@ import { getGigById } from "@/services/gigService";
 import { userServiceAPI, ExpertData } from "@/services/userService";
 import { reviewAnalyticsService } from "@/services/reviewAnalyticsService";
 import { reviewServiceAPI, Review } from "@/services/reviewService";
+import { messageService } from "@/services/messageService";
+import { useAuth } from "@/context/auth/AuthContext";
 
 // Helper functions to handle different data structures
 const getCategoryIdentifier = (gig: any): string => {
@@ -67,6 +69,7 @@ const getCategoryName = (gig: any): string => {
 const GigView = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [gig, setGig] = useState<any>(null);
   const [expert, setExpert] = useState<ExpertData | null>(null);
   const [expertLoading, setExpertLoading] = useState(false);
@@ -76,6 +79,74 @@ const GigView = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsTotal, setReviewsTotal] = useState(0);
+  const [contactingExpert, setContactingExpert] = useState(false);
+  const [expertProfile, setExpertProfile] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchGig = async () => {
+      try {
+        setLoading(true);
+        if (!id) {
+          setError("No gig ID provided");
+          return;
+        }
+
+        console.log("Fetching gig with ID:", id);
+
+        // Try to fetch using mock data first
+        try {
+          const response = await getGigById(id);
+          console.log("Received gig data:", response);
+          setGig(response);
+          setError("");
+          return;
+        } catch (mockErr) {
+          console.log("Mock data not found, trying API call");
+          // If mock data fails, we'll try a direct API call as fallback
+        }
+
+        // Fallback to direct API call if mock data doesn't have this gig
+        const apiUrl = "http://localhost:8002/gigs/" + id;
+        console.log("Trying direct API call to:", apiUrl);
+        const response = await fetch(apiUrl);
+
+        if (!response.ok) {
+          throw new Error(`API returned status ${response.status}`);
+        }
+
+        const gigData = await response.json();
+        console.log("API returned gig data:", gigData);
+        setGig(gigData);
+        setError("");
+        
+        // Fetch expert profile if expert_id is available
+        if (gigData.expert_id) {
+          try {
+            console.log("Fetching expert profile for:", gigData.expert_id);
+            const expertResponse = await fetch(
+              `http://localhost:8006/users/firebase/${gigData.expert_id}`
+            );
+            if (expertResponse.ok) {
+              const expertData = await expertResponse.json();
+              console.log("Expert profile data:", expertData);
+              setExpertProfile(expertData);
+            }
+          } catch (expertErr) {
+            console.warn("Could not fetch expert profile:", expertErr);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching gig:", err);
+        setError("Failed to load service details. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchGig();
+    }
+  }, [id]);
 
   // Fetch expert data when gig is loaded
   useEffect(() => {
@@ -144,54 +215,61 @@ const GigView = () => {
     fetchReviews();
   }, [id]);
 
-  useEffect(() => {
-    const fetchGig = async () => {
-      try {
-        setLoading(true);
-        if (!id) {
-          setError("No gig ID provided");
-          return;
-        }
-
-        console.log("Fetching gig with ID:", id);
-
-        // Try to fetch using mock data first
-        try {
-          const response = await getGigById(id);
-          console.log("Received gig data:", response);
-          setGig(response);
-          setError("");
-          return;
-        } catch (mockErr) {
-          console.log("Mock data not found, trying API call");
-          // If mock data fails, we'll try a direct API call as fallback
-        }
-
-        // Fallback to direct API call if mock data doesn't have this gig
-        const apiUrl = "http://localhost:8002/gigs/" + id;
-        console.log("Trying direct API call to:", apiUrl);
-        const response = await fetch(apiUrl);
-
-        if (!response.ok) {
-          throw new Error(`API returned status ${response.status}`);
-        }
-
-        const gigData = await response.json();
-        console.log("API returned gig data:", gigData);
-        setGig(gigData);
-        setError("");
-      } catch (err) {
-        console.error("Error fetching gig:", err);
-        setError("Failed to load service details. Please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (id) {
-      fetchGig();
+  // Handler for contacting the expert
+  const handleContactExpert = async () => {
+    // Check if user is logged in
+    if (!user) {
+      alert("Please log in to contact the expert");
+      navigate("/login");
+      return;
     }
-  }, [id]);
+
+    // Check if gig has expert_id
+    if (!gig?.expert_id) {
+      alert("Expert information not available");
+      return;
+    }
+
+    // Check if user is trying to contact themselves
+    if (user.uid === gig.expert_id) {
+      alert("You cannot contact yourself");
+      return;
+    }
+
+    try {
+      setContactingExpert(true);
+      console.log(`💬 Initiating conversation with expert: ${gig.expert_id}`);
+
+      // Create or get existing conversation
+      const conversation = await messageService.getOrCreateConversation(
+        user.uid, // current user (sender)
+        gig.expert_id // expert (receiver)
+      );
+
+      console.log(`✅ Conversation ready: ${conversation.id}`);
+
+      // Get expert name from profile or gig title
+      const expertName = expertProfile?.name || 
+                        expertProfile?.email?.split('@')[0] || 
+                        gig.title || 
+                        "Expert";
+
+      // Navigate to messages page with the conversation ID as state
+      navigate("/messages", {
+        state: {
+          conversationId: conversation.id,
+          expertId: gig.expert_id,
+          expertName: expertName
+        },
+        replace: true // Use replace to prevent back button issues
+      });
+    } catch (error) {
+      console.error("❌ Error contacting expert:", error);
+      alert("Failed to start conversation. Please try again.");
+    } finally {
+      setContactingExpert(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -543,9 +621,24 @@ const GigView = () => {
                 >
                   Book Consultation
                 </Button>
-                <Button variant="outline" className="w-full" size="lg">
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  Contact Expert
+                <Button 
+                  variant="outline" 
+                  className="w-full" 
+                  size="lg"
+                  onClick={handleContactExpert}
+                  disabled={contactingExpert || !user}
+                >
+                  {contactingExpert ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2" />
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      <MessageCircle className="h-4 w-4 mr-2" />
+                      Contact Expert
+                    </>
+                  )}
                 </Button>
               </div>
             </CardContent>
