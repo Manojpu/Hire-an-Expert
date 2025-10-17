@@ -1,0 +1,18 @@
+{
+  "reviews": [
+    {
+      "gig_firebase_uid": "FLTM8lc9d1Magh8Fpgnsk2YKXl73",
+      "booking_reference": 0,
+      "buyer_email": "user@gmail.com",
+      "rating": 5,
+      "comment": "Great experience working with this expert!"
+    },
+    {
+      "gig_firebase_uid": "Zt8HiA4pbsMg5L6TC2u6A9dR9KM2",
+      "booking_reference": 1,
+      "buyer_email": "pubudu@user.com",
+      "rating": 4,
+      "comment": "Solid work and communication."
+    }
+  ]
+}

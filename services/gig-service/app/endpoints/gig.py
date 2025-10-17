@@ -61,8 +61,10 @@ async def create_new_gig(
                     logger.info(f"Updated gig {db_gig.id} with certificate paths")
             except Exception as e:
                 logger.error(f"Error saving certificate files: {str(e)}")
-                # Continue with gig creation even if file upload fails
-                # We can handle file uploads separately later if needed
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to upload certificate files",
+                ) from e
         
         # We need to fetch the complete gig with relationship data for the response
         # Because the crud.create_gig doesn't populate the relationship
@@ -314,8 +316,10 @@ async def update_my_gig(
                 logger.info(f"Updated gig {updated_gig.id} with certificate paths")
         except Exception as e:
             logger.error(f"Error saving certificate files during update: {str(e)}")
-            # Continue with gig update even if file upload fails
-            # We can handle file uploads separately later if needed
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to upload certificate files",
+            ) from e
 
     logger.info(f"Gig updated for current user ID: {expert_id}")
     return updated_gig
@@ -387,7 +391,7 @@ async def upload_certificates(
         
     except Exception as e:
         logger.error(f"Error uploading certificates: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to upload certificates: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to upload certificate files")
 
 
 @router.delete("/my/gig/certificates/{certificate_index}", response_model=schemas.GigPrivateResponse)
