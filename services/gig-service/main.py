@@ -9,8 +9,7 @@ import logging
 import time
 
 from app.db import session
-from app.endpoints import gig
-from app.endpoints import category
+from app.endpoints import gig, category, analytics
 
 # Configure logging
 logging.basicConfig(
@@ -75,6 +74,8 @@ def read_root():
 app.include_router(gig.router, prefix="/gigs", tags=["gigs"])
 
 app.include_router(category.router, prefix="/categories", tags=["categories"])
+
+app.include_router(analytics.router, prefix="/gigs", tags=["analytics"])
 
 # 🚀 Run migrations using lifespan pattern instead of deprecated on_event
 @contextlib.asynccontextmanager

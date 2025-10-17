@@ -121,25 +121,22 @@ def update_booking(db: Session, booking_id: str, booking_update: BookingUpdate) 
         if not db_booking:
             return None
 
-    # Update fields if provided
-    if booking_update.status is not None:
-        db_booking.status = booking_update.status
-    if booking_update.scheduled_time is not None:
-        db_booking.scheduled_time = booking_update.scheduled_time
-    if booking_update.duration is not None:
-        db_booking.duration = booking_update.duration
-    if booking_update.service is not None:
-        db_booking.service = booking_update.service
-    if booking_update.type is not None:
-        db_booking.type = booking_update.type
-    if booking_update.notes is not None:
-        db_booking.notes = booking_update.notes
+        # Store previous status for event publishing
+        previous_status = db_booking.status
 
         # Update fields if provided
         if booking_update.status is not None:
             db_booking.status = booking_update.status
         if booking_update.scheduled_time is not None:
             db_booking.scheduled_time = booking_update.scheduled_time
+        if booking_update.duration is not None:
+            db_booking.duration = booking_update.duration
+        if booking_update.service is not None:
+            db_booking.service = booking_update.service
+        if booking_update.type is not None:
+            db_booking.type = booking_update.type
+        if booking_update.notes is not None:
+            db_booking.notes = booking_update.notes
 
         db.commit()
         db.refresh(db_booking)

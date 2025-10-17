@@ -38,6 +38,7 @@ class Booking(Base):
     status = Column(Enum(BookingStatus), nullable=False, default=BookingStatus.PENDING)
     scheduled_time = Column(DateTime(timezone=True), nullable=True)
     duration = Column(Integer, nullable=True, default=30)  # Duration in minutes
+    amount = Column(Numeric(10, 2), nullable=True)  # Total amount/subtotal for the booking
     service = Column(String(100), nullable=True, default='consultation')
     type = Column(String(100), nullable=True, default='standard')
     notes = Column(Text, nullable=True)

@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Star, Users, Clock, DollarSign, Calendar, TrendingUp, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { bookingService, Booking } from '@/services/bookingService';
+import { gigAnalyticsService } from '@/services/gigAnalyticsService';
+import { reviewAnalyticsService } from '@/services/reviewAnalyticsService';
 
 interface GigOverviewProps {
   gig: ExpertGig;
@@ -18,6 +20,7 @@ const GigOverview: React.FC<GigOverviewProps> = ({ gig }) => {
   const [bookingsLoading, setBookingsLoading] = useState(true);
   const [bookingsError, setBookingsError] = useState<string | null>(null);
   const [todayBookings, setTodayBookings] = useState<Booking[]>([]);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [gigStats, setGigStats] = useState({
     todayBookings: 0,
     weeklyBookings: 0,
@@ -26,7 +29,9 @@ const GigOverview: React.FC<GigOverviewProps> = ({ gig }) => {
     pendingRequests: 0,
     avgResponseTime: gig.response_time || '< 24 hours',
     rating: gig.rating || 0,
-    totalReviews: gig.total_reviews || 0
+    totalReviews: gig.total_reviews || 0,
+    weeklyGrowth: 0,
+    monthlyGrowth: 0
   });
 
   // Extended gig type to handle category object
@@ -80,23 +85,58 @@ const GigOverview: React.FC<GigOverviewProps> = ({ gig }) => {
     }
   }, [gig?.id]);
 
+  // Function to load analytics data from backend
+  const loadAnalytics = useCallback(async () => {
+    if (!gig?.id) return;
+    
+    try {
+      setAnalyticsLoading(true);
+      console.log('Loading analytics for gig:', gig.id);
+      
+      // Fetch analytics data and rating data in parallel
+      const [analyticsData, ratingData] = await Promise.all([
+        gigAnalyticsService.fetchGigAnalytics(gig.id, 'month'),
+        reviewAnalyticsService.fetchGigRatingAnalytics(gig.id)
+      ]);
+      
+      console.log('Analytics data loaded:', analyticsData);
+      console.log('Rating data loaded:', ratingData);
+      
+      // Update stats with real data
+      setGigStats(prev => ({
+        ...prev,
+        weeklyBookings: analyticsData.bookings.thisMonth || 0, // Using this month's bookings
+        monthlyRevenue: analyticsData.revenue.month || 0,
+        totalConsultations: analyticsData.bookings.total || gig.total_consultations || 0,
+        weeklyGrowth: analyticsData.revenue.growth.weekly || 0,
+        monthlyGrowth: analyticsData.revenue.growth.monthly || 0,
+        rating: ratingData.average_rating || 0,
+        totalReviews: ratingData.total_reviews || 0,
+        avgResponseTime: analyticsData.performance.responseTime || gig.response_time || '< 24 hours'
+      }));
+      
+    } catch (err) {
+      console.error('Error loading analytics:', err);
+      // Keep using gig data if analytics fails
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, [gig?.id, gig.total_consultations, gig.response_time]);
+
   useEffect(() => {
-    // Load real statistics and bookings from the backend
+    // Load real statistics from gig data initially
     setGigStats(prev => ({
       ...prev,
-      // Use real data from the gig
       totalConsultations: gig.total_consultations || 0,
       avgResponseTime: gig.response_time || '< 24 hours',
       rating: gig.rating || 0,
-      totalReviews: gig.total_reviews || 0,
-      // Mock data for fields we don't have in the API yet
-      weeklyBookings: Math.floor(Math.random() * 20),
-      monthlyRevenue: Math.floor(Math.random() * 50000)
+      totalReviews: gig.total_reviews || 0
     }));
 
-    // Load today's bookings
+    // Load today's bookings and analytics data
     loadTodayBookings();
-  }, [gig, loadTodayBookings]);
+    loadAnalytics();
+  }, [gig, loadTodayBookings, loadAnalytics]);
 
   // Transform API booking data to match BookingCard component expectations
   const transformedTodayBookings = todayBookings.map(booking => {
@@ -224,26 +264,26 @@ const GigOverview: React.FC<GigOverviewProps> = ({ gig }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard 
           title="Today's Bookings" 
-          value={gigStats.todayBookings.toString()} 
+          value={analyticsLoading ? '...' : gigStats.todayBookings.toString()} 
           icon={<Calendar className="h-4 w-4" />}
         />
         <StatsCard 
-          title="This Week" 
-          value={gigStats.weeklyBookings.toString()} 
-          change="+15%" 
-          changeType="positive"
+          title="This Month" 
+          value={analyticsLoading ? '...' : gigStats.weeklyBookings.toString()} 
+          change={analyticsLoading ? undefined : gigStats.weeklyGrowth >= 0 ? `+${gigStats.weeklyGrowth}%` : `${gigStats.weeklyGrowth}%`}
+          changeType={gigStats.weeklyGrowth >= 0 ? "positive" : "negative"}
           icon={<TrendingUp className="h-4 w-4" />}
         />
         <StatsCard 
           title="Monthly Revenue" 
-          value={`Rs. ${gigStats.monthlyRevenue.toLocaleString()}`} 
-          change="+8%" 
-          changeType="positive"
+          value={analyticsLoading ? '...' : `Rs. ${gigStats.monthlyRevenue.toLocaleString()}`} 
+          change={analyticsLoading ? undefined : gigStats.monthlyGrowth >= 0 ? `+${gigStats.monthlyGrowth}%` : `${gigStats.monthlyGrowth}%`}
+          changeType={gigStats.monthlyGrowth >= 0 ? "positive" : "negative"}
           icon={<DollarSign className="h-4 w-4" />}
         />
         <StatsCard 
           title="Total Consultations" 
-          value={gigStats.totalConsultations.toString()}
+          value={analyticsLoading ? '...' : gigStats.totalConsultations.toString()}
           icon={<Users className="h-4 w-4" />}
         />
       </div>

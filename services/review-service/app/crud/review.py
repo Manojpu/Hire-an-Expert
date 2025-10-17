@@ -1,3 +1,4 @@
+import logging
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, and_
 from typing import Optional, List, Tuple
@@ -5,8 +6,11 @@ from app.models.review import Review
 from app.models.review_helpful import ReviewHelpful
 from app.schemas.review import ReviewCreate, ReviewUpdate, ReviewStats
 
+logger = logging.getLogger(__name__)
+
 # Create operations
 def create_review(db: Session, review: ReviewCreate, buyer_id: str, seller_id: str) -> Review:
+    logger.info(f"Creating review in DB for booking {review.booking_id}")
     db_review = Review(
         gig_id=review.gig_id,
         booking_id=review.booking_id,
@@ -15,9 +19,18 @@ def create_review(db: Session, review: ReviewCreate, buyer_id: str, seller_id: s
         rating=review.rating,
         comment=review.comment
     )
-    db.add(db_review)
-    db.commit()
-    db.refresh(db_review)
+    try:
+        db.add(db_review)
+        logger.info("Review added to session.")
+        db.commit()
+        logger.info("DB transaction committed.")
+        db.refresh(db_review)
+        logger.info(f"Review refreshed with ID: {db_review.id}")
+    except Exception as e:
+        logger.error(f"DB Error on review create: {e}")
+        db.rollback()
+        logger.info("DB transaction rolled back.")
+        raise
     return db_review
 
 # Read operations

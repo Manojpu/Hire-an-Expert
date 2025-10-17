@@ -149,7 +149,7 @@ const AppRoutes = () => (
         <Route path="gig/:id/book" element={<BookConsultation />} />
         <Route path="payment-success" element={<PaymentSuccess />} />
         <Route path="how-it-works" element={<HowItWorksPage />} />
-        <Route path="expert/:slug" element={<Expert />} />
+        <Route path="expert/:slug" element={<ExpertProfile />} />
         <Route path="book/:expertId" element={<Book />} />
         <Route
           path="chat/:conversationId"
@@ -176,7 +176,8 @@ const AppRoutes = () => (
           }
         />
         <Route path="create-gig" element={<BecomeExpert />} />
-        <Route path="expert-profile" element={<ExpertProfile />} />
+        <Route path="expert-profile" element={<OverallExpertProfile />} />
+        <Route path="expert/:id" element={<ExpertProfile />} />
         <Route
           path="my-bookings"
           element={
@@ -193,8 +194,9 @@ const AppRoutes = () => (
             </ProtectedRoute>
           }
         />
-        <Route path="experts" element={<Experts />} />
-        <Route path="test-booking-service" element={<BookingServiceTest />} />
+  <Route path="experts" element={<Experts />} />
+  {/* TODO: Re-enable when BookingServiceTest component exists */}
+  {/* <Route path="test-booking-service" element={<BookingServiceTest />} /> */}
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

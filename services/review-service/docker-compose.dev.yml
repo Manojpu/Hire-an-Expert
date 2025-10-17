@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: review-db-dev
+    environment:
+      POSTGRES_USER: review_user
+      POSTGRES_PASSWORD: review_pass_123
+      POSTGRES_DB: review_service
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "5435:5432"  # Use different port to avoid conflicts with other services
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U review_user -d review_service"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - review-network
+    restart: unless-stopped
+
+  review-service:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: hire-expert-review-dev
+    ports:
+      - "8005:8005"
+    env_file:
+      - .env
+    environment:
+      - INTERNAL_JWT_SECRET_KEY=docker-dev-secret-key-change-in-production
+      - ALGORITHM=HS256
+      # Use host.docker.internal to connect to other services running on host
+      - BOOKING_SERVICE_URL=http://host.docker.internal:8003
+      - GIG_SERVICE_URL=http://host.docker.internal:8002
+      - USER_SERVICE_URL=http://host.docker.internal:8001
+      - CORS_ORIGINS=["http://localhost:3000", "http://localhost:5173", "http://localhost:3001", "http://localhost:3002"]
+      - DEBUG=true
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app:delegated  # Mount source code for hot reload
+      - ./serviceAccountKey.json:/app/serviceAccountKey.json:ro  # Mount Firebase key
+      - /app/__pycache__  # Exclude pycache
+    networks:
+      - review-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Allow connection to host services
+    restart: unless-stopped
+    command: >
+      sh -c "
+        echo '================================' &&
+        echo 'Review Service Starting...' &&
+        echo '================================' &&
+        echo 'Waiting for database...' &&
+        sleep 10 &&
+        echo 'Running database migrations...' &&
+        alembic upgrade head &&
+        echo '================================' &&
+        echo 'Starting Review Service on port 8005' &&
+        echo 'Hot reload enabled!' &&
+        echo '================================' &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8005 --reload --log-level info
+      "
+
+networks:
+  review-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
