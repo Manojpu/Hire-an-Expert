@@ -7,6 +7,14 @@ export interface Message {
   senderId: string;
   receiverId: string;
   conversationId: string;
+  // File attachment fields
+  type?: 'text' | 'image' | 'document' | 'voice';
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
+  duration?: number;
+  thumbnailUrl?: string;
 }
 
 export interface Chat {
