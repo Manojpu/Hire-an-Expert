@@ -194,7 +194,6 @@ const AppRoutes = () => (
           }
         />
         <Route path="experts" element={<Experts />} />
-        <Route path="test-booking-service" element={<BookingServiceTest />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
