@@ -3,6 +3,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 const Message = require("./models/messageModel");
 const Conversation = require("./models/conversationModel");
+const messageController = require("./controllers/messageContoller");
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -12,10 +13,19 @@ const io = new Server(server, {
   },
 });
 
+// Helper function to check if user is viewing a specific conversation
+const isUserViewingConversation = (userId, conversationId) => {
+  return currentlyViewingConversation.get(userId) === conversationId;
+};
+
+// Pass Socket.IO instance and helper functions to message controller
+messageController.setSocketIO(io, isUserViewingConversation);
+
 // Store active users and their typing status
 const activeUsers = new Map(); // socketId -> userId
 const typingUsers = new Map();
 const activeConversations = new Map(); // conversationId -> Set of userIds
+const currentlyViewingConversation = new Map(); // userId -> conversationId (currently open chat)
 
 io.on("connection", (socket) => {
   console.log("🔌 A user connected: " + socket.id);
@@ -27,10 +37,41 @@ io.on("connection", (socket) => {
     console.log(`User registered: ${userId}`);
   });
 
+  // Join all user's conversations for global updates
+  socket.on("joinAllConversations", async (userId) => {
+    try {
+      console.log(`👥 User ${userId} joining all their conversations...`);
+      
+      // Find all conversations for this user
+      const conversations = await Conversation.find({
+        $or: [
+          { senderId: userId },
+          { receiverId: userId }
+        ]
+      });
+      
+      // Join each conversation room
+      conversations.forEach(conv => {
+        socket.join(conv._id.toString());
+        console.log(`  ✅ Joined room: ${conv._id}`);
+      });
+      
+      console.log(`✨ User ${userId} joined ${conversations.length} conversation rooms`);
+    } catch (error) {
+      console.error('Error joining all conversations:', error);
+    }
+  });
+
   socket.on("joinRoom", (conversationId) => {
     console.log(`User ${socket.userId} joining room: ${conversationId}`);
     socket.join(conversationId);
     socket.currentRoom = conversationId;
+    
+    // Track which conversation this user is currently viewing
+    if (socket.userId) {
+      currentlyViewingConversation.set(socket.userId, conversationId);
+      console.log(`👁️  User ${socket.userId} is now viewing conversation: ${conversationId}`);
+    }
     
     // Track active users in conversation
     if (!activeConversations.has(conversationId)) {
@@ -69,37 +110,45 @@ io.on("connection", (socket) => {
       await message.save();
       console.log("Message saved:", message);
 
-      // Check if both users are active in the conversation
-      const activeUsersInConversation = activeConversations.get(conversationId) || new Set();
-      const bothUsersActive = activeUsersInConversation.has(senderId) && activeUsersInConversation.has(receiverId);
+      // Check if receiver is currently viewing this conversation
+      const isReceiverViewing = currentlyViewingConversation.get(receiverId) === conversationId;
+      console.log(`👁️  Receiver viewing status: ${isReceiverViewing ? 'VIEWING' : 'NOT VIEWING'} this conversation`);
       
-      // Update conversation - only increment unread count if receiver is not active in chat
-      const updateData = {
-        lastMessage: text,
-        lastMessageId: message._id,
-        updatedAt: Date.now(),
-      };
-
-      if (!bothUsersActive) {
-        // Increment unread count only if receiver is not actively viewing the conversation
-        const conversation = await Conversation.findById(conversationId);
-        if (conversation) {
-          if (conversation.senderId === receiverId) {
-            updateData['unreadCount.senderId'] = (conversation.unreadCount?.senderId || 0) + 1;
-          } else {
-            updateData['unreadCount.receiverId'] = (conversation.unreadCount?.receiverId || 0) + 1;
-          }
-        }
+      // Update conversation - only increment unread count if receiver is not viewing
+      const conversation = await Conversation.findById(conversationId);
+      if (!conversation.unreadCount) {
+        conversation.unreadCount = { senderId: 0, receiverId: 0 };
       }
-
-      await Conversation.findByIdAndUpdate(conversationId, updateData);
+      
+      if (!isReceiverViewing) {
+        // Increment unread count only if receiver is not actively viewing the conversation
+        if (conversation.senderId.toString() === receiverId) {
+          conversation.unreadCount.senderId = (conversation.unreadCount.senderId || 0) + 1;
+          console.log(`📊 Incremented unread count for senderId: ${conversation.unreadCount.senderId}`);
+        } else {
+          conversation.unreadCount.receiverId = (conversation.unreadCount.receiverId || 0) + 1;
+          console.log(`📊 Incremented unread count for receiverId: ${conversation.unreadCount.receiverId}`);
+        }
+      } else {
+        console.log(`👁️  Receiver is viewing conversation, not incrementing unread count`);
+      }
+      
+      conversation.lastMessage = text;
+      conversation.lastMessageId = message._id;
+      conversation.updatedAt = Date.now();
+      await conversation.save();
 
       // Send message to all users in the room
       io.to(conversationId).emit("receiveMessage", message);
       
       // Send conversation update to all participants
-      const updatedConversation = await Conversation.findById(conversationId);
-      io.to(conversationId).emit("conversationUpdated", updatedConversation);
+      console.log(`📤 Emitting conversationUpdated for text message:`, {
+        _id: conversation._id,
+        lastMessage: conversation.lastMessage,
+        unreadCount: conversation.unreadCount,
+        updatedAt: conversation.updatedAt
+      });
+      io.to(conversationId).emit("conversationUpdated", conversation);
 
     } catch (error) {
       console.error("Error sending message:", error);
@@ -196,6 +245,12 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log("🔌 A user disconnected");
+    
+    // Clean up currently viewing conversation tracking
+    if (socket.userId) {
+      currentlyViewingConversation.delete(socket.userId);
+      console.log(`👁️  User ${socket.userId} no longer viewing any conversation`);
+    }
     
     // Remove user from active conversations
     if (socket.userId && socket.currentRoom) {

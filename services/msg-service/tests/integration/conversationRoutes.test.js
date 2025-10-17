@@ -110,7 +110,7 @@ describe('Conversation Routes Integration Tests', () => {
       await mongoose.connection.close();
 
       const response = await request(app)
-        .get('/api/conversations/user123')
+        .get('/api/conversations/user/user123')
         .expect(500);
 
       expect(response.body).toHaveProperty('error');
@@ -314,7 +314,7 @@ describe('Conversation Routes Integration Tests', () => {
   describe('CORS and Headers', () => {
     test('should handle CORS preflight requests', async () => {
       const response = await request(app)
-        .options('/api/conversations/user123')
+        .options('/api/conversations/user/user123')
         .set('Origin', 'http://localhost:3000')
         .set('Access-Control-Request-Method', 'GET')
         .expect(204);

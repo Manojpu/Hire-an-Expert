@@ -19,15 +19,22 @@ export const ChatConversation = ({ chat, onConversationUpdate }: ChatConversatio
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isUploading, setIsUploading] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
+    let unsubscribeReceiveMessage: (() => void) | undefined;
+    let unsubscribeConversationUpdate: (() => void) | undefined;
+    let unsubscribeUserTyping: (() => void) | undefined;
+    let unsubscribeMessagesRead: (() => void) | undefined;
+    
     if (chat.id && user?.uid) {
       loadMessages();
       joinRoom();
       
       // Listen for real-time message updates
-      messageService.onReceiveMessage((message) => {
+      unsubscribeReceiveMessage = messageService.onReceiveMessage((message) => {
         if (message.conversationId === chat.id) {
           const formattedMessage: Message = {
             id: message._id,
@@ -40,42 +47,84 @@ export const ChatConversation = ({ chat, onConversationUpdate }: ChatConversatio
             status: message.status,
             senderId: message.senderId,
             receiverId: message.receiverId,
-            conversationId: message.conversationId
+            conversationId: message.conversationId,
+            type: message.type,
+            fileUrl: message.fileUrl,
+            fileName: message.fileName,
+            fileSize: message.fileSize,
+            mimeType: message.mimeType,
+            duration: message.duration,
+            thumbnailUrl: message.thumbnailUrl
           };
           
-          // Simple duplicate check by message ID
+          // Duplicate check by message ID OR by timestamp + senderId (for optimistic updates)
           setMessages(prev => {
-            const exists = prev.find(msg => msg.id === message._id);
-            if (exists) {
+            // Check if message already exists by ID
+            const existsById = prev.find(msg => msg.id === message._id);
+            if (existsById) {
               return prev; // Message already exists, don't add duplicate
             }
+            
+            // Check if this is an optimistic message that was already added
+            // (within last 5 seconds, same sender, same conversation, same type)
+            const recentOptimistic = prev.find(msg => 
+              msg.senderId === message.senderId &&
+              msg.conversationId === message.conversationId &&
+              msg.type === message.type &&
+              msg.fileUrl === message.fileUrl &&
+              msg.id.toString().startsWith('temp-')
+            );
+            
+            if (recentOptimistic) {
+              // Replace the optimistic message with the real one
+              return prev.map(msg => 
+                msg.id === recentOptimistic.id 
+                  ? formattedMessage 
+                  : msg
+              );
+            }
+            
+            // New message, add it
             return [...prev, formattedMessage];
           });
+          
+          // Auto-mark messages as read if I received a message (not sent by me)
+          if (message.senderId !== user.uid) {
+            console.log('📬 Received message from other user, marking as read');
+            messageService.markMessagesAsRead(chat.id, user.uid);
+          }
         }
       });
 
       // Listen for conversation updates
-      messageService.onConversationUpdate((conversation) => {
+      unsubscribeConversationUpdate = messageService.onConversationUpdate((conversation) => {
         if (conversation._id === chat.id && onConversationUpdate) {
           onConversationUpdate(conversation);
         }
       });
 
       // Listen for typing indicators
-      messageService.onUserTyping((data) => {
+      unsubscribeUserTyping = messageService.onUserTyping((data) => {
         if (data.userId !== user.uid) {
           setIsTyping(data.isTyping);
         }
       });
 
-      // Listen for message status updates
-      messageService.onMessagesRead((data) => {
+      // Listen for message status updates (real-time read receipts)
+      unsubscribeMessagesRead = messageService.onMessagesRead((data) => {
+        console.log('📖 Messages read update received:', data);
+        
         if (data.conversationId === chat.id) {
-          setMessages(prev => prev.map(msg => 
-            msg.sender === 'me' && msg.status !== 'read' 
-              ? { ...msg, status: 'read' } 
-              : msg
-          ));
+          // Update messages status to 'read' for messages sent by current user
+          // that were read by the other user
+          setMessages(prev => prev.map(msg => {
+            // Only update messages sent by me (current user)
+            if (msg.senderId === user.uid && msg.status !== 'read') {
+              console.log(`✅ Updating message ${msg.id} to 'read'`);
+              return { ...msg, status: 'read' };
+            }
+            return msg;
+          }));
         }
       });
 
@@ -84,7 +133,11 @@ export const ChatConversation = ({ chat, onConversationUpdate }: ChatConversatio
     }
 
     return () => {
-      messageService.cleanup();
+      // Cleanup specific listeners for this component
+      unsubscribeReceiveMessage?.();
+      unsubscribeConversationUpdate?.();
+      unsubscribeUserTyping?.();
+      unsubscribeMessagesRead?.();
     };
   }, [chat.id, user?.uid]);
 
@@ -103,7 +156,14 @@ export const ChatConversation = ({ chat, onConversationUpdate }: ChatConversatio
         status: msg.status,
         senderId: msg.senderId,
         receiverId: msg.receiverId,
-        conversationId: msg.conversationId
+        conversationId: msg.conversationId,
+        type: msg.type,
+        fileUrl: msg.fileUrl,
+        fileName: msg.fileName,
+        fileSize: msg.fileSize,
+        mimeType: msg.mimeType,
+        duration: msg.duration,
+        thumbnailUrl: msg.thumbnailUrl
       }));
       setMessages(formattedMessages);
     } catch (error) {
@@ -145,6 +205,84 @@ export const ChatConversation = ({ chat, onConversationUpdate }: ChatConversatio
   const handleStopTyping = () => {
     if (user?.uid) {
       messageService.stopTyping(chat.id, user.uid);
+    }
+  };
+
+  const handleSendFile = async (file: File, type: 'image' | 'document' | 'voice') => {
+    if (!user?.uid) return;
+
+    try {
+      setIsUploading(true);
+      setUploadProgress(0);
+
+      // Upload file to Cloudinary
+      const uploadResult = await messageService.uploadFile(file, (progress) => {
+        setUploadProgress(progress);
+      });
+
+      // Create optimistic message
+      const optimisticMessageId = `temp-${Date.now()}`;
+      const optimisticMessage: Message = {
+        id: optimisticMessageId,
+        text: '',
+        sender: 'me',
+        timestamp: new Date().toLocaleTimeString([], { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }),
+        status: 'sent',
+        senderId: user.uid,
+        receiverId: chat.senderId === user.uid ? chat.receiverId : chat.senderId,
+        conversationId: chat.id,
+        type,
+        fileUrl: uploadResult.fileUrl,
+        fileName: uploadResult.fileName,
+        fileSize: uploadResult.fileSize,
+        mimeType: uploadResult.mimeType,
+        duration: uploadResult.duration,
+        thumbnailUrl: uploadResult.thumbnailUrl,
+      };
+
+      // Add optimistic message to UI immediately
+      setMessages(prev => [...prev, optimisticMessage]);
+
+      // Send message with file attachment
+      const savedMessage = await messageService.sendMessageWithFile({
+        senderId: user.uid,
+        receiverId: chat.senderId === user.uid ? chat.receiverId : chat.senderId,
+        conversationId: chat.id,
+        type,
+        fileUrl: uploadResult.fileUrl,
+        fileName: uploadResult.fileName,
+        fileSize: uploadResult.fileSize,
+        mimeType: uploadResult.mimeType,
+        duration: uploadResult.duration,
+        thumbnailUrl: uploadResult.thumbnailUrl,
+      });
+
+      // Replace optimistic message with real message from server
+      setMessages(prev => prev.map(msg => 
+        msg.id === optimisticMessageId 
+          ? {
+              ...msg,
+              id: savedMessage._id,
+              status: savedMessage.status || 'sent', // Use backend status
+            }
+          : msg
+      ));
+
+      setUploadProgress(100);
+      
+      // Reset upload state after a short delay
+      setTimeout(() => {
+        setIsUploading(false);
+        setUploadProgress(0);
+      }, 500);
+    } catch (error) {
+      console.error('Failed to send file:', error);
+      setIsUploading(false);
+      setUploadProgress(0);
+      // You could show an error toast here if needed
     }
   };
 
@@ -209,8 +347,11 @@ export const ChatConversation = ({ chat, onConversationUpdate }: ChatConversatio
       {/* Input */}
       <MessageInput 
         onSendMessage={handleSendMessage}
+        onSendFile={handleSendFile}
         onStartTyping={handleStartTyping}
         onStopTyping={handleStopTyping}
+        disabled={isUploading}
+        uploadProgress={uploadProgress}
       />
     </div>
   );

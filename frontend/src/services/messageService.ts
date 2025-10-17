@@ -29,8 +29,11 @@ class MessageService {
     this.socket = io(this.socketURL);
 
     this.socket.on('connect', () => {
-      console.log('Connected to message service');
+      console.log('✅ Connected to message service');
       this.socket?.emit('registerUser', userId);
+      // Join all conversations for real-time updates across all chats
+      this.socket?.emit('joinAllConversations', userId);
+      console.log('📬 Joined all conversations for real-time updates');
     });
 
     this.socket.on('disconnect', () => {
@@ -120,6 +123,109 @@ class MessageService {
     }
   }
 
+  // File upload with progress tracking
+  async uploadFile(
+    file: File, 
+    onProgress?: (progress: number) => void
+  ): Promise<{
+    fileUrl: string;
+    fileName: string;
+    fileSize: number;
+    mimeType: string;
+    thumbnailUrl?: string;
+    duration?: number;
+  }> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
+      const idToken = await getIdToken(user);
+
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        // Track upload progress
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable && onProgress) {
+            const percentComplete = (e.loaded / e.total) * 100;
+            onProgress(Math.round(percentComplete));
+          }
+        });
+
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            const response = JSON.parse(xhr.responseText);
+            resolve({
+              fileUrl: response.fileUrl,
+              fileName: response.fileName,
+              fileSize: response.fileSize,
+              mimeType: response.mimeType,
+              thumbnailUrl: response.thumbnailUrl,
+              duration: response.duration,
+            });
+          } else {
+            reject(new Error(`Upload failed with status ${xhr.status}`));
+          }
+        });
+
+        xhr.addEventListener('error', () => {
+          reject(new Error('Upload failed'));
+        });
+
+        xhr.addEventListener('abort', () => {
+          reject(new Error('Upload cancelled'));
+        });
+
+        xhr.open('POST', `${this.baseURL}/api/upload/upload`);
+        xhr.setRequestHeader('Authorization', `Bearer ${idToken}`);
+        xhr.send(formData);
+      });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw error;
+    }
+  }
+
+  // Send message with file attachment
+  async sendMessageWithFile(messageData: {
+    senderId: string;
+    receiverId: string;
+    text?: string;
+    conversationId: string;
+    type: 'image' | 'document' | 'voice';
+    fileUrl: string;
+    fileName?: string;
+    fileSize?: number;
+    mimeType?: string;
+    duration?: number;
+    thumbnailUrl?: string;
+  }) {
+    try {
+      const headers = await this.getAuthHeaders();
+      const response = await fetch(`${this.baseURL}/api/message/`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(messageData),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Send message error:', response.status, errorText);
+        throw new Error(`Failed to send message: ${response.status} - ${errorText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error sending message with file:', error);
+      throw error;
+    }
+  }
+
   // Socket.IO event handlers
   joinRoom(conversationId: string) {
     this.socket?.emit('joinRoom', conversationId);
@@ -161,21 +267,26 @@ class MessageService {
     this.socket?.emit('stopTyping', { conversationId, userId });
   }
 
-  // Event listeners
+  // Event listeners - Note: Multiple calls will add multiple listeners
+  // This is intentional to allow different components to listen independently
   onReceiveMessage(callback: (message: any) => void) {
     this.socket?.on('receiveMessage', callback);
+    return () => this.socket?.off('receiveMessage', callback);
   }
 
   onConversationUpdate(callback: (conversation: any) => void) {
     this.socket?.on('conversationUpdated', callback);
+    return () => this.socket?.off('conversationUpdated', callback);
   }
 
   onUserTyping(callback: (data: { userId: string; isTyping: boolean }) => void) {
     this.socket?.on('userTyping', callback);
+    return () => this.socket?.off('userTyping', callback);
   }
 
   onMessagesRead(callback: (data: { conversationId: string; readBy: string }) => void) {
     this.socket?.on('messagesReadUpdate', callback);
+    return () => this.socket?.off('messagesReadUpdate', callback);
   }
 
   onActiveUsersUpdate(callback: (data: { conversationId: string; activeUsers: string[] }) => void) {
@@ -183,12 +294,18 @@ class MessageService {
   }
 
   cleanup() {
+    // Note: We don't remove ALL listeners here because multiple components may be using them
+    // Each component should manage its own specific listeners
+    console.log('⚠️  cleanup() called - listeners should be managed per component');
+  }
+
+  removeListener(event: string, callback?: (...args: any[]) => void) {
     if (this.socket) {
-      this.socket.off('receiveMessage');
-      this.socket.off('conversationUpdated');
-      this.socket.off('userTyping');
-      this.socket.off('messagesReadUpdate');
-      this.socket.off('activeUsersUpdate');
+      if (callback) {
+        this.socket.off(event, callback);
+      } else {
+        this.socket.off(event);
+      }
     }
   }
 }

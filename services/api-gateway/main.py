@@ -213,11 +213,16 @@ async def proxy_payments(request):
 
 async def proxy_messages(request):
     path = request.path_params.get("path", "")
-    return await proxy_request(request, services["message"], f"/api/message/{path}")
+    return await proxy_request(request, services["message"], f"/api/message/{path}", auth_required=False)
 
 async def proxy_conversations(request):
     path = request.path_params.get("path", "")
-    return await proxy_request(request, services["message"], f"/api/conversations/{path}")
+    return await proxy_request(request, services["message"], f"/api/conversations/{path}", auth_required=False)
+
+async def proxy_upload(request):
+    """Proxy for file upload endpoints - message service"""
+    path = request.path_params.get("path", "")
+    return await proxy_request(request, services["message"], f"/api/upload/{path}", auth_required=False)
 
 async def proxy_rag(request):
     """Proxy for RAG/AI Chat endpoints - admin service"""
@@ -307,6 +312,7 @@ routes = [
     Route("/api/payments/{path:path}", proxy_payments, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/message/{path:path}", proxy_messages, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/conversations/{path:path}", proxy_conversations, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
+    Route("/api/upload/{path:path}", proxy_upload, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/reviews/{path:path}", proxy_reviews, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/rag/{path:path}", proxy_rag, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/{path:path}", catch_all, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
