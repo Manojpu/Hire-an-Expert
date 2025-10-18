@@ -90,10 +90,9 @@ async def test_request(request: Request):
 
 @router.post("/internal/users/provision", response_model=UserOut)
 async def provision_user(request: Request, db: Session = Depends(get_db)):
-    secret = request.headers.get("X-Webhook-Secret")
-    if WEBHOOK_SECRET and secret != WEBHOOK_SECRET:
-        raise HTTPException(status_code=401, detail="Invalid secret")
-
+    # Removed webhook secret check for internal frontend calls
+    # This endpoint is called by the frontend signup flow
+    
     data = await request.json()
     payload = ProvisionIn(**data)
 

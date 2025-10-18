@@ -23,22 +23,39 @@ class MessageService {
 
   connect(userId: string) {
     if (this.socket?.connected) {
+      console.log('🔌 Socket already connected, rejoining rooms...');
+      this.socket?.emit('registerUser', userId);
+      this.socket?.emit('joinAllConversations', userId);
       return;
     }
 
-    this.socket = io(this.socketURL);
-
-    this.socket.on('connect', () => {
-      console.log('Connected to message service');
-      this.socket?.emit('registerUser', userId);
+    console.log('🔌 Creating new Socket.IO connection...');
+    this.socket = io(this.socketURL, {
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5
     });
 
-    this.socket.on('disconnect', () => {
-      console.log('Disconnected from message service');
+    this.socket.on('connect', () => {
+      console.log('✅ Connected to message service');
+      this.socket?.emit('registerUser', userId);
+      // Join all conversations for real-time updates across all chats
+      this.socket?.emit('joinAllConversations', userId);
+      console.log('📬 Joined all conversations for real-time updates');
+    });
+
+    this.socket.on('reconnect', (attemptNumber) => {
+      console.log(`🔄 Reconnected to message service after ${attemptNumber} attempts`);
+      this.socket?.emit('registerUser', userId);
+      this.socket?.emit('joinAllConversations', userId);
+    });
+
+    this.socket.on('disconnect', (reason) => {
+      console.log('❌ Disconnected from message service:', reason);
     });
 
     this.socket.on('connect_error', (error) => {
-      console.error('Connection error:', error);
+      console.error('⚠️ Connection error:', error);
     });
   }
 
@@ -105,17 +122,174 @@ class MessageService {
   async createConversation(senderId: string, receiverId: string) {
     try {
       const headers = await this.getAuthHeaders();
-      const response = await fetch(`${this.baseURL}/api/conversations`, {
+      // Use direct msg-service URL since API Gateway route expects a path parameter
+      // The msg-service route is POST /api/conversations/
+      const response = await fetch(`http://localhost:8005/api/conversations`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ senderId, receiverId }),
       });
       if (!response.ok) {
-        throw new Error('Failed to create conversation');
+        const errorText = await response.text();
+        console.error('Create conversation error:', response.status, errorText);
+        throw new Error(`Failed to create conversation: ${response.status}`);
       }
       return await response.json();
     } catch (error) {
       console.error('Error creating conversation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Creates or gets an existing conversation and returns the conversation data
+   * This is useful when initiating a chat from external sources like GigView
+   */
+  async getOrCreateConversation(senderId: string, receiverId: string) {
+    try {
+      console.log(`🔍 Getting or creating conversation between ${senderId} and ${receiverId}`);
+      
+      // First, try to get existing conversations
+      const conversations = await this.getConversations(senderId);
+      console.log(`📋 Found ${conversations.length} existing conversations`);
+      
+      // Check if a conversation already exists with this receiver
+      const existingConversation = conversations.find((conv: any) => 
+        (conv.senderId === senderId && conv.receiverId === receiverId) ||
+        (conv.senderId === receiverId && conv.receiverId === senderId)
+      );
+      
+      if (existingConversation) {
+        console.log(`✅ Found existing conversation: ${existingConversation.id}`);
+        return existingConversation;
+      }
+      
+      // If no existing conversation, create a new one
+      console.log(`📝 Creating new conversation between ${senderId} and ${receiverId}...`);
+      const newConversation = await this.createConversation(senderId, receiverId);
+      console.log(`✅ New conversation created:`, newConversation);
+      
+      // Transform the response to match the expected format
+      return {
+        id: newConversation._id,
+        name: 'New Conversation',
+        lastMessage: newConversation.lastMessage || 'Start a conversation',
+        timestamp: new Date(newConversation.updatedAt).toLocaleTimeString([], { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }),
+        unreadCount: 0,
+        isOnline: false,
+        avatar: '/placeholder.svg',
+        senderId: newConversation.senderId,
+        receiverId: newConversation.receiverId,
+        updatedAt: newConversation.updatedAt
+      };
+    } catch (error) {
+      console.error('❌ Error getting or creating conversation:', error);
+      throw error;
+    }
+  }
+
+  // File upload with progress tracking
+  async uploadFile(
+    file: File, 
+    onProgress?: (progress: number) => void
+  ): Promise<{
+    fileUrl: string;
+    fileName: string;
+    fileSize: number;
+    mimeType: string;
+    thumbnailUrl?: string;
+    duration?: number;
+  }> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
+      const idToken = await getIdToken(user);
+
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        // Track upload progress
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable && onProgress) {
+            const percentComplete = (e.loaded / e.total) * 100;
+            onProgress(Math.round(percentComplete));
+          }
+        });
+
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            const response = JSON.parse(xhr.responseText);
+            resolve({
+              fileUrl: response.fileUrl,
+              fileName: response.fileName,
+              fileSize: response.fileSize,
+              mimeType: response.mimeType,
+              thumbnailUrl: response.thumbnailUrl,
+              duration: response.duration,
+            });
+          } else {
+            reject(new Error(`Upload failed with status ${xhr.status}`));
+          }
+        });
+
+        xhr.addEventListener('error', () => {
+          reject(new Error('Upload failed'));
+        });
+
+        xhr.addEventListener('abort', () => {
+          reject(new Error('Upload cancelled'));
+        });
+
+        xhr.open('POST', `${this.baseURL}/api/upload/upload`);
+        xhr.setRequestHeader('Authorization', `Bearer ${idToken}`);
+        xhr.send(formData);
+      });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw error;
+    }
+  }
+
+  // Send message with file attachment
+  async sendMessageWithFile(messageData: {
+    senderId: string;
+    receiverId: string;
+    text?: string;
+    conversationId: string;
+    type: 'image' | 'document' | 'voice';
+    fileUrl: string;
+    fileName?: string;
+    fileSize?: number;
+    mimeType?: string;
+    duration?: number;
+    thumbnailUrl?: string;
+  }) {
+    try {
+      const headers = await this.getAuthHeaders();
+      const response = await fetch(`${this.baseURL}/api/message/`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(messageData),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Send message error:', response.status, errorText);
+        throw new Error(`Failed to send message: ${response.status} - ${errorText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error sending message with file:', error);
       throw error;
     }
   }
@@ -161,21 +335,26 @@ class MessageService {
     this.socket?.emit('stopTyping', { conversationId, userId });
   }
 
-  // Event listeners
+  // Event listeners - Note: Multiple calls will add multiple listeners
+  // This is intentional to allow different components to listen independently
   onReceiveMessage(callback: (message: any) => void) {
     this.socket?.on('receiveMessage', callback);
+    return () => this.socket?.off('receiveMessage', callback);
   }
 
   onConversationUpdate(callback: (conversation: any) => void) {
     this.socket?.on('conversationUpdated', callback);
+    return () => this.socket?.off('conversationUpdated', callback);
   }
 
   onUserTyping(callback: (data: { userId: string; isTyping: boolean }) => void) {
     this.socket?.on('userTyping', callback);
+    return () => this.socket?.off('userTyping', callback);
   }
 
   onMessagesRead(callback: (data: { conversationId: string; readBy: string }) => void) {
     this.socket?.on('messagesReadUpdate', callback);
+    return () => this.socket?.off('messagesReadUpdate', callback);
   }
 
   onActiveUsersUpdate(callback: (data: { conversationId: string; activeUsers: string[] }) => void) {
@@ -183,12 +362,18 @@ class MessageService {
   }
 
   cleanup() {
+    // Note: We don't remove ALL listeners here because multiple components may be using them
+    // Each component should manage its own specific listeners
+    console.log('⚠️  cleanup() called - listeners should be managed per component');
+  }
+
+  removeListener(event: string, callback?: (...args: any[]) => void) {
     if (this.socket) {
-      this.socket.off('receiveMessage');
-      this.socket.off('conversationUpdated');
-      this.socket.off('userTyping');
-      this.socket.off('messagesReadUpdate');
-      this.socket.off('activeUsersUpdate');
+      if (callback) {
+        this.socket.off(event, callback);
+      } else {
+        this.socket.off(event);
+      }
     }
   }
 }

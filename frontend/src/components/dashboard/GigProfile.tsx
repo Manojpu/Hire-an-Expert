@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ExpertGig, gigServiceAPI } from '@/services/gigService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Save, Edit, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { reviewAnalyticsService } from '@/services/reviewAnalyticsService';
 
 interface GigProfileProps {
   gig: ExpertGig;
@@ -16,17 +17,31 @@ interface GigProfileProps {
 const GigProfile: React.FC<GigProfileProps> = ({ gig, onUpdate }) => {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [ratingData, setRatingData] = useState({ average_rating: gig.rating || 0, total_reviews: gig.total_reviews || 0 });
   const [formData, setFormData] = useState({
-    title: gig.title,
+    title: gig.title || '',
     bio: gig.bio || '',
     service_description: gig.service_description || '',
-    hourly_rate: gig.hourly_rate,
+    hourly_rate: gig.hourly_rate || 0,
     availability_preferences: gig.availability_preferences || '',
-    category: gig.category,
-    languages: gig.languages.join(', '),
+    category: gig.category_id,
+    languages: (gig.languages && Array.isArray(gig.languages)) ? gig.languages.join(', ') : '',
     education: gig.education || '',
     experience: gig.experience || ''
   });
+
+  // Fetch live rating data
+  useEffect(() => {
+    const fetchRating = async () => {
+      try {
+        const data = await reviewAnalyticsService.fetchGigRatingAnalytics(gig.id);
+        setRatingData({ average_rating: data.average_rating, total_reviews: data.total_reviews });
+      } catch (error) {
+        console.error('Error fetching rating:', error);
+      }
+    };
+    fetchRating();
+  }, [gig.id]);
 
   const handleChange = (field: string, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -53,13 +68,13 @@ const GigProfile: React.FC<GigProfileProps> = ({ gig, onUpdate }) => {
 
   const handleCancel = () => {
     setFormData({
-      title: gig.title,
+      title: gig.title || '',
       bio: gig.bio || '',
       service_description: gig.service_description || '',
-      hourly_rate: gig.hourly_rate,
+      hourly_rate: gig.hourly_rate || 0,
       availability_preferences: gig.availability_preferences || '',
-      category: gig.category,
-      languages: gig.languages.join(', '),
+      category: gig.category_id,
+      languages: (gig.languages && Array.isArray(gig.languages)) ? gig.languages.join(', ') : '',
       education: gig.education || '',
       experience: gig.experience || ''
     });
@@ -188,7 +203,7 @@ const GigProfile: React.FC<GigProfileProps> = ({ gig, onUpdate }) => {
                 </Select>
               ) : (
                 <div className="mt-1 p-2 bg-gray-50 rounded border capitalize">
-                  {gig.category.replace('-', ' ')}
+                  {gig.category_id ? String(gig.category_id).replace('-', ' ') : 'Uncategorized'}
                 </div>
               )}
             </div>
@@ -219,7 +234,7 @@ const GigProfile: React.FC<GigProfileProps> = ({ gig, onUpdate }) => {
                 />
               ) : (
                 <div className="mt-1 p-2 bg-gray-50 rounded border">
-                  {gig.languages.join(', ')}
+                  {(gig.languages && Array.isArray(gig.languages)) ? gig.languages.join(', ') : 'No languages specified'}
                 </div>
               )}
             </div>
@@ -259,7 +274,7 @@ const GigProfile: React.FC<GigProfileProps> = ({ gig, onUpdate }) => {
                 />
               ) : (
                 <div className="mt-1 p-2 bg-gray-50 rounded border">
-                  Rs. {gig.hourly_rate.toLocaleString()}/hour
+                  Rs. {(gig.hourly_rate || 0).toLocaleString()}/hour
                 </div>
               )}
             </div>
@@ -323,8 +338,8 @@ const GigProfile: React.FC<GigProfileProps> = ({ gig, onUpdate }) => {
             <div>
               <label className="text-sm font-medium">Certifications</label>
               <div className="mt-1 p-2 bg-gray-50 rounded border">
-                {gig.certifications && gig.certifications.length > 0 
-                  ? gig.certifications.join(', ')
+                {gig.certifications && Array.isArray(gig.certifications) && gig.certifications.length > 0 
+                  ? (Array.isArray(gig.certifications[0]) ? gig.certifications.join(', ') : gig.certifications.map(cert => cert.url || 'Certificate').join(', '))
                   : 'No certifications uploaded'
                 }
               </div>
@@ -345,19 +360,19 @@ const GigProfile: React.FC<GigProfileProps> = ({ gig, onUpdate }) => {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <div className="text-2xl font-bold">{gig.rating.toFixed(1)}</div>
+                <div className="text-2xl font-bold">{ratingData.average_rating.toFixed(1)}</div>
                 <div className="text-sm text-muted-foreground">Average Rating</div>
               </div>
               <div>
-                <div className="text-2xl font-bold">{gig.total_reviews}</div>
+                <div className="text-2xl font-bold">{ratingData.total_reviews}</div>
                 <div className="text-sm text-muted-foreground">Total Reviews</div>
               </div>
               <div>
-                <div className="text-2xl font-bold">{gig.total_consultations}</div>
+                <div className="text-2xl font-bold">{gig.total_consultations || 0}</div>
                 <div className="text-sm text-muted-foreground">Consultations</div>
               </div>
               <div>
-                <div className="text-2xl font-bold">{gig.response_time}</div>
+                <div className="text-2xl font-bold">{gig.response_time || 'N/A'}</div>
                 <div className="text-sm text-muted-foreground">Response Time</div>
               </div>
             </div>

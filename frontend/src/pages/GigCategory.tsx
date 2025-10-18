@@ -1,14 +1,45 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Briefcase, Clock, MessageCircle, Users } from "lucide-react";
+import { Briefcase, Clock, MessageCircle, Users, Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 // Import the new types
 import { gigServiceAPI } from "@/services/gigService";
 import { Gig } from "@/types/publicGigs.ts";
+import { reviewAnalyticsService } from "@/services/reviewAnalyticsService";
 
 const PAGE_SIZE = 100;
+
+// Component to display live rating for each gig
+const GigRatingBadge: React.FC<{ gigId: string }> = ({ gigId }) => {
+  const [rating, setRating] = useState({ average: 0, count: 0 });
+
+  useEffect(() => {
+    reviewAnalyticsService.fetchGigRatingAnalytics(gigId)
+      .then(data => setRating({ average: data.average_rating, count: data.total_reviews }))
+      .catch(() => setRating({ average: 0, count: 0 }));
+  }, [gigId]);
+
+  if (rating.count === 0) {
+    return (
+      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        <Star className="h-4 w-4" />
+        <span>No reviews</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-0.5">
+      <div className="flex items-center gap-1">
+        <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
+        <span className="text-lg font-bold text-foreground">{rating.average.toFixed(1)}</span>
+      </div>
+      <span className="text-xs text-muted-foreground">{rating.count} review{rating.count !== 1 ? 's' : ''}</span>
+    </div>
+  );
+};
 
 const Category = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -244,6 +275,11 @@ const Category = () => {
                             <p className="text-xl font-bold text-foreground -mt-1">
                               {gig.currency} {gig.hourly_rate?.toLocaleString()}
                             </p>
+                          </div>
+                          
+                          {/* Rating Badge - Bottom Right */}
+                          <div className="flex flex-col items-end">
+                            <GigRatingBadge gigId={gig.id} />
                           </div>
                         </div>
 

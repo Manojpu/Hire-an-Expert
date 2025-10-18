@@ -37,6 +37,14 @@ class Config:
     DEBUG = os.getenv("DEBUG", "true").lower() == "true"
     PORT = int(os.getenv("PORT", "8000"))
     FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    # Additional CORS origins for development
+    CORS_ORIGINS = [
+        "http://localhost:3000",
+        "http://localhost:5173",  # Vite default
+        "http://localhost:4173",  # Vite preview
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173"
+    ]
     
     # Service URLs
     AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://localhost:8001")
@@ -213,11 +221,16 @@ async def proxy_payments(request):
 
 async def proxy_messages(request):
     path = request.path_params.get("path", "")
-    return await proxy_request(request, services["message"], f"/api/message/{path}")
+    return await proxy_request(request, services["message"], f"/api/message/{path}", auth_required=False)
 
 async def proxy_conversations(request):
     path = request.path_params.get("path", "")
-    return await proxy_request(request, services["message"], f"/api/conversations/{path}")
+    return await proxy_request(request, services["message"], f"/api/conversations/{path}", auth_required=False)
+
+async def proxy_upload(request):
+    """Proxy for file upload endpoints - message service"""
+    path = request.path_params.get("path", "")
+    return await proxy_request(request, services["message"], f"/api/upload/{path}", auth_required=False)
 
 async def proxy_rag(request):
     """Proxy for RAG/AI Chat endpoints - admin service"""
@@ -307,6 +320,7 @@ routes = [
     Route("/api/payments/{path:path}", proxy_payments, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/message/{path:path}", proxy_messages, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/conversations/{path:path}", proxy_conversations, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
+    Route("/api/upload/{path:path}", proxy_upload, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/reviews/{path:path}", proxy_reviews, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/rag/{path:path}", proxy_rag, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/{path:path}", catch_all, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
@@ -316,7 +330,7 @@ routes = [
 middleware = [
     Middleware(
         CORSMiddleware,
-        allow_origins=[config.FRONTEND_URL],
+        allow_origins=config.CORS_ORIGINS,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

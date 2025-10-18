@@ -9,8 +9,7 @@ import logging
 import time
 
 from app.db import session
-from app.endpoints import gig
-from app.endpoints import category
+from app.endpoints import gig, category, analytics
 
 # Configure logging
 logging.basicConfig(
@@ -28,13 +27,7 @@ app = FastAPI(title="Gig Service")
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8080",
-        "http://localhost:8081",
-        "http://localhost:5173",
-        "http://localhost:4173",
-        "http://localhost:3000"
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -68,11 +61,21 @@ async def log_requests(request: Request, call_next):
 @app.get("/")
 def read_root():
     logger.debug("Health check endpoint called")
-    return {"message": "Gig Service", "status": "Running", "port": 8002}
+    return {
+        "message": "Gig Service with Hot Reload - UPDATED", 
+        "status": "Running", 
+        "port": 8002, 
+        "hot_reload": True,
+        "version": "1.0.2",
+        "docker": "development",
+        "timestamp": "2025-10-14 Updated"
+    }
 
 app.include_router(gig.router, prefix="/gigs", tags=["gigs"])
 
 app.include_router(category.router, prefix="/categories", tags=["categories"])
+
+app.include_router(analytics.router, prefix="/gigs", tags=["analytics"])
 
 # 🚀 Run migrations using lifespan pattern instead of deprecated on_event
 @contextlib.asynccontextmanager

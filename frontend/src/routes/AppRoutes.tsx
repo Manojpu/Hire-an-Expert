@@ -16,6 +16,7 @@ const Chat = lazy(() => import("@/pages/Chat"));
 const Messages = lazy(() => import("@/pages/MessagesPage"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const ExpertDashboard = lazy(() => import("@/pages/expert/ExpertDashboard"));
+const OverallExpertProfile = lazy(() => import("@/components/dashboard/OverallExpertProfile"));
 const AdminDashboard = lazy(() => import("@/pages/admin/AdminDashboard"));
 const AdminRequests = lazy(() => import("@/pages/admin/AdminRequests"));
 const AdminPayments = lazy(() => import("@/pages/admin/AdminPayments"));
@@ -30,6 +31,7 @@ const GigView = lazy(() => import("@/pages/GigView"));
 const BookConsultation = lazy(() => import("@/pages/BookConsultation"));
 const PaymentSuccess = lazy(() => import("@/pages/PaymentSuccess"));
 const HowItWorksPage = lazy(() => import("@/pages/HowItWorks"));
+
 
 const ProtectedRoute = ({
   children,
@@ -147,7 +149,7 @@ const AppRoutes = () => (
         <Route path="gig/:id/book" element={<BookConsultation />} />
         <Route path="payment-success" element={<PaymentSuccess />} />
         <Route path="how-it-works" element={<HowItWorksPage />} />
-        <Route path="expert/:slug" element={<Expert />} />
+        <Route path="expert/:slug" element={<ExpertProfile />} />
         <Route path="book/:expertId" element={<Book />} />
         <Route
           path="chat/:conversationId"
@@ -174,7 +176,8 @@ const AppRoutes = () => (
           }
         />
         <Route path="create-gig" element={<BecomeExpert />} />
-        <Route path="expert-profile" element={<ExpertProfile />} />
+        <Route path="expert-profile" element={<OverallExpertProfile />} />
+        <Route path="expert/:id" element={<ExpertProfile />} />
         <Route
           path="my-bookings"
           element={
@@ -191,7 +194,9 @@ const AppRoutes = () => (
             </ProtectedRoute>
           }
         />
-        <Route path="experts" element={<Experts />} />
+  <Route path="experts" element={<Experts />} />
+  {/* TODO: Re-enable when BookingServiceTest component exists */}
+  {/* <Route path="test-booking-service" element={<BookingServiceTest />} /> */}
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

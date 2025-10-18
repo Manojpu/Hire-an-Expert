@@ -13,6 +13,7 @@ import GigBookings from "@/components/dashboard/GigBookings";
 import GigAnalytics from "@/components/dashboard/GigAnalytics";
 import GigProfile from "@/components/dashboard/GigProfile";
 import GigAvailability from "@/components/dashboard/GigAvailability";
+import GigReviews from "@/components/dashboard/GigReviews";
 import {
   ArrowLeft,
   Home,
@@ -20,6 +21,7 @@ import {
   BarChart3,
   User,
   Clock,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -43,7 +45,7 @@ const GigDashboard: React.FC<GigDashboardProps> = ({ onBack }) => {
   const loadGig = async (id: string) => {
     try {
       setLoading(true);
-      const gigData = await gigServiceAPI.getGigById(id);
+      const gigData = await gigServiceAPI.getMyGigById(id);
       setGig(gigData);
       setError(null);
     } catch (err) {
@@ -73,6 +75,11 @@ const GigDashboard: React.FC<GigDashboardProps> = ({ onBack }) => {
       icon: BarChart3,
       label: "Analytics",
       href: `/expert/gig/${gigId}/analytics`,
+    },
+    {
+      icon: Star,
+      label: "Reviews",
+      href: `/expert/gig/${gigId}/reviews`,
     },
     {
       icon: Calendar,
@@ -176,6 +183,7 @@ const GigDashboard: React.FC<GigDashboardProps> = ({ onBack }) => {
           />
           <Route path="bookings" element={<GigBookings gig={gig} />} />
           <Route path="analytics" element={<GigAnalytics gig={gig} />} />
+          <Route path="reviews" element={<GigReviews gig={gig} />} />
           <Route
             path="availability"
             element={<GigAvailability gig={gig} onUpdate={handleGigUpdate} />}

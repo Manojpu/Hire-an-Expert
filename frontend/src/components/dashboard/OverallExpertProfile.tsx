@@ -1,5 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { ExpertGig, gigServiceAPI } from "@/services/gigService";
+import { 
+  userServiceAPI, 
+  ExpertData, 
+  ExpertProfile, 
+  VerificationDocument, 
+  AvailabilityRule, 
+  DateOverride, 
+  UserPreference 
+} from "@/services/userService";
+import { reviewServiceAPI } from "@/services/reviewService";
+import { reviewAnalyticsService } from "@/services/reviewAnalyticsService";
+import { bookingService, Booking } from "@/services/bookingService";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,80 +28,269 @@ import {
 } from "lucide-react";
 import StatsCard from "@/components/dashboard/StatsCard";
 import EarningsChart from "@/components/dashboard/EarningsChart";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 interface OverallExpertProfileProps {
-  onBack: () => void;
+  onBack?: () => void;
 }
 
 const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({
   onBack,
 }) => {
   const navigate = useNavigate();
+  const { expertId } = useParams();
+  const isAdminView = expertId !== undefined; // If expertId is in URL, it's admin view
+  
+  console.log('OverallExpertProfile - expertId:', expertId, 'isAdminView:', isAdminView);
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else if (isAdminView) {
+      navigate("/admin-requests");
+    } else {
+      navigate("/expert");
+    }
+  };
   const [gigs, setGigs] = useState<ExpertGig[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expertData, setExpertData] = useState({
-    id: "EXP-2024-001",
-    name: "Dr. Rajesh Perera",
-    email: "rajesh.perera@example.com",
-    phone: "+94 77 123 4567",
-    nic: "199012345678",
-    joinedDate: "2024-01-15",
-    verified: true,
-    profileImage: "/placeholder-avatar.jpg",
+  const [userData, setUserData] = useState<ExpertData | null>(null);
+  const [expertProfile, setExpertProfile] = useState<ExpertProfile | null>(null);
+  const [gigStats, setGigStats] = useState({
+    total_gigs: 0,
+    active_gigs: 0,
+    views: 0,
+    bookings: 0
   });
+  const [revenueStats, setRevenueStats] = useState({
+    total_revenue: 0,
+    monthly_revenue: 0,
+    completed_bookings: 0,
+    average_rating: 0
+  });
+  const [consultationStats, setConsultationStats] = useState({
+    total_consultations: 0,
+    monthly_consultations: 0,
+    pending_consultations: 0,
+    confirmed_consultations: 0
+  });
+  const [recentReviews, setRecentReviews] = useState([]);
+  const [recentBookings, setRecentBookings] = useState([]);
+  const [verificationDocuments, setVerificationDocuments] = useState<VerificationDocument[]>([]);
+  const [availabilityRules, setAvailabilityRules] = useState<AvailabilityRule[]>([]);
+  const [dateOverrides, setDateOverrides] = useState<DateOverride[]>([]);
+  const [userPreferences, setUserPreferences] = useState<UserPreference[]>([]);
+  const [gigRatings, setGigRatings] = useState<Map<string, { average_rating: number; total_reviews: number }>>(new Map());
 
-  useEffect(() => {
-    loadGigs();
-  }, []);
-
-  const loadGigs = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const myGigs = await gigServiceAPI.getMyGigs();
-      setGigs(myGigs);
+      
+      // Load user and expert profile data from user service
+      try {
+        if (isAdminView && expertId) {
+          // Admin viewing specific expert
+          const user = await userServiceAPI.getUserById(expertId);
+          setUserData(user);
+          // Get the first expert profile if available
+          if (user.expert_profiles && user.expert_profiles.length > 0) {
+            setExpertProfile(user.expert_profiles[0]);
+          }
+        } else {
+          // Expert viewing their own profile - fetch from /users/me
+          const currentUser = await userServiceAPI.getCurrentUserProfile();
+          setUserData(currentUser);
+          // Get the first expert profile if available
+          if (currentUser.expert_profiles && currentUser.expert_profiles.length > 0) {
+            setExpertProfile(currentUser.expert_profiles[0]);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load user data:", err);
+        // Continue loading other data even if user profile fails
+      }
+
+      // Load gigs data (this works without user profile)
+      let gigs;
+      try {
+        if (isAdminView && expertId) {
+          gigs = await gigServiceAPI.getMyGigs(); // TODO: Add admin endpoint
+        } else {
+          gigs = await gigServiceAPI.getMyGigs();
+        }
+        setGigs(gigs);
+      } catch (err) {
+        console.error("Failed to load gigs:", err);
+        setGigs([]);
+      }
+
+      // Fetch live ratings for all gigs
+      if (gigs && gigs.length > 0) {
+        const ratingPromises = gigs.map(gig => 
+          reviewAnalyticsService.fetchGigRatingAnalytics(gig.id)
+            .catch(() => ({ gig_id: gig.id, average_rating: 0, total_reviews: 0 }))
+        );
+        const ratingsData = await Promise.all(ratingPromises);
+        const ratingsMap = new Map(ratingsData.map(r => [r.gig_id, { average_rating: r.average_rating, total_reviews: r.total_reviews }]));
+        setGigRatings(ratingsMap);
+      }
+
+      // Load statistics
+      const [gigStatsData, revenueData, consultationData] = await Promise.all([
+        gigServiceAPI.getGigStats().catch(err => {
+          console.warn("Failed to load gig stats:", err);
+          return { total_gigs: 0, active_gigs: 0, views: 0, bookings: 0 };
+        }),
+        bookingService.getExpertRevenue(expertId).catch(err => {
+          console.warn("Failed to load revenue stats:", err);
+          return { total_revenue: 0, monthly_revenue: 0, completed_bookings: 0, average_rating: 0 };
+        }),
+        bookingService.getExpertConsultations(expertId).catch(err => {
+          console.warn("Failed to load consultation stats:", err);
+          return { total_consultations: 0, monthly_consultations: 0, pending_consultations: 0, confirmed_consultations: 0 };
+        })
+      ]);
+
+      setGigStats(gigStatsData);
+      setRevenueStats(revenueData);
+      setConsultationStats(consultationData);
+
+      // Load all bookings to calculate revenue from completed ones
+      const allBookings = await bookingService.getRecentBookings(100).catch(err => {
+        console.warn("Failed to load bookings:", err);
+        return [];
+      });
+
+      // Load recent data and user service data
+      const [reviews, verificationDocs, availabilityData, dateOverrideData, preferences] = await Promise.all([
+        reviewServiceAPI.getMyReviews().catch(err => {
+          console.warn("Failed to load reviews:", err);
+          return { reviews: [], total_reviews: 0, average_rating: 0, recent_reviews: [], monthly_stats: [] };
+        }),
+        userServiceAPI.getVerificationDocuments().catch(err => {
+          console.warn("Failed to load verification documents:", err);
+          return [];
+        }),
+        userServiceAPI.getAvailabilityRules().catch(err => {
+          console.warn("Failed to load availability rules:", err);
+          return [];
+        }),
+        userServiceAPI.getDateOverrides().catch(err => {
+          console.warn("Failed to load date overrides:", err);
+          return [];
+        }),
+        userServiceAPI.getUserPreferences().catch(err => {
+          console.warn("Failed to load user preferences:", err);
+          return [];
+        })
+      ]);
+
+      // Handle reviews response (it returns ExpertReviewSummary with recent_reviews array)
+      let reviewsData = [];
+      if (reviews) {
+        if (Array.isArray(reviews)) {
+          reviewsData = reviews;
+        } else if (reviews.recent_reviews && reviews.recent_reviews.length > 0) {
+          reviewsData = reviews.recent_reviews;
+        }
+      }
+      setRecentReviews(reviewsData);
+      // Store ALL bookings for revenue calculation, not just 5 most recent
+      setRecentBookings(allBookings); // Use all bookings for revenue calculations
+      setVerificationDocuments(verificationDocs);
+      setAvailabilityRules(availabilityData);
+      setDateOverrides(dateOverrideData);
+      setUserPreferences(preferences);
+
     } catch (error) {
-      console.error("Error loading gigs:", error);
+      console.error("Error loading profile data:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAdminView, expertId]);
 
-  // Calculate aggregate statistics
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Calculate revenue from completed bookings using amount field
+  const completedBookings = recentBookings.filter(b => b.status === 'completed');
+  console.log('📊 === REVENUE DEBUG ===');
+  console.log('📊 Total bookings loaded:', recentBookings.length);
+  console.log('📊 Completed bookings:', completedBookings.length);
+  console.log('📊 All bookings statuses:', recentBookings.map(b => ({ id: b.id, status: b.status, amount: b.amount, created_at: b.created_at })));
+  console.log('📊 First completed booking:', completedBookings[0]);
+  console.log('📊 All completed bookings:', completedBookings.map(b => ({ id: b.id, amount: b.amount, created_at: b.created_at, scheduled_time: b.scheduled_time })));
+  
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay());
+
+  // Calculate total revenue from completed bookings amount field
+  const totalRevenue = completedBookings.reduce((sum, booking) => {
+    const amount = Number(booking.amount) || 0;
+    return sum + amount;
+  }, 0);
+
+  const monthlyRevenue = completedBookings
+    .filter(b => new Date(b.created_at) >= monthStart)
+    .reduce((sum, booking) => {
+      const amount = Number(booking.amount) || 0;
+      return sum + amount;
+    }, 0);
+
+  const weeklyRevenue = completedBookings
+    .filter(b => new Date(b.created_at) >= weekStart)
+    .reduce((sum, booking) => {
+      const amount = Number(booking.amount) || 0;
+      return sum + amount;
+    }, 0);
+
+  // Calculate aggregate statistics using real API data
   const aggregateStats = {
-    totalGigs: gigs.length,
-    activeGigs: gigs.filter((g) => g.status === "active").length,
-    totalConsultations: gigs.reduce((sum, g) => sum + g.total_consultations, 0),
-    totalReviews: gigs.reduce((sum, g) => sum + g.total_reviews, 0),
-    averageRating:
-      gigs.length > 0
-        ? gigs.reduce((sum, g) => sum + g.rating, 0) / gigs.length
-        : 0,
-    totalRevenue: gigs.reduce(
-      (sum, g) => sum + g.hourly_rate * g.total_consultations * 0.8,
-      0
-    ), // Estimated
-    monthlyRevenue: 125000, // Mock data
-    weeklyRevenue: 35000, // Mock data
+    totalGigs: gigStats.total_gigs || gigs.length,
+    activeGigs: gigStats.active_gigs || gigs.filter((g) => g.status === "active").length,
+    totalConsultations: consultationStats.total_consultations || 
+      gigs.reduce((sum, g) => sum + (g.total_consultations || 0), 0),
+    totalReviews: Array.from(gigRatings.values()).reduce((sum, r) => sum + r.total_reviews, 0),
+    averageRating: gigRatings.size > 0 
+      ? Array.from(gigRatings.values()).reduce((sum, r) => sum + r.average_rating, 0) / gigRatings.size
+      : 0,
+    totalRevenue: totalRevenue,
+    monthlyRevenue: monthlyRevenue,
+    weeklyRevenue: weeklyRevenue,
   };
 
-  const chartData = [
-    { date: "2024-01-01", revenue: 15000 },
-    { date: "2024-01-02", revenue: 18000 },
-    { date: "2024-01-03", revenue: 22000 },
-    { date: "2024-01-04", revenue: 19000 },
-    { date: "2024-01-05", revenue: 25000 },
-    { date: "2024-01-06", revenue: 28000 },
-    { date: "2024-01-07", revenue: 32000 },
-    { date: "2024-01-08", revenue: 29000 },
-    { date: "2024-01-09", revenue: 35000 },
-    { date: "2024-01-10", revenue: 38000 },
-    { date: "2024-01-11", revenue: 42000 },
-    { date: "2024-01-12", revenue: 45000 },
-    { date: "2024-01-13", revenue: 48000 },
-    { date: "2024-01-14", revenue: 52000 },
-    { date: "2024-01-15", revenue: 55000 },
-  ];
+  // Generate chart data from completed bookings (last 15 days)
+  const chartData = [];
+  for (let i = 14; i >= 0; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toISOString().split('T')[0];
+    
+    // Sum all completed booking amounts for this specific day
+    // Use scheduled_time if available, otherwise use created_at
+    const dayBookings = completedBookings.filter(b => {
+      const bookingDateStr = b.scheduled_time || b.created_at;
+      if (!bookingDateStr) return false;
+      const bookingDate = bookingDateStr.split('T')[0]; // Get YYYY-MM-DD part
+      return bookingDate === dateStr;
+    });
+    
+    const dayRevenue = dayBookings.reduce((sum, booking) => {
+      const amount = Number(booking.amount) || 0;
+      return sum + amount;
+    }, 0);
+    
+    if (dayBookings.length > 0) {
+      console.log(`📊 ${dateStr}: ${dayBookings.length} bookings, revenue: ${dayRevenue}`, dayBookings.map(b => ({ id: b.id, amount: b.amount, date: b.scheduled_time || b.created_at })));
+    }
+    
+    chartData.push({ date: dateStr, revenue: dayRevenue });
+  }
+  
+  console.log('📊 Chart data summary:', chartData.filter(d => d.revenue > 0));
 
   const getStatusColor = (status: ExpertGig["status"]) => {
     switch (status) {
@@ -125,13 +326,18 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({
         <div className="bg-white border border-border rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-3xl font-bold">Expert Profile</h1>
+              <h1 className="text-3xl font-bold">
+                {isAdminView ? "Expert Profile (Admin View)" : "Expert Profile"}
+              </h1>
               <p className="text-muted-foreground">
-                Overall account and performance overview
+                {isAdminView 
+                  ? "Admin view of expert account and performance" 
+                  : "Overall account and performance overview"
+                }
               </p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={onBack}>
+              <Button variant="outline" onClick={handleBack}>
                 Back to Gigs
               </Button>
               <Button>
@@ -157,38 +363,38 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({
                   <label className="text-sm font-medium text-muted-foreground">
                     Expert ID
                   </label>
-                  <div className="font-mono text-sm mt-1">{expertData.id}</div>
+                  <div className="font-mono text-sm mt-1">{userData?.id || 'N/A'}</div>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
                     Full Name
                   </label>
-                  <div className="mt-1">{expertData.name}</div>
+                  <div className="mt-1">{userData?.name || 'N/A'}</div>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
                     Email
                   </label>
-                  <div className="mt-1">{expertData.email}</div>
+                  <div className="mt-1">{userData?.email || 'N/A'}</div>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
                     Phone
                   </label>
-                  <div className="mt-1">{expertData.phone}</div>
+                  <div className="mt-1">{userData?.phone || 'N/A'}</div>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
-                    NIC Number
+                    Specialization
                   </label>
-                  <div className="mt-1 font-mono">{expertData.nic}</div>
+                  <div className="mt-1">{expertProfile?.specialization || 'N/A'}</div>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
                     Joined Date
                   </label>
                   <div className="mt-1">
-                    {new Date(expertData.joinedDate).toLocaleDateString()}
+                    {userData?.created_at ? new Date(userData.created_at).toLocaleDateString() : 'N/A'}
                   </div>
                 </div>
               </div>
@@ -201,9 +407,9 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({
                     </label>
                     <div className="flex items-center gap-2 mt-1">
                       <Badge
-                        variant={expertData.verified ? "default" : "secondary"}
+                        variant={expertProfile?.is_verified ? "default" : "secondary"}
                       >
-                        {expertData.verified
+                        {expertProfile?.is_verified
                           ? "Verified Expert"
                           : "Pending Verification"}
                       </Badge>
@@ -227,41 +433,35 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 border rounded">
-                  <div>
-                    <div className="font-medium text-sm">NIC Copy</div>
-                    <div className="text-xs text-muted-foreground">
-                      Uploaded
-                    </div>
+                {verificationDocuments.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">
+                    No verification documents uploaded yet
                   </div>
-                  <Badge variant="outline" className="text-green-600">
-                    Verified
-                  </Badge>
-                </div>
-
-                <div className="flex items-center justify-between p-3 border rounded">
-                  <div>
-                    <div className="font-medium text-sm">
-                      Educational Certificates
+                ) : (
+                  verificationDocuments.map((doc) => (
+                    <div key={doc.id} className="flex items-center justify-between p-3 border rounded">
+                      <div>
+                        <div className="font-medium text-sm">
+                          {doc.document_type === "ID_PROOF" ? "ID Proof" : 
+                           doc.document_type === "PROFESSIONAL_LICENSE" ? "Professional License" : 
+                           "Other Document"}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Uploaded {new Date(doc.uploaded_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-green-600">
+                        Uploaded
+                      </Badge>
                     </div>
-                    <div className="text-xs text-muted-foreground">3 files</div>
-                  </div>
-                  <Badge variant="outline" className="text-green-600">
-                    Verified
-                  </Badge>
-                </div>
-
-                <div className="flex items-center justify-between p-3 border rounded">
-                  <div>
-                    <div className="font-medium text-sm">
-                      Professional License
-                    </div>
-                    <div className="text-xs text-muted-foreground">1 file</div>
-                  </div>
-                  <Badge variant="outline" className="text-yellow-600">
-                    Pending
-                  </Badge>
-                </div>
+                  ))
+                )}
+                
+                {/* Add Upload Button */}
+                <Button variant="outline" size="sm" className="w-full">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload New Document
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -359,46 +559,104 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-4 border rounded-md bg-muted/10">
-                <div className="flex items-center gap-2 mb-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Clock className="h-5 w-5 text-muted-foreground" />
                   <h3 className="font-medium">Weekly Schedule</h3>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Set recurring weekly availability times for client bookings
-                </p>
+                {availabilityRules.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No availability rules set</p>
+                ) : (
+                  <div className="space-y-2">
+                    {availabilityRules.map((rule) => {
+                      const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                      return (
+                        <div key={rule.id} className="flex items-center justify-between p-3 border rounded">
+                          <span className="text-sm font-medium">{days[rule.day_of_week]}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {rule.start_time_utc} - {rule.end_time_utc}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
-              <div className="p-4 border rounded-md bg-muted/10">
-                <div className="flex items-center gap-2 mb-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="font-medium">Date Exceptions</h3>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Calendar className="h-5 w-5 text-muted-foreground" />
+                  <h3 className="font-medium">Date Exceptions ({dateOverrides.length})</h3>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Mark specific dates as unavailable (holidays, time off)
-                </p>
+                {dateOverrides.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No date exceptions set</p>
+                ) : (
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {dateOverrides.slice(0, 5).map((override) => (
+                      <div key={override.id} className="flex items-center justify-between p-2 border rounded">
+                        <span className="text-sm">
+                          {new Date(override.unavailable_date).toLocaleDateString()}
+                        </span>
+                        <Badge variant="outline" className="text-red-600">Unavailable</Badge>
+                      </div>
+                    ))}
+                    {dateOverrides.length > 5 && (
+                      <p className="text-xs text-muted-foreground">
+                        +{dateOverrides.length - 5} more exceptions
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
+            </div>
 
-              <div className="p-4 border rounded-md bg-muted/10">
-                <div className="flex items-center gap-2 mb-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="font-medium">Booking Preferences</h3>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Set minimum advance notice and session duration options
-                </p>
-              </div>
+            <div className="flex gap-2 mt-6 pt-4 border-t">
+              <Button variant="outline" onClick={() => navigate("/expert/availability")}>
+                Manage Availability
+              </Button>
+              <Button variant="outline">
+                <DollarSign className="h-4 w-4 mr-2" />
+                Update Rates
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-              <div className="p-4 border rounded-md bg-muted/10">
-                <div className="flex items-center gap-2 mb-2">
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="font-medium">Booking Rates</h3>
+        {/* User Preferences */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Account Preferences
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Manage your account settings and notification preferences
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {userPreferences.length === 0 ? (
+                <div className="col-span-2 text-center py-4 text-muted-foreground">
+                  No preferences configured
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Set different rates for different time slots if needed
-                </p>
-              </div>
+              ) : (
+                userPreferences.map((pref) => (
+                  <div key={pref.id} className="flex items-center justify-between p-3 border rounded">
+                    <div>
+                      <div className="font-medium text-sm capitalize">
+                        {pref.key.replace(/_/g, ' ')}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Updated {new Date(pref.updated_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <Badge variant={pref.value === 'true' ? 'default' : 'outline'}>
+                      {pref.value === 'true' ? 'Enabled' : pref.value === 'false' ? 'Disabled' : pref.value}
+                    </Badge>
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
@@ -422,7 +680,7 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
-                        <h3 className="font-medium">{gig.title}</h3>
+                        <h3 className="font-medium">{gig.title || gig.service_description || 'Untitled Gig'}</h3>
                         <Badge className={getStatusColor(gig.status)}>
                           {gig.status}
                         </Badge>
@@ -438,19 +696,19 @@ const OverallExpertProfile: React.FC<OverallExpertProfileProps> = ({
                     <div className="flex items-center gap-6 text-sm text-muted-foreground">
                       <div className="text-center">
                         <div className="font-medium text-foreground">
-                          {gig.rating.toFixed(1)}
+                          {(gigRatings.get(gig.id)?.average_rating || 0).toFixed(1)}
                         </div>
                         <div>Rating</div>
                       </div>
                       <div className="text-center">
                         <div className="font-medium text-foreground">
-                          {gig.total_reviews}
+                          {gigRatings.get(gig.id)?.total_reviews || 0}
                         </div>
                         <div>Reviews</div>
                       </div>
                       <div className="text-center">
                         <div className="font-medium text-foreground">
-                          {gig.total_consultations}
+                          {gig.total_consultations || 0}
                         </div>
                         <div>Sessions</div>
                       </div>
