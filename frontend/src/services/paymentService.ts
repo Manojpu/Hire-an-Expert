@@ -2,7 +2,7 @@ import { toast } from "sonner";
 import { getIdToken } from "firebase/auth";
 import { auth } from "../firebase/firebase"; // Import the Firebase auth instance directly
 
-const API_URL = "http://localhost:8004/payments";
+const API_URL = import.meta.env.VITE_PAYMENT_SERVICE_URL || "http://localhost:8004/payments";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 second

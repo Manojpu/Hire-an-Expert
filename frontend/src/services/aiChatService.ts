@@ -1,7 +1,8 @@
 // AI Chat Widget Service - API Communication (fetch-based, no axios)
 
-// Use API Gateway instead of direct connection
-const RAG_API_BASE = 'http://localhost:8000/api/rag';
+const API_GATEWAY_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8000';
+const RAG_API_BASE = `${API_GATEWAY_URL}/api/rag`;
+const ADMIN_URL = import.meta.env.VITE_ADMIN_SERVICE_URL || 'http://localhost:8009';
 // Toggle health checks to avoid noisy console errors when the AI service is down
 const AI_HEALTHCHECK_ENABLED = import.meta.env.VITE_AI_HEALTHCHECK_ENABLED === 'true';
 
@@ -69,7 +70,7 @@ class AIchatService {
     // Temporarily disable health checks to hide connection errors when service isn't running
     if (!AI_HEALTHCHECK_ENABLED) return false;
     try {
-      const res = await fetch('http://localhost:8009/health');
+      const res = await fetch(`${ADMIN_URL}/health`);
       if (!res.ok) return false;
       const data = await res.json();
       return data.status === 'healthy';
