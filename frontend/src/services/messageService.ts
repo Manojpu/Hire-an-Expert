@@ -125,8 +125,9 @@ class MessageService {
   async createConversation(senderId: string, receiverId: string) {
     try {
       const headers = await this.getAuthHeaders();
-      // Use API Gateway for REST API calls
-      const response = await fetch(`${this.baseURL}/api/conversations`, {
+      // Use direct msg-service URL since API Gateway route expects a path parameter
+      // The msg-service route is POST /api/conversations/
+      const response = await fetch(`${MSG_SERVICE_URL}/api/conversations`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ senderId, receiverId }),
