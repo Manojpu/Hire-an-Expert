@@ -198,7 +198,7 @@ export function convertFormToGigData(
 const GIG_SERVICE_URL = import.meta.env.VITE_GIG_SERVICE_URL || "http://localhost:8002";
 
 // Debug logging for environment variable
-console.log("GIG_SERVICE_URL from env:", import.meta.env.VITE_GIG_SERVICE_URL);
+console.log("API_GATEWAY_URL from env:", import.meta.env.VITE_API_GATEWAY_URL);
 console.log("Final GIG_SERVICE_URL used:", GIG_SERVICE_URL);
 
 export const gigServiceAPI: GigServiceAPI = {

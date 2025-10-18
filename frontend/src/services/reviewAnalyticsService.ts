@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const REVIEW_SERVICE_URL = "http://localhost:8005";
+const REVIEW_SERVICE_URL = import.meta.env.VITE_REVIEW_SERVICE_URL || "http://localhost:8005";
 
 export interface GigRatingAnalytics {
   gig_id: string;
