@@ -2,10 +2,13 @@ import { io, Socket } from 'socket.io-client';
 import { auth } from '../firebase/firebase';
 import { getIdToken } from 'firebase/auth';
 
+const API_GATEWAY_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8000';
+const MSG_SERVICE_URL = import.meta.env.VITE_MSG_SERVICE_URL || 'http://localhost:8005'; // Direct for Socket.IO
+
 class MessageService {
   private socket: Socket | null = null;
-  private readonly baseURL = 'http://localhost:8000'; // API Gateway URL
-  private readonly socketURL = 'http://localhost:8005'; // Direct to msg-service for Socket.IO
+  private readonly baseURL = API_GATEWAY_URL; // API Gateway URL
+  private readonly socketURL = MSG_SERVICE_URL; // Direct to msg-service for Socket.IO
 
   // Helper method to get authorization headers
   private async getAuthHeaders() {
@@ -124,7 +127,7 @@ class MessageService {
       const headers = await this.getAuthHeaders();
       // Use direct msg-service URL since API Gateway route expects a path parameter
       // The msg-service route is POST /api/conversations/
-      const response = await fetch(`http://localhost:8005/api/conversations`, {
+      const response = await fetch(`${MSG_SERVICE_URL}/api/conversations`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ senderId, receiverId }),
