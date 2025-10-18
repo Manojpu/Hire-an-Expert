@@ -147,7 +147,82 @@ def get_bookings_by_user(
             detail=f"Failed to get user bookings: {str(e)}"
         )
 
-# 3. Create booking endpoint
+# 3. Gig-specific endpoints - get bookings by gig
+@router.get("/gig/{gig_id}", response_model=List[BookingResponseWithGigDetails])
+def get_bookings_by_gig(
+    gig_id: str,
+    db: Session = Depends(session.get_db),
+    include_user_details: bool = True
+):
+    """Retrieve all bookings for a specific gig with user details."""
+    try:
+        # Validate UUID format for gig_id
+        try:
+            uuid_obj = uuid.UUID(gig_id)
+        except ValueError:
+            logger.warning(f"Invalid UUID format for gig_id: {gig_id}")
+            raise HTTPException(
+                status_code=400, 
+                detail="Invalid gig ID format. Must be a valid UUID."
+            )
+        
+        logger.info(f"Getting bookings for gig: {gig_id}")
+        bookings = crud.get_bookings_by_gig(db=db, gig_id=str(uuid_obj))
+        logger.info(f"Found {len(bookings)} bookings for gig {gig_id}")
+        
+        # If user details are requested, fetch them for each booking
+        if include_user_details:
+            from app.utils.user_service import get_user_details
+            enhanced_bookings = []
+            
+            for booking in bookings:
+                # Create a dict for the booking response
+                booking_dict = {
+                    "id": booking.id,
+                    "user_id": booking.user_id,
+                    "gig_id": booking.gig_id,
+                    "status": booking.status,
+                    "scheduled_time": booking.scheduled_time,
+                    "created_at": booking.created_at
+                }
+                
+                # Fetch user details from user service
+                try:
+                    user_details = get_user_details(str(booking.user_id))
+                    if user_details:
+                        booking_dict["user"] = user_details
+                    else:
+                        booking_dict["user"] = None
+                except Exception as user_err:
+                    logger.warning(f"Could not fetch user details for user {booking.user_id}: {str(user_err)}")
+                    booking_dict["user"] = None
+                
+                # Fetch gig details
+                try:
+                    gig_details = get_gig_details(str(booking.gig_id))
+                    if gig_details:
+                        booking_dict["gig_details"] = gig_details
+                    else:
+                        booking_dict["gig_details"] = None
+                except Exception as gig_err:
+                    logger.warning(f"Could not fetch gig details for gig {booking.gig_id}: {str(gig_err)}")
+                    booking_dict["gig_details"] = None
+                
+                enhanced_bookings.append(booking_dict)
+            
+            return enhanced_bookings
+        
+        return bookings
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting bookings for gig {gig_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get bookings for gig: {str(e)}"
+        )
+
+# 4. Available slots endpoint
 @router.get("/gigs/{gig_id}/available-slots")
 def get_available_slots(
     gig_id: str,

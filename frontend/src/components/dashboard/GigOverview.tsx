@@ -21,6 +21,7 @@ const GigOverview: React.FC<GigOverviewProps> = ({ gig }) => {
   const [bookingsError, setBookingsError] = useState<string | null>(null);
   const [todayBookings, setTodayBookings] = useState<Booking[]>([]);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [chartData, setChartData] = useState<Array<{ date: string; revenue: number }>>([]);
   const [gigStats, setGigStats] = useState({
     todayBookings: 0,
     weeklyBookings: 0,
@@ -101,6 +102,9 @@ const GigOverview: React.FC<GigOverviewProps> = ({ gig }) => {
       
       console.log('Analytics data loaded:', analyticsData);
       console.log('Rating data loaded:', ratingData);
+      
+      // Update chart data from analytics
+      setChartData(analyticsData.chartData || []);
       
       // Update stats with real data
       setGigStats(prev => ({
@@ -386,12 +390,8 @@ const GigOverview: React.FC<GigOverviewProps> = ({ gig }) => {
             </div>
           </div>
 
-          <EarningsChart data={[
-            { date: '2024-01-01', revenue: 5000 },
-            { date: '2024-01-02', revenue: 7500 },
-            { date: '2024-01-03', revenue: 6000 },
-            { date: '2024-01-04', revenue: 8000 },
-            { date: '2024-01-05', revenue: 12000 },
+          <EarningsChart data={chartData.length > 0 ? chartData : [
+            { date: new Date().toISOString().split('T')[0], revenue: 0 }
           ]} />
         </div>
       </div>
