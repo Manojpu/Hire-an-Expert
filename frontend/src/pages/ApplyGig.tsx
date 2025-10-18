@@ -412,19 +412,138 @@ const ApplyGig: React.FC = () => {
             {currentStepKey === "review" && (
               <div>
                 <h2 className="text-xl font-semibold mb-4">Review & Submit</h2>
-                <div className="space-y-3">
-                  <div className="bg-gray-50 p-3 rounded">
-                    Summary: {JSON.stringify(form, null, 2)}
+                <p className="text-sm text-muted-foreground mb-6">
+                  Please review your application details before submitting.
+                </p>
+
+                <div className="space-y-6">
+                  {/* Services Section */}
+                  <div className="border-b pb-4">
+                    <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                      <span className="text-primary">📋</span> Services & Expertise
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Category:</span>
+                        <p className="font-medium">
+                          {categories.find(c => c.id === Number(form.category_id))?.name || 'Not selected'}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Hourly Rate:</span>
+                        <p className="font-medium">Rs. {form.rate || 0}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground">Service Description:</span>
+                        <p className="font-medium text-gray-700 mt-1">
+                          {form.serviceDesc || 'Not provided'}
+                        </p>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground">Availability Notes:</span>
+                        <p className="font-medium text-gray-700 mt-1">
+                          {form.availabilityNotes || 'Not provided'}
+                        </p>
+                      </div>
+                      {form.availabilityRules && form.availabilityRules.length > 0 && (
+                        <div className="col-span-2">
+                          <span className="text-muted-foreground">Availability Rules:</span>
+                          <p className="font-medium text-gray-700 mt-1">
+                            {form.availabilityRules.length} time slot(s) configured
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={!!form.tos}
-                      onChange={(e) => handleChange("tos", e.target.checked)}
-                    />
-                    <span className="text-sm">
-                      I agree to the terms of service
-                    </span>
+
+                  {/* Qualifications Section */}
+                  <div className="border-b pb-4">
+                    <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                      <span className="text-primary">🎓</span> Qualifications
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground">Expertise Areas:</span>
+                        <p className="font-medium text-gray-700 mt-1">
+                          {form.expertise_areas || 'Not provided'}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Experience:</span>
+                        <p className="font-medium">{form.experience_years || 0} years</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Documents:</span>
+                        <p className="font-medium">
+                          {form.qualificationDocs && form.qualificationDocs.length > 0
+                            ? `${form.qualificationDocs.length} file(s) attached`
+                            : 'No files attached'}
+                        </p>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground">Work Experience:</span>
+                        <p className="font-medium text-gray-700 mt-1">
+                          {form.experience || 'Not provided'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Verification Section */}
+                  {includeVerificationStep && (
+                    <div className="border-b pb-4">
+                      <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                        <span className="text-primary">✓</span> Verification
+                      </h3>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Government ID:</span>
+                          <p className="font-medium">
+                            {form.govId ? '✓ Uploaded' : '✗ Not uploaded'}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Professional License:</span>
+                          <p className="font-medium">
+                            {form.license ? '✓ Uploaded' : '✗ Not uploaded'}
+                          </p>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-muted-foreground">References:</span>
+                          <p className="font-medium text-gray-700 mt-1">
+                            {form.references || 'Not provided'}
+                          </p>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-muted-foreground">Background Check:</span>
+                          <p className="font-medium">
+                            {form.bgConsent ? '✓ Consent given' : '✗ Consent not given'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Terms of Service */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        id="tos-checkbox"
+                        checked={!!form.tos}
+                        onChange={(e) => handleChange("tos", e.target.checked)}
+                        className="mt-1"
+                      />
+                      <label htmlFor="tos-checkbox" className="text-sm cursor-pointer">
+                        <span className="font-medium text-blue-900">
+                          I agree to the terms of service
+                        </span>
+                        <p className="text-blue-700 mt-1">
+                          By submitting this application, you confirm that all information provided is accurate and complete.
+                          Your application will be reviewed within 2-3 business days.
+                        </p>
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
