@@ -35,6 +35,14 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onAccept, onReject, 
 
   const handleJoin = (link: string | undefined) => {
     setHasJoined(true);
+    
+    // Use provided meeting link or default Zoom link for demo
+    const meetingUrl = link || 'https://us04web.zoom.us/j/78718993294?pwd=a9Gb8KKMvGVHkKcq6pYj8M9f5etwUl.1';
+    
+    // Open Zoom meeting in a new tab
+    window.open(meetingUrl, '_blank', 'noopener,noreferrer');
+    
+    // Call parent handler if provided
     onJoin?.(link);
   };
 
