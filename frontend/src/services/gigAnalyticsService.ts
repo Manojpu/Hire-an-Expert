@@ -116,37 +116,15 @@ export async function fetchGigAnalytics(gigId: string, period: string = 'month')
 
     const bookingData = await bookingResponse.json();
 
-    // Fetch performance analytics (ratings, reviews, response time)
-    let performanceData: PerformanceMetrics;
-    try {
-      const performanceResponse = await fetch(
-        `${GIG_SERVICE_URL}/gigs/${gigId}/performance`,
-        { headers }
-      );
-
-      if (performanceResponse.ok) {
-        performanceData = await performanceResponse.json();
-      } else {
-        // Use defaults if performance service is unavailable
-        console.warn('Performance service unavailable, using defaults');
-        performanceData = {
-          rating: 0,
-          totalReviews: 0,
-          responseTime: '< 24 hours',
-          repeatCustomers: 0,
-          avgSessionDuration: '45 min',
-        };
-      }
-    } catch (perfError) {
-      console.error('Error fetching performance data:', perfError);
-      performanceData = {
-        rating: 0,
-        totalReviews: 0,
-        responseTime: '< 24 hours',
-        repeatCustomers: 0,
-        avgSessionDuration: '45 min',
-      };
-    }
+    // Use performance data from booking service response
+    // The booking service now includes: repeatCustomers, responseTime, avgSessionDuration
+    const performanceData: PerformanceMetrics = {
+      rating: bookingData.performance?.rating || 0,
+      totalReviews: 0, // This will be fetched from review service by the component
+      responseTime: bookingData.performance?.responseTime || '< 24 hours',
+      repeatCustomers: bookingData.performance?.repeatCustomers || 0,
+      avgSessionDuration: bookingData.performance?.avgSessionDuration || '1 hour',
+    };
 
     // Combine all analytics data
     return {
