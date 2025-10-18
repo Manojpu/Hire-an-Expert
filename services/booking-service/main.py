@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.db import session, models
 from app.db.seed import seed_database
-from app.endpoints import booking, analytics
+from app.endpoints import booking
 from sqlalchemy.exc import OperationalError
 from app.core.logging import logger
 from app.core.config import settings
@@ -56,10 +56,9 @@ try:
     models.Base.metadata.create_all(bind=session.engine)
     logger.info("Database setup completed successfully!")
     
-    # Seed the database with test data (temporarily disabled)
-    # db = next(session.get_db())
-    # seed_database(db)
-    logger.info("Database seeding skipped - service ready")
+    # Seed the database with test data
+    db = next(session.get_db())
+    seed_database(db)
 except OperationalError as e:
     logger.error(f"Database connection failed: {e}")
     logger.info("Make sure your database is running. You can start it with 'docker-compose up -d'")
@@ -67,9 +66,6 @@ except OperationalError as e:
 # Include the booking router
 # Important: routes in booking.router should be ordered with fixed paths before path parameters
 app.include_router(booking.router, prefix="/bookings", tags=["bookings"])
-
-# Include the analytics router
-app.include_router(analytics.router, prefix="/bookings", tags=["analytics"])
 
 @app.get("/")
 def read_root():

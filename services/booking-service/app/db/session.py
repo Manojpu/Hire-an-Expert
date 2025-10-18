@@ -18,13 +18,8 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL") or settings.DATABASE_URL
 print(f"Connecting to database: {DATABASE_URL}")
 
-# Create SQLAlchemy engine with schema configuration
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={
-        "options": "-csearch_path=booking_db,public"
-    } if "postgresql" in DATABASE_URL else {}
-)
+# Create SQLAlchemy engine
+engine = create_engine(DATABASE_URL)
 
 # Create sessionmaker instance
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
