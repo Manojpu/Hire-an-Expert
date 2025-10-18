@@ -1,6 +1,6 @@
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 from app.db.schemas import BookingCreate, BookingUpdate
-from app.db.models import Booking, User, Gig, BookingStatus
+from app.db.models import Booking, BookingStatus
 import uuid
 from datetime import timedelta
 import logging
@@ -46,11 +46,7 @@ def create_booking(db: Session, booking: BookingCreate, user_id: str) -> Booking
     db_booking = Booking(
         gig_id=booking.gig_id,
         user_id=user_id,
-        scheduled_time=booking.scheduled_time,
-        duration=booking.duration,
-        service=booking.service,
-        type=booking.type,
-        notes=booking.notes
+        scheduled_time=booking.scheduled_time
     )
     db.add(db_booking)
     db.commit()
@@ -121,7 +117,7 @@ def update_booking(db: Session, booking_id: str, booking_update: BookingUpdate) 
         if not db_booking:
             return None
 
-        # Store previous status for event publishing
+        # Store the previous status to check if it changed
         previous_status = db_booking.status
 
         # Update fields if provided
@@ -129,14 +125,6 @@ def update_booking(db: Session, booking_id: str, booking_update: BookingUpdate) 
             db_booking.status = booking_update.status
         if booking_update.scheduled_time is not None:
             db_booking.scheduled_time = booking_update.scheduled_time
-        if booking_update.duration is not None:
-            db_booking.duration = booking_update.duration
-        if booking_update.service is not None:
-            db_booking.service = booking_update.service
-        if booking_update.type is not None:
-            db_booking.type = booking_update.type
-        if booking_update.notes is not None:
-            db_booking.notes = booking_update.notes
 
         db.commit()
         db.refresh(db_booking)
@@ -278,10 +266,8 @@ def get_bookings(db: Session, skip: int = 0, limit: int = 100) -> list[Booking]:
     return db.query(Booking).offset(skip).limit(limit).all()
 
 def get_bookings_by_gig(db: Session, gig_id: str):
-    """Retrieve all bookings for a specific gig (without joins to avoid type mismatch)."""
-    return db.query(Booking)\
-        .filter(Booking.gig_id == gig_id)\
-        .all()
+    """Retrieve all bookings for a specific gig."""
+    return db.query(Booking).filter(Booking.gig_id == gig_id).all()
 
 def get_booking_by_gig_and_user(db: Session, gig_id: str, user_id: str) -> Booking:
     """Retrieve a booking by gig ID and user ID."""

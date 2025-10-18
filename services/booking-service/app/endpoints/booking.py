@@ -1,72 +1,21 @@
 from app.db import session
 from app.db import crud
-from app.db.schemas import BookingCreate, BookingUpdate, BookingResponse, BookingWithDetails
-from app.db.models import User, Gig
-from app.db.schemas import BookingResponseWithGigDetails, GigDetails
+from app.db.schemas import BookingCreate, BookingUpdate, BookingResponse, BookingResponseWithGigDetails, GigDetails
 from app.db.models import Booking  # Import the Booking model
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, HTTPException, Path
 from fastapi import status
 from app.core.logging import logger
-import httpx
-import asyncio
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.core.firebase_auth import get_current_user_id
 from app.utils.gig_service import get_gig_details
 from typing import List
 import uuid
 import uuid
-from app.core.config import settings
 
 # Create router with explicit prefix to avoid path parameter conflicts
 router = APIRouter()
 
-async def get_user_from_service(user_id: str):
-    """Fetch user details from the user service."""
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{settings.USER_SERVICE_URL}/users/{user_id}")
-            if response.status_code == 200:
-                user_data = response.json()
-                return {
-                    "id": user_data.get("id", user_id),
-                    "firebase_uid": user_data.get("firebase_uid"),  # Include Firebase UID
-                    "name": user_data.get("full_name") or user_data.get("name") or f"User {user_id}",
-                    "email": user_data.get("email")
-                }
-            else:
-                logger.warning(f"User service returned {response.status_code} for user {user_id}")
-                return {"id": user_id, "name": f"User {user_id}", "email": None}
-    except Exception as e:
-        logger.error(f"Error fetching user {user_id} from user service: {e}")
-        return {"id": user_id, "name": f"User {user_id}", "email": None}
-
-def transform_booking_with_details(db: Session, booking):
-    """Transform a booking object to include user and gig details."""
-    # Skip database lookups to avoid type mismatch issues for now
-    # Just return booking data with mock user/gig info
-    return {
-        "id": booking.id,
-        "user_id": booking.user_id,
-        "gig_id": booking.gig_id,
-        "status": booking.status.value if hasattr(booking.status, 'value') else booking.status,
-        "scheduled_time": booking.scheduled_time,
-        "duration": booking.duration,
-        "service": booking.service,
-        "type": booking.type,
-        "notes": booking.notes,
-        "created_at": booking.created_at,
-        "user": {
-            "id": booking.user_id,
-            "name": f"User {booking.user_id}",
-            "email": None
-        },
-        "gig": {
-            "id": booking.gig_id,
-            "title": f"Gig {booking.gig_id}",
-            "hourly_rate": 100.0  # Default rate
-        }
-    }
 # Define routes in order - fixed paths before path parameters
 
 # 1. Root endpoint - list all bookings
@@ -299,76 +248,6 @@ def get_booking(
             detail=f"Failed to get booking: {str(e)}"
         )
 
-@router.get("/verify/{booking_id}")
-def verify_booking_for_review(
-    booking_id: str = Path(..., description="The ID of the booking to verify"), 
-    db: Session = Depends(session.get_db)
-):
-    """
-    Verify booking status for review service.
-    Returns minimal booking data needed for creating a review.
-    """
-    try:
-        # Validate UUID format
-        try:
-            uuid_obj = uuid.UUID(booking_id)
-        except ValueError:
-            logger.warning(f"Invalid UUID format for booking_id: {booking_id}")
-            raise HTTPException(
-                status_code=400, 
-                detail="Invalid booking ID format. Must be a valid UUID."
-            )
-        
-        logger.info(f"Verifying booking {booking_id} for review")
-        db_booking = crud.get_booking(db=db, booking_id=str(uuid_obj))
-        
-        if not db_booking:
-            logger.warning(f"Booking with ID {booking_id} not found")
-            raise HTTPException(status_code=404, detail="Booking not found")
-        
-        # Get gig details to find the expert (seller)
-        try:
-            gig_data = get_gig_details(str(db_booking.gig_id))
-            seller_id = gig_data.get("expert_id") if gig_data else None
-            print(f"🔍 GIG DATA: {gig_data}")
-            print(f"🔍 SELLER ID (expert_id): {seller_id}")
-        except Exception as e:
-            logger.error(f"Error fetching gig details: {str(e)}")
-            seller_id = None
-        
-        # Get Firebase UID of the buyer from user service
-        buyer_firebase_uid = None
-        try:
-            user_data = asyncio.run(get_user_from_service(str(db_booking.user_id)))
-            print(f"🔍 USER DATA from user service: {user_data}")
-            print(f"🔍 user_data.get('firebase_uid'): {user_data.get('firebase_uid')}")
-            print(f"🔍 user_data.get('id'): {user_data.get('id')}")
-            # Try to get firebase_uid or fallback to id
-            buyer_firebase_uid = user_data.get("firebase_uid") or user_data.get("id")
-            print(f"🔍 Final buyer_firebase_uid: {buyer_firebase_uid}")
-            logger.info(f"Buyer Firebase UID: {buyer_firebase_uid} for user_id: {db_booking.user_id}")
-        except Exception as e:
-            logger.error(f"Error fetching user Firebase UID: {str(e)}")
-            buyer_firebase_uid = str(db_booking.user_id)  # Fallback to database ID
-        
-        # Return minimal data needed for review
-        return {
-            "booking_id": str(db_booking.id),
-            "buyer_id": buyer_firebase_uid,  # Firebase UID of the buyer
-            "seller_id": seller_id,  # expert_id from gig
-            "status": db_booking.status.value if hasattr(db_booking.status, 'value') else db_booking.status,
-            "gig_id": str(db_booking.gig_id)
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error verifying booking {booking_id}: {str(e)}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Failed to verify booking: {str(e)}"
-        )
-
 @router.put("/{booking_id}", response_model=BookingResponse)
 def update_booking(
     booking_id: str = Path(..., description="The ID of the booking to update"),
@@ -434,73 +313,5 @@ def delete_booking(
             detail=f"Failed to delete booking: {str(e)}"
         )
 
-@router.get("/user", response_model=list[BookingResponse])
-def get_bookings_by_user(db: Session = Depends(session.get_db)):
-    """Retrieve all bookings made by the current user."""
-    try:
-        user_id = session.get_current_user_id()
-        logger.info(f"Getting bookings for user: {user_id}")
-        bookings = crud.get_bookings_by_user(db=db, user_id=user_id)
-        return bookings
-    except Exception as e:
-        logger.error(f"Error getting bookings for user {user_id}: {str(e)}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Failed to get user bookings: {str(e)}"
-        )
-
-@router.get("/gig/{gig_id}")
-async def get_bookings_by_gig(gig_id: str, db: Session = Depends(session.get_db)):
-    """Retrieve all bookings for a specific gig with user and gig details."""
-    try:
-        logger.info(f"Getting bookings for gig: {gig_id}")
-        bookings = crud.get_bookings_by_gig(db=db, gig_id=gig_id)
-        
-        # Transform bookings with user and gig details
-        detailed_bookings = []
-        for booking in bookings:
-            # Get real user data from user service
-            user_data = await get_user_from_service(str(booking.user_id))
-            
-            detailed_booking = {
-                "id": booking.id,
-                "user_id": booking.user_id,
-                "gig_id": booking.gig_id,
-                "status": booking.status.value if hasattr(booking.status, 'value') else booking.status,
-                "scheduled_time": booking.scheduled_time,
-                "duration": booking.duration,
-                "service": booking.service,
-                "type": booking.type,
-                "notes": booking.notes,
-                "created_at": booking.created_at,
-                "user": user_data,
-                "gig": {
-                    "id": booking.gig_id,
-                    "title": f"Gig {booking.gig_id}",
-                    "hourly_rate": 100.0  # Default rate
-                }
-            }
-            detailed_bookings.append(detailed_booking)
-        
-        return detailed_bookings
-    except Exception as e:
-        logger.error(f"Error getting bookings for gig {gig_id}: {str(e)}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Failed to get gig bookings: {str(e)}"
-        )
-
-@router.get("/", response_model=list[BookingResponse])
-def get_bookings(skip: int = 0, limit: int = 100, db: Session = Depends(session.get_db)):
-    """Fetch a list of bookings, with pagination."""
-    try:
-        logger.info(f"Getting all bookings with skip={skip}, limit={limit}")
-        bookings = crud.get_bookings(db=db, skip=skip, limit=limit)
-        return bookings
-    except Exception as e:
-        logger.error(f"Error getting bookings: {str(e)}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Failed to get bookings: {str(e)}"
-        )
+# All endpoints have been organized in proper order
 
