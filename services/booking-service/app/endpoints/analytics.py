@@ -240,6 +240,26 @@ async def get_gig_analytics(
                 "revenue": revenue
             })
         
+        # Calculate Repeat Customers
+        # A repeat customer is a user who has made 2 or more bookings for this gig
+        user_booking_counts = db.query(
+            Booking.user_id,
+            func.count(Booking.id).label('booking_count')
+        ).filter(
+            Booking.gig_id == gig_id
+        ).group_by(
+            Booking.user_id
+        ).all()
+        
+        # Count users with 2 or more bookings
+        repeat_customers = sum(1 for user_data in user_booking_counts if user_data.booking_count >= 2)
+        
+        # Calculate average response time (placeholder for now - could be calculated from booking acceptance time)
+        avg_response_time = "< 24 hours"
+        
+        # Calculate average session duration (all sessions are 1 hour in this system)
+        avg_session_duration = "1 hour"
+        
         # Return analytics response
         return {
             "revenue": {
@@ -261,6 +281,12 @@ async def get_gig_analytics(
                 "pending": pending_bookings,
                 "confirmed": confirmed_bookings,
                 "completionRate": completion_rate
+            },
+            "performance": {
+                "repeatCustomers": repeat_customers,
+                "responseTime": avg_response_time,
+                "avgSessionDuration": avg_session_duration,
+                "rating": 0  # This comes from review service, frontend will override
             },
             "chartData": chart_data,
             "hourlyRate": hourly_rate,
