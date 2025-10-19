@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FileText, Users, UserCheck, Clock, Search, Filter, ChevronRight, Eye, CheckCircle, PauseCircle, XCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GigVerificationTableRow } from '@/types/gigVerification';
