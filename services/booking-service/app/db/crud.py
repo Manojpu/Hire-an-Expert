@@ -122,7 +122,23 @@ def update_booking(db: Session, booking_id: str, booking_update: BookingUpdate) 
 
         # Update fields if provided
         if booking_update.status is not None:
-            db_booking.status = booking_update.status
+            # Convert string status to BookingStatus enum
+            try:
+                # Map status strings to enum values (database uses UPPERCASE)
+                status_map = {
+                    "pending": BookingStatus.PENDING,
+                    "confirmed": BookingStatus.CONFIRMED,
+                    "joined": BookingStatus.JOINED,
+                    "completed": BookingStatus.COMPLETED,
+                    "cancelled": BookingStatus.CANCELLED
+                }
+                if booking_update.status.lower() in status_map:
+                    db_booking.status = status_map[booking_update.status.lower()]
+                else:
+                    raise ValueError(f"Invalid status: {booking_update.status}")
+            except Exception as e:
+                logger.error(f"Error converting status to enum: {str(e)}")
+                raise
         if booking_update.scheduled_time is not None:
             db_booking.scheduled_time = booking_update.scheduled_time
         if booking_update.meeting_link is not None:

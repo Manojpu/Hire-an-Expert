@@ -16,12 +16,16 @@ class BookingCreate(BookingBase):
 class BookingResponse(BookingBase):
     id: uuid.UUID
     user_id: uuid.UUID
-    status: str
+    status: str  # Will serialize the enum value (UPPERCASE in database)
     created_at: datetime
     meeting_link: Optional[str] = None
 
     class Config:
         from_attributes = True
+        # Custom serializer to handle enum serialization
+        json_encoders = {
+            BookingStatus: lambda v: v.value if isinstance(v, BookingStatus) else str(v)
+        }
         
 class GigDetails(BaseModel):
     id: str
