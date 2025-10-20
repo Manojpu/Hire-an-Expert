@@ -18,7 +18,7 @@ interface UIBooking {
   time: string;
   date: string;
   duration: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'joined' | 'completed' | 'cancelled';
   type: string;
   price: number;
   gigTitle: string;
@@ -26,6 +26,7 @@ interface UIBooking {
   client: { name: string };
   service: string;
   amount: number;
+  meetingLink?: string;
 }
 
 const GigBookings: React.FC<GigBookingsProps> = ({ gig }) => {
@@ -127,6 +128,21 @@ const GigBookings: React.FC<GigBookingsProps> = ({ gig }) => {
     }
   };
 
+  const handleJoinBooking = async (bookingId: string) => {
+    try {
+      setActionLoading(bookingId);
+      await bookingService.joinBooking(bookingId);
+      await loadBookings(); // Reload bookings
+      // Navigate to Agora meeting room
+      window.location.href = `/meeting/${bookingId}`;
+    } catch (err) {
+      console.error('Error joining booking:', err);
+      setError('Failed to join booking');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleCompleteBooking = async (bookingId: string) => {
     try {
       setActionLoading(bookingId);
@@ -138,6 +154,11 @@ const GigBookings: React.FC<GigBookingsProps> = ({ gig }) => {
     } finally {
       setActionLoading(null);
     }
+  };
+
+  // Callback to refresh bookings when BookingCard changes status
+  const handleStatusChange = async () => {
+    await loadBookings();
   };
 
   // Mock bookings data for fallback (keeping for reference)
@@ -312,11 +333,7 @@ const GigBookings: React.FC<GigBookingsProps> = ({ gig }) => {
             <BookingCard 
               key={booking.id} 
               booking={booking}
-              onAccept={() => handleAcceptBooking(booking.id)}
-              onReject={() => handleRejectBooking(booking.id)}
-              onJoin={(link) => link && window.open(link, '_blank')}
-              onComplete={() => handleCompleteBooking(booking.id)}
-              isLoading={actionLoading === booking.id}
+              onStatusChange={handleStatusChange}
             />
           ))
         )}

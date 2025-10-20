@@ -9,6 +9,7 @@ Base = declarative_base()
 class BookingStatus(str, enum.Enum):
     PENDING = "pending"
     CONFIRMED = "confirmed"
+    JOINED = "JOINED"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 

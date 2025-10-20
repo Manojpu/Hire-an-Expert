@@ -16,7 +16,6 @@ const MyBookings = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [joinedBookings, setJoinedBookings] = useState<Set<string>>(new Set()); // Track which bookings have been joined
   const [reviewModalOpen, setReviewModalOpen] = useState<boolean>(false);
   const [currentReviewBookingId, setCurrentReviewBookingId] = useState<string | null>(null);
   const [currentReviewGigId, setCurrentReviewGigId] = useState<string | null>(null);
@@ -97,10 +96,8 @@ const MyBookings = () => {
     }
   };
 
-  const handleJoinMeeting = (bookingId: string) => {
-    // Mark this booking as joined
-    setJoinedBookings(prev => new Set(prev).add(bookingId));
-    // Navigate to Agora meeting room
+  const handleJoinMeeting = async (bookingId: string) => {
+    // Just navigate to meeting - status change handled by expert in BookingCard
     window.location.href = `/meeting/${bookingId}`;
   };
 
@@ -110,19 +107,8 @@ const MyBookings = () => {
       // Refresh bookings after completion
       const updatedBookings = await bookingService.getUserBookings();
       setBookings(updatedBookings);
-      // Remove from joined bookings
-      setJoinedBookings(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(bookingId);
-        return newSet;
-      });
 
-      toast({
-        title: "Booking completed",
-        description: "Booking has been marked as completed",
-      });
-
-      // Open review modal after completing
+      // Open review modal immediately after completing
       setCurrentReviewBookingId(bookingId);
       setCurrentReviewGigId(gigId);
       setCurrentReviewExpertName(expertName);
@@ -270,7 +256,7 @@ const MyBookings = () => {
                     </div>
                   )}
                   {/* Show Join Meeting button when booking is confirmed and has meeting link */}
-                  {booking.status === "confirmed" && booking.meeting_link && !joinedBookings.has(String(booking.id)) && (
+                  {booking.status === "confirmed" && booking.meeting_link && (
                     <div className="flex flex-col items-end gap-2">
                       <Button size="sm" onClick={() => handleJoinMeeting(String(booking.id))}>
                         Join Meeting
@@ -298,13 +284,29 @@ const MyBookings = () => {
                     </div>
                   )}
                   
-                  {/* Show Done button after user has joined the meeting */}
-                  {booking.status === "confirmed" && booking.meeting_link && joinedBookings.has(String(booking.id)) && (
+                  {/* Show Done button after meeting is joined - clicking opens review popup */}
+                  {booking.status === "joined" && (
                     <Button size="sm" onClick={() => handleCompleteBooking(
                       String(booking.id),
                       booking.gig_id,
                       expert?.name || gigDetails.service_description || "Expert"
                     )}>Done</Button>
+                  )}
+                  
+                  {/* Show Leave a Review button for completed bookings */}
+                  {booking.status === "completed" && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        setCurrentReviewBookingId(String(booking.id));
+                        setCurrentReviewGigId(booking.gig_id);
+                        setCurrentReviewExpertName(expert?.name || gigDetails.service_description || "Expert");
+                        setReviewModalOpen(true);
+                      }}
+                    >
+                      Leave a Review
+                    </Button>
                   )}
                 </div>
               </div>
