@@ -1,21 +1,21 @@
 """
-Admin Service with RAG System
-Uses Gemini 1.5 Flash, FAISS, MongoDB, and LangChain
+Lightweight Admin Service with RAG System
+Uses Gemini for embeddings and LLM, Pinecone for vectors, MongoDB for storage
 """
 import os
 import sys
-from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 import logging
 
 # Import RAG components
-from app.rag.vector_store import FAISSVectorStore
-from app.rag.document_processor import DocumentProcessor
-from app.rag.gemini_service import GeminiService
-from app.rag.rag_engine import RAGEngine
-from app.database.mongodb import MongoDB
+from app.services.document_processor import DocumentProcessor
+from app.services.gemini_service import GeminiService
+from app.services.pinecone_service import PineconeService
+from app.services.mongodb_service import MongoDBService
+from app.services.rag_engine import RAGEngine
 from app.routes import rag_routes, admin_routes, analytics_routes
 from app.config import settings
 
@@ -28,58 +28,55 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-# Global instances
-vector_store = None
-rag_engine = None
-db = None
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize services on startup"""
-    global vector_store, rag_engine, db
     
     try:
-        logger.info("🚀 Starting Admin Service with RAG System...")
+        logger.info("🚀 Starting Lightweight Admin Service with RAG System...")
         
         # Initialize MongoDB
-        db = MongoDB()
-        await db.connect()
-        app.state.db = db
+        mongodb_service = MongoDBService()
+        await mongodb_service.connect()
+        app.state.mongodb_service = mongodb_service
         logger.info("✅ MongoDB connected")
         
-        # Initialize Vector Store with MongoDB for persistence
-        vector_store = FAISSVectorStore(db=db)
-        await vector_store.initialize()
-        app.state.vector_store = vector_store
-        logger.info("✅ FAISS Vector Store initialized")
+        # Initialize Pinecone
+        pinecone_service = PineconeService()
+        await pinecone_service.initialize()
+        app.state.pinecone_service = pinecone_service
+        logger.info("✅ Pinecone initialized")
         
         # Initialize Gemini Service
         gemini_service = GeminiService()
         app.state.gemini_service = gemini_service
-        logger.info("✅ Gemini 1.5 Flash initialized")
+        logger.info("✅ Gemini service initialized")
         
         # Initialize Document Processor
-        doc_processor = DocumentProcessor()
+        doc_processor = DocumentProcessor(
+            chunk_size=settings.CHUNK_SIZE,
+            chunk_overlap=settings.CHUNK_OVERLAP
+        )
         app.state.doc_processor = doc_processor
         logger.info("✅ Document Processor initialized")
         
         # Initialize RAG Engine
         rag_engine = RAGEngine(
-            vector_store=vector_store,
-            gemini_service=gemini_service,
             doc_processor=doc_processor,
-            db=db
+            gemini_service=gemini_service,
+            pinecone_service=pinecone_service,
+            mongodb_service=mongodb_service
         )
         app.state.rag_engine = rag_engine
         logger.info("✅ RAG Engine initialized")
         
-        logger.info("🎉 Admin Service is ready!")
+        logger.info("🎉 Lightweight Admin Service is ready!")
         
         yield
         
         # Cleanup
         logger.info("🛑 Shutting down Admin Service...")
-        await db.disconnect()
+        await mongodb_service.disconnect()
         logger.info("✅ MongoDB disconnected")
         
     except Exception as e:
@@ -88,9 +85,9 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title="Admin Service with RAG",
-    description="Admin service with Retrieval-Augmented Generation system",
-    version="1.0.0",
+    title="Lightweight Admin Service with RAG",
+    description="Admin service with RAG using Pinecone and Gemini",
+    version="2.0.0",
     lifespan=lifespan
 )
 
@@ -116,15 +113,17 @@ app.include_router(analytics_routes.router, prefix="/api/analytics", tags=["Anal
 async def root():
     """Root endpoint"""
     return {
-        "service": "Admin Service with RAG",
-        "version": "1.0.0",
+        "service": "Lightweight Admin Service with RAG",
+        "version": "2.0.0",
         "status": "running",
         "features": {
             "rag": "Enabled",
-            "llm": "Gemini 1.5 Flash",
-            "vector_db": "FAISS",
+            "llm": "Gemini 2.0 Flash",
+            "embeddings": "Gemini embedding-001",
+            "vector_db": "Pinecone",
             "database": "MongoDB",
-            "framework": "LangChain"
+            "chunk_size": settings.CHUNK_SIZE,
+            "chunk_overlap": settings.CHUNK_OVERLAP
         }
     }
 
@@ -133,15 +132,19 @@ async def health_check():
     """Health check endpoint"""
     try:
         # Check MongoDB
-        db_status = await app.state.db.health_check()
+        db_status = await app.state.mongodb_service.health_check()
         
-        # Check Vector Store
-        vector_status = app.state.vector_store.is_initialized()
+        # Check Pinecone
+        pinecone_status = app.state.pinecone_service.is_initialized()
+        
+        # Check Gemini
+        gemini_status = app.state.gemini_service.check_connection()
         
         return {
             "status": "healthy",
             "database": "connected" if db_status else "disconnected",
-            "vector_store": "initialized" if vector_status else "not initialized",
+            "vector_db": "initialized" if pinecone_status else "not initialized",
+            "gemini": "connected" if gemini_status else "not connected",
             "rag_engine": "ready" if app.state.rag_engine else "not ready"
         }
     except Exception as e:
