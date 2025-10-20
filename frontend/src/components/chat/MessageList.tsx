@@ -233,7 +233,7 @@ export const MessageList = ({ messages }: MessageListProps) => {
           >
             <div
               className={cn(
-                "max-w-xs lg:max-w-md px-4 py-2 rounded-2xl shadow-chat",
+                "max-w-[75%] px-4 py-2 rounded-2xl shadow-chat break-words",
                 message.sender === 'me'
                   ? 'bg-chat-message-sent text-white rounded-br-md'
                   : 'bg-chat-message-received text-foreground rounded-bl-md'
