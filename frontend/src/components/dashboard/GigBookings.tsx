@@ -56,7 +56,8 @@ const GigBookings: React.FC<GigBookingsProps> = ({ gig }) => {
           : (booking.gig?.hourly_rate as number) || gig.hourly_rate || 0;
         const duration = booking.duration || 30;
         const calculatedPrice = hourlyRate * duration / 60;
-        
+
+        // Map meeting_link (snake_case) to meetingLink (camelCase) for BookingCard
         return {
           id: booking.id.toString(),
           clientName: booking.user?.name || `User ${String(booking.user_id).substring(0, 8)}...`,
@@ -78,7 +79,8 @@ const GigBookings: React.FC<GigBookingsProps> = ({ gig }) => {
           dateTime: booking.scheduled_time || new Date().toISOString(),
           client: { name: booking.user?.name || `User ${String(booking.user_id).substring(0, 8)}...` },
           service: booking.service || 'Consultation',
-          amount: calculatedPrice
+          amount: calculatedPrice,
+          meetingLink: booking.meeting_link // <-- FIX: map for BookingCard
         } as UIBooking;
       });
       

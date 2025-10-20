@@ -125,6 +125,8 @@ def update_booking(db: Session, booking_id: str, booking_update: BookingUpdate) 
             db_booking.status = booking_update.status
         if booking_update.scheduled_time is not None:
             db_booking.scheduled_time = booking_update.scheduled_time
+        if booking_update.meeting_link is not None:
+            db_booking.meeting_link = booking_update.meeting_link
 
         db.commit()
         db.refresh(db_booking)
