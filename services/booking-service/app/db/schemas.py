@@ -18,6 +18,7 @@ class BookingResponse(BookingBase):
     user_id: uuid.UUID
     status: str
     created_at: datetime
+    meeting_link: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -34,6 +35,7 @@ class BookingResponseWithGigDetails(BookingResponse):
 class BookingUpdate(BaseModel):
     status: str | None = None
     scheduled_time: datetime | None = None
+    meeting_link: str | None = None
 
     class Config:
         from_attributes = True

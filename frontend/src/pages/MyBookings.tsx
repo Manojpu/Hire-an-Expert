@@ -37,6 +37,8 @@ const MyBookings = () => {
         setError(null); // Clear any previous errors
         const userBookings = await bookingService.getUserBookings();
         console.log("Fetched bookings:", userBookings); // Debug log
+        console.log("Bookings with meeting_link:", userBookings.filter(b => b.meeting_link));
+        console.log("Confirmed bookings:", userBookings.filter(b => b.status === 'confirmed'));
         setBookings(userBookings || []);
       } catch (err) {
         console.error("Error fetching bookings:", err);
@@ -73,13 +75,33 @@ const MyBookings = () => {
     }
   };
 
-  const handleJoinMeeting = (bookingId: string, meetingLink: string) => {
+  const handleConfirmBooking = async (bookingId: string) => {
+    try {
+      // Call the confirm endpoint which generates meeting link
+      await bookingService.confirmBooking(bookingId);
+      // Refresh bookings after confirmation
+      const updatedBookings = await bookingService.getUserBookings();
+      setBookings(updatedBookings);
+
+      toast({
+        title: "Booking confirmed",
+        description: "Meeting link has been generated. The client can now join.",
+      });
+    } catch (err) {
+      console.error(`Failed to confirm booking:`, err);
+      toast({
+        title: "Confirmation failed",
+        description: "Failed to confirm booking and generate meeting link",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleJoinMeeting = (bookingId: string) => {
     // Mark this booking as joined
     setJoinedBookings(prev => new Set(prev).add(bookingId));
-    // Open meeting link
-    if (meetingLink) {
-      window.open(meetingLink, '_blank');
-    }
+    // Navigate to Agora meeting room
+    window.location.href = `/meeting/${bookingId}`;
   };
 
   const handleCompleteBooking = async (bookingId: string, gigId: string, expertName: string) => {
@@ -198,57 +220,35 @@ const MyBookings = () => {
           )}
 
           {bookings.map((booking) => {
-            // Get expert info from mock data for backward compatibility
             const expertId = booking.gig_id;
             const expert = MOCK_EXPERTS.find((e) => e.id === expertId);
-
-            // Get gig details from the API response
-            const gigDetails = booking.gig_details;
-
-            // Action handlers
-            const onExpertApprove = () =>
-              handleUpdateStatus(booking.id, "confirmed");
-            const onExpertReject = () =>
-              handleUpdateStatus(booking.id, "cancelled");
-            const onClientCancel = () =>
-              handleUpdateStatus(booking.id, "cancelled");
+            const gigDetails = booking.gig_details || {};
+            const onExpertApprove = () => handleConfirmBooking(String(booking.id));
+            const onExpertReject = () => handleUpdateStatus(String(booking.id), "cancelled");
+            const onClientCancel = () => handleUpdateStatus(String(booking.id), "cancelled");
             return (
-              <div
-                key={booking.id}
-                className="border rounded p-4 bg-background flex items-start justify-between"
-              >
+              <div key={booking.id} className="border rounded p-4 bg-background flex items-start justify-between">
                 <div className="flex-1">
-                  {/* Display service description if available */}
                   <div className="font-medium">
-                    {gigDetails?.service_description
-                      ? gigDetails.service_description.substring(0, 50) +
-                        (gigDetails.service_description.length > 50
-                          ? "..."
-                          : "")
+                    {gigDetails.service_description
+                      ? gigDetails.service_description.substring(0, 50) + (gigDetails.service_description.length > 50 ? "..." : "")
                       : expert
                       ? `Booking for Gig — ${expert.name}`
                       : `Booking for Gig ID: ${booking.gig_id.substring(0, 8)}`}
                   </div>
-
-                  {/* Display rate if available */}
-                  {gigDetails && (
+                  {gigDetails.hourly_rate && (
                     <div className="text-sm font-medium text-primary-600">
                       {gigDetails.hourly_rate} {gigDetails.currency}/hour
                     </div>
                   )}
-
                   <div className="text-sm text-muted-foreground mt-1">
                     {toSriLankaTime(booking.scheduled_time)} (Sri Lanka time)
                   </div>
-
                   <div className="text-sm text-muted-foreground mt-2">
-                    Status:{" "}
-                    <span className="font-medium">{booking.status}</span>
+                    Status: <span className="font-medium">{booking.status}</span>
                   </div>
                 </div>
-
-                {/* Display thumbnail if available */}
-                {gigDetails?.thumbnail_url && (
+                {gigDetails.thumbnail_url && (
                   <div className="flex-shrink-0 ml-4 mr-4">
                     <img
                       src={gigDetails.thumbnail_url}
@@ -257,136 +257,54 @@ const MyBookings = () => {
                     />
                   </div>
                 )}
-
                 <div className="flex flex-col items-end gap-2">
-                  {/* Expert actions */}
-                  {user?.role === "expert" &&
-                    user?.id === expert?.userId &&
-                    booking.status === "pending" && (
-                      <div className="flex gap-2">
-                        <Button onClick={onExpertApprove} size="sm">
-                          Approve
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          onClick={onExpertReject}
-                          size="sm"
-                        >
-                          Reject
-                        </Button>
-                      </div>
-                    )}
-
-                  {/* Client actions */}
-                  {user?.role === "client" &&
-                    booking.user_id === userId &&
-                    booking.status === "pending" && (
-                      <div className="flex flex-col items-end gap-2">
-                        <Button
-                          variant="ghost"
-                          onClick={onClientCancel}
-                          size="sm"
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    )}
-
-                  {/* We don't have amount in the API response, but if you add it, uncomment this
-                <div className="text-sm text-muted-foreground">
-                  Amount: Rs. {booking.amount || "N/A"}
-                </div> 
-                */}
-
-                  {/* Join/Done button workflow */}
-                  {booking.status === "confirmed" && !joinedBookings.has(String(booking.id)) && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleJoinMeeting(
-                        String(booking.id),
-                        `https://meet.mock/room-${String(booking.id).substring(0, 8)}`
-                      )}
-                    >
-                      Join Meeting
-                    </Button>
+                  {user?.role === "expert" && user?.id === expert?.userId && booking.status === "pending" && (
+                    <div className="flex gap-2">
+                      <Button onClick={onExpertApprove} size="sm">Approve</Button>
+                      <Button variant="ghost" onClick={onExpertReject} size="sm">Reject</Button>
+                    </div>
+                  )}
+                  {user?.role === "client" && booking.user_id === userId && booking.status === "pending" && (
+                    <div className="flex flex-col items-end gap-2">
+                      <Button variant="ghost" onClick={onClientCancel} size="sm">Cancel</Button>
+                    </div>
+                  )}
+                  {/* Show Join Meeting button when booking is confirmed and has meeting link */}
+                  {booking.status === "confirmed" && booking.meeting_link && !joinedBookings.has(String(booking.id)) && (
+                    <div className="flex flex-col items-end gap-2">
+                      <Button size="sm" onClick={() => handleJoinMeeting(String(booking.id))}>
+                        Join Meeting
+                      </Button>
+                      <a
+                        href="#"
+                        className="text-xs text-muted-foreground underline"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const startTime = new Date(booking.scheduled_time);
+                          const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
+                          const title = `Booking - ${gigDetails.service_description ? gigDetails.service_description.substring(0, 30) : "Expert Session"}`;
+                          const description = `Booking session for ${gigDetails.service_description || "Expert Service"}.`;
+                          const googleUrl = new URL("https://calendar.google.com/calendar/render");
+                          googleUrl.searchParams.append("action", "TEMPLATE");
+                          googleUrl.searchParams.append("text", title);
+                          googleUrl.searchParams.append("details", description);
+                          googleUrl.searchParams.append("dates",
+                            `${startTime.toISOString().replace(/[-:]/g, "").split(".")[0]}Z/` +
+                            `${endTime.toISOString().replace(/[-:]/g, "").split(".")[0]}Z`
+                          );
+                          window.open(googleUrl.toString(), "_blank");
+                        }}
+                      >Add to Calendar</a>
+                    </div>
                   )}
                   
-                  {booking.status === "confirmed" && joinedBookings.has(String(booking.id)) && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleCompleteBooking(
-                        String(booking.id),
-                        booking.gig_id,
-                        expert?.name || gigDetails?.service_description || "Expert"
-                      )}
-                    >
-                      Done
-                    </Button>
-                  )}
-
-                  {/* Calendar integration with Sri Lanka time */}
-                  {booking.status === "confirmed" && (
-                    <div className="mt-2 flex gap-2">
-                      <div className="dropdown">
-                        <a
-                          href="#"
-                          className="text-xs text-muted-foreground underline"
-                          onClick={(e) => {
-                            e.preventDefault();
-
-                            // Create calendar event based on scheduled time
-                            const startTime = new Date(booking.scheduled_time);
-                            // Assuming sessions last 1 hour
-                            const endTime = new Date(
-                              startTime.getTime() + 60 * 60 * 1000
-                            );
-
-                            // Format title and description
-                            const title = `Booking - ${
-                              gigDetails?.service_description?.substring(
-                                0,
-                                30
-                              ) || "Expert Session"
-                            }`;
-                            const description = `Booking session for ${
-                              gigDetails?.service_description ||
-                              "Expert Service"
-                            }.`;
-
-                            // Create Google Calendar URL
-                            const googleUrl = new URL(
-                              "https://calendar.google.com/calendar/render"
-                            );
-                            googleUrl.searchParams.append("action", "TEMPLATE");
-                            googleUrl.searchParams.append("text", title);
-                            googleUrl.searchParams.append(
-                              "details",
-                              description
-                            );
-                            googleUrl.searchParams.append(
-                              "dates",
-                              `${
-                                startTime
-                                  .toISOString()
-                                  .replace(/[-:]/g, "")
-                                  .split(".")[0]
-                              }Z/` +
-                                `${
-                                  endTime
-                                    .toISOString()
-                                    .replace(/[-:]/g, "")
-                                    .split(".")[0]
-                                }Z`
-                            );
-
-                            // Open in new window
-                            window.open(googleUrl.toString(), "_blank");
-                          }}
-                        >
-                          Add to Calendar
-                        </a>
-                      </div>
-                    </div>
+                  {/* Show Done button after user has joined the meeting */}
+                  {booking.status === "confirmed" && booking.meeting_link && joinedBookings.has(String(booking.id)) && (
+                    <Button size="sm" onClick={() => handleCompleteBooking(
+                      String(booking.id),
+                      booking.gig_id,
+                      expert?.name || gigDetails.service_description || "Expert"
+                    )}>Done</Button>
                   )}
                 </div>
               </div>
@@ -394,8 +312,6 @@ const MyBookings = () => {
           })}
         </div>
       )}
-
-      {/* Review Modal */}
       <ReviewModal
         isOpen={reviewModalOpen}
         onClose={() => {

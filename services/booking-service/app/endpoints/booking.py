@@ -78,7 +78,8 @@ def get_bookings_by_user_new_endpoint(
                         "gig_id": booking.gig_id,
                         "status": booking.status,
                         "scheduled_time": booking.scheduled_time,
-                        "created_at": booking.created_at
+                        "created_at": booking.created_at,
+                        "meeting_link": booking.meeting_link  # Include meeting link
                     }
                     
                     # Fetch gig details from gig service
@@ -183,7 +184,8 @@ def get_bookings_by_gig(
                     "gig_id": booking.gig_id,
                     "status": booking.status,
                     "scheduled_time": booking.scheduled_time,
-                    "created_at": booking.created_at
+                    "created_at": booking.created_at,
+                    "meeting_link": booking.meeting_link  # Include meeting link
                 }
                 
                 # Fetch user details from user service
@@ -321,6 +323,50 @@ def get_booking(
         raise HTTPException(
             status_code=500, 
             detail=f"Failed to get booking: {str(e)}"
+        )
+
+@router.put("/{booking_id}/confirm", response_model=BookingResponse)
+def confirm_booking(
+    booking_id: str = Path(..., description="The ID of the booking to confirm"),
+    db: Session = Depends(session.get_db)
+):
+    """Confirm a booking and generate Agora meeting link."""
+    try:
+        # Validate UUID format
+        try:
+            uuid_obj = uuid.UUID(booking_id)
+        except ValueError:
+            logger.warning(f"Invalid UUID format for booking_id: {booking_id}")
+            raise HTTPException(
+                status_code=400, 
+                detail="Invalid booking ID format. Must be a valid UUID."
+            )
+            
+        logger.info(f"Confirming booking with ID: {booking_id}")
+        
+        # Generate unique channel name for Agora
+        channel_name = f"booking-{booking_id}"
+        
+        # Update booking status to confirmed and add meeting link
+        booking_update = BookingUpdate(
+            status="confirmed",
+            meeting_link=channel_name
+        )
+        
+        db_booking = crud.update_booking(db=db, booking_id=str(uuid_obj), booking_update=booking_update)
+        if not db_booking:
+            logger.warning(f"Booking with ID {booking_id} not found for confirmation")
+            raise HTTPException(status_code=404, detail="Booking not found")
+            
+        logger.info(f"Booking {booking_id} confirmed with channel: {channel_name}")
+        return db_booking
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error confirming booking {booking_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to confirm booking: {str(e)}"
         )
 
 @router.put("/{booking_id}", response_model=BookingResponse)

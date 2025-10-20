@@ -17,6 +17,7 @@ export interface Booking {
   service?: string;
   type?: string;
   notes?: string;
+  meeting_link?: string; // Agora meeting channel name
   // Optional nested data from backend
   user?: {
     id: number | string;
@@ -121,7 +122,10 @@ class BookingService {
   }
 
   async confirmBooking(bookingId: string): Promise<Booking> {
-    return this.updateBooking(bookingId, { status: "confirmed" });
+    // Use the dedicated confirm endpoint that generates meeting link
+    return this.makeRequest<Booking>(`/bookings/${bookingId}/confirm`, {
+      method: "PUT",
+    });
   }
 
   async cancelBooking(bookingId: string): Promise<Booking> {

@@ -31,6 +31,7 @@ const GigView = lazy(() => import("@/pages/GigView"));
 const BookConsultation = lazy(() => import("@/pages/BookConsultation"));
 const PaymentSuccess = lazy(() => import("@/pages/PaymentSuccess"));
 const HowItWorksPage = lazy(() => import("@/pages/HowItWorks"));
+const MeetingRoom = lazy(() => import("@/pages/MeetingRoom"));
 
 
 const ProtectedRoute = ({
@@ -88,6 +89,16 @@ const AppRoutes = () => (
         element={
           <ProtectedRoute>
             <Messages />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Meeting Room standalone (no header/footer) */}
+      <Route
+        path="/meeting/:bookingId"
+        element={
+          <ProtectedRoute>
+            <MeetingRoom />
           </ProtectedRoute>
         }
       />
