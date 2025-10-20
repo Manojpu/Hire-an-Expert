@@ -1,52 +1,468 @@
-# Admin Service - RAG System with MongoDB & Gemini# Admin Service - RAG System# Admin Service - RAG System# Admin Service with RAG System
+# Admin Service - Lightweight RAG System
 
+A complete Retrieval-Augmented Generation (RAG) service for the Hire-an-Expert platform. Powers the AI chatbot that answers questions based on uploaded documents.
 
+## 🚀 Features
 
-Production-ready admin service with RAG (Retrieval-Augmented Generation) capabilities using Google Gemini, FAISS vector search, and MongoDB persistence.
+- **Lightweight RAG**: Pinecone vector database + Google Gemini AI
+- **Document Processing**: Support for PDF and TXT files
+- **Word-based Chunking**: 500 words per chunk with 50-word overlap
+- **Vector Embeddings**: Google Gemini embedding-001 (768 dimensions)
+- **LLM Integration**: Google Gemini 2.0 Flash for answer generation
+- **MongoDB GridFS**: Document storage and metadata
+- **RESTful API**: FastAPI with automatic OpenAPI docs
+- **Docker Ready**: Simple containerization with docker-compose
 
+## 📋 Technology Stack
 
+- **Framework**: FastAPI 0.119.0
+- **Vector Database**: Pinecone (cloud-hosted)
+- **Embeddings**: Google Gemini embedding-001
+- **LLM**: Google Gemini 2.0 Flash Exp
+- **Document Storage**: MongoDB GridFS
+- **PDF Processing**: pypdf
+- **Runtime**: Python 3.11
 
-## 🚀 FeaturesComplete Retrieval-Augmented Generation (RAG) system for the Hire-an-Expert platform. This service powers the AI chatbot that answers user questions based on uploaded documentation.
+## 🏗️ Architecture
 
+```
+User Query → API Gateway → Admin Service
+                              ↓
+                         RAG Engine
+                              ↓
+          ┌──────────────────┼──────────────────┐
+          ↓                  ↓                  ↓
+    Gemini Service    Pinecone Service    MongoDB Service
+          ↓                  ↓                  ↓
+    (Embeddings +      (Vector Search)    (Document Store)
+     Answer Gen)
+```
 
+## � Project Structure
 
-- **RAG System**: Document ingestion, vector search, and AI-powered chat
-
-- **Google Gemini**: Advanced LLM for intelligent responses  
-
-- **FAISS Vector Search**: Fast similarity search with CPU optimization---Complete Retrieval-Augmented Generation (RAG) system for the Hire-an-Expert platform. This service powers the AI chatbot that answers user questions based on uploaded documentation.A complete Retrieval-Augmented Generation (RAG) system for the Hire-an-Expert platform.
-
-- **MongoDB GridFS**: Persistent vector storage for cloud deployment
-
-- **Document Processing**: Support for PDF, DOCX, TXT, HTML files
-
-- **Analytics Dashboard**: Document and conversation analytics
-
-- **Docker Ready**: Optimized 2.5GB image (CPU-only, no GPU bloat)## 📋 Table of Contents
-
-
-
-## 📁 Project Structure
-
-
-
-```- [Overview](#overview)---## 🚀 Features
-
+```
 admin-service/
+├── app/
+│   ├── config.py              # Settings and environment variables
+│   ├── routes/
+│   │   └── rag_routes.py      # RAG API endpoints
+│   └── services/
+│       ├── document_processor.py   # PDF/TXT chunking
+│       ├── gemini_service.py       # Gemini embeddings & LLM
+│       ├── pinecone_service.py     # Vector operations
+│       ├── mongodb_service.py      # Document storage
+│       └── rag_engine.py           # Main RAG coordinator
+├── main.py                    # FastAPI application entry
+├── requirements.txt           # Python dependencies
+├── .env                       # Environment variables
+├── Dockerfile                 # Container image
+└── docker-compose.yml         # Docker orchestration
+```
 
-├── app/                    # Application code- [Features](#features)
+## 🚀 Setup Guide
 
-│   ├── config.py           # Configuration settings
+### Prerequisites
 
-│   ├── database/           # MongoDB connection & operations- [Technology Stack](#technology-stack)
+- Python 3.11+
+- MongoDB Atlas account (or local MongoDB)
+- Pinecone account and API key
+- Google Cloud API key for Gemini
 
-│   │   └── mongodb.py
+### Environment Variables
 
-│   ├── rag/                # RAG system components- [Architecture](#architecture)
+Create a `.env` file in the `services/admin-service/` directory:
 
-│   │   ├── vector_store.py      # FAISS + MongoDB GridFS
+```bash
+# Application Settings
+DEBUG=true
+HOST=0.0.0.0
+PORT=8009
+SERVICE_NAME=admin-service
 
-│   │   ├── gemini_service.py    # Google Gemini API- [Setup Guide](#setup-guide)## 📋 Table of Contents- **Document Ingestion**: Upload PDF, DOCX, TXT, MD files
+# MongoDB Configuration
+MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/
+MONGO_DB_NAME=hire_expert_admin
+
+# Google Gemini API Configuration
+GOOGLE_API_KEY=your-gemini-api-key-here
+
+# Gemini Models
+GEMINI_MODEL=models/gemini-2.0-flash-exp
+GEMINI_EMBEDDING_MODEL=models/embedding-001
+
+# Pinecone Configuration
+PINECONE_API_KEY=your-pinecone-api-key
+PINECONE_INDEX_NAME=hire-expert-rag
+PINECONE_ENVIRONMENT=us-east-1-aws
+VECTOR_DIMENSION=768
+
+# RAG Configuration
+CHUNK_SIZE=500
+CHUNK_OVERLAP=50
+TOP_K_RESULTS=5
+
+# File Upload Configuration
+MAX_UPLOAD_SIZE=10485760
+ALLOWED_EXTENSIONS=[".pdf",".txt"]
+UPLOAD_DIR=./uploads
+
+# JWT Configuration
+JWT_SECRET_KEY=your-super-secret-key-change-in-production
+JWT_ALGORITHM=HS256
+JWT_EXPIRATION_HOURS=24
+
+# Default Admin Credentials
+ADMIN_EMAIL=admin@hireexpert.com
+ADMIN_PASSWORD=admin123
+
+# External Service URLs
+USER_SERVICE_URL=http://localhost:8006
+AUTH_SERVICE_URL=http://localhost:8001
+BOOKING_SERVICE_URL=http://localhost:8003
+GIG_SERVICE_URL=http://localhost:8004
+MESSAGE_SERVICE_URL=http://localhost:8005
+PAYMENT_SERVICE_URL=http://localhost:8008
+```
+
+---
+
+## 🖥️ Running Locally (Development)
+
+### 1. Create Virtual Environment
+
+**Windows (PowerShell):**
+```powershell
+cd services\admin-service
+python -m venv venv
+.\venv\Scripts\activate
+```
+
+**macOS/Linux:**
+```bash
+cd services/admin-service
+python3 -m venv venv
+source venv/bin/activate
+```
+
+### 2. Install Dependencies
+
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### 3. Configure Environment
+
+Ensure your `.env` file is properly configured (see Environment Variables section above).
+
+### 4. Run the Service
+
+```bash
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8009
+```
+
+Or for debug mode with detailed logs:
+
+```bash
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8009 --log-level debug
+```
+
+### 5. Verify It's Running
+
+Open your browser and navigate to:
+- **Service Health**: http://localhost:8009/health
+- **API Documentation**: http://localhost:8009/docs
+- **Alternative Docs**: http://localhost:8009/redoc
+
+---
+
+## 🐳 Running with Docker
+
+### Option 1: Docker Compose (Recommended)
+
+The easiest way to run the service in a container.
+
+**1. Build and Start:**
+```bash
+cd services/admin-service
+docker compose up --build
+```
+
+**2. Run in Background:**
+```bash
+docker compose up -d
+```
+
+**3. View Logs:**
+```bash
+docker compose logs -f admin-service
+```
+
+**4. Stop Service:**
+```bash
+docker compose down
+```
+
+### Option 2: Docker Build & Run Manually
+
+**1. Build Image:**
+```bash
+cd services/admin-service
+docker build -t hire-expert-admin:latest .
+```
+
+**2. Run Container:**
+```bash
+docker run -d \
+  --name hire-expert-admin \
+  -p 8009:8009 \
+  --env-file .env \
+  -v $(pwd)/uploads:/app/uploads \
+  hire-expert-admin:latest
+```
+
+**3. View Logs:**
+```bash
+docker logs -f hire-expert-admin
+```
+
+**4. Stop Container:**
+```bash
+docker stop hire-expert-admin
+docker rm hire-expert-admin
+```
+
+---
+
+## 📡 API Endpoints
+
+### Health Check
+```
+GET /health
+```
+
+### RAG Endpoints
+
+#### Upload Document
+```http
+POST /api/rag/upload
+Content-Type: multipart/form-data
+
+file: <PDF or TXT file>
+```
+
+#### Ingest File
+```http
+POST /api/rag/ingest/file
+Content-Type: multipart/form-data
+
+file: <PDF or TXT file>
+```
+
+#### Ingest Text
+```http
+POST /api/rag/ingest/text
+Content-Type: application/json
+
+{
+  "text": "Your document text here",
+  "metadata": {
+    "title": "Document Title",
+    "source": "manual_entry"
+  }
+}
+```
+
+#### Chat Query
+```http
+POST /api/rag/chat
+Content-Type: application/json
+
+{
+  "message": "What is the refund policy?"
+}
+```
+
+#### Query Documents
+```http
+POST /api/rag/query
+Content-Type: application/json
+
+{
+  "query": "How do I book an expert?",
+  "top_k": 5
+}
+```
+
+#### List Documents
+```http
+GET /api/rag/list
+GET /api/rag/documents
+```
+
+#### Delete Document
+```http
+DELETE /api/rag/documents/{document_id}
+```
+
+---
+
+## 🧪 Testing the Service
+
+### Using cURL
+
+**Upload a document:**
+```bash
+curl -X POST http://localhost:8009/api/rag/upload \
+  -F "file=@document.pdf"
+```
+
+**Ask a question:**
+```bash
+curl -X POST http://localhost:8009/api/rag/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What is this document about?"}'
+```
+
+**List all documents:**
+```bash
+curl http://localhost:8009/api/rag/documents
+```
+
+### Using Python
+
+```python
+import requests
+
+# Upload document
+with open('document.pdf', 'rb') as f:
+    response = requests.post(
+        'http://localhost:8009/api/rag/upload',
+        files={'file': f}
+    )
+    print(response.json())
+
+# Ask question
+response = requests.post(
+    'http://localhost:8009/api/rag/chat',
+    json={'message': 'What is the refund policy?'}
+)
+print(response.json())
+```
+
+---
+
+## 🔧 Configuration Details
+
+### Pinecone Setup
+
+1. Create account at https://www.pinecone.io/
+2. Create a new index:
+   - **Name**: `hire-expert-rag`
+   - **Dimensions**: `768`
+   - **Metric**: `cosine`
+   - **Environment**: `us-east-1-aws`
+3. Copy your API key to `.env`
+
+### Google Gemini Setup
+
+1. Visit https://aistudio.google.com/app/apikey
+2. Create a new API key
+3. Add to `.env` as `GOOGLE_API_KEY`
+
+### MongoDB Setup
+
+1. Create MongoDB Atlas account or use local MongoDB
+2. Create database: `hire_expert_admin`
+3. Add connection URI to `.env`
+
+---
+
+## 🐛 Troubleshooting
+
+### Service Won't Start
+
+**Check Python version:**
+```bash
+python --version  # Should be 3.11+
+```
+
+**Verify dependencies:**
+```bash
+pip list | grep -E "fastapi|pinecone|google-generativeai"
+```
+
+### Import Errors
+
+**Reinstall requirements:**
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt --force-reinstall
+```
+
+### Docker Issues
+
+**Rebuild without cache:**
+```bash
+docker compose build --no-cache
+docker compose up
+```
+
+**Check container logs:**
+```bash
+docker compose logs admin-service --tail 100
+```
+
+### Pinecone Connection Failed
+
+- Verify API key in `.env`
+- Check index name matches exactly
+- Ensure index dimensions = 768
+
+### Gemini API Errors
+
+- Verify API key is valid
+- Check quota limits at https://aistudio.google.com/
+- Ensure models are spelled correctly
+
+---
+
+## 📊 Performance Notes
+
+- **Chunk Size**: 500 words (optimal for most documents)
+- **Vector Dimension**: 768 (Gemini embedding-001)
+- **Top-K Results**: 5 (balance between context and performance)
+- **Max Upload Size**: 10MB per file
+
+---
+
+## 🔐 Security Notes
+
+- Never commit `.env` file to version control
+- Change default admin credentials in production
+- Use strong JWT secret keys
+- Enable HTTPS in production
+- Restrict CORS origins appropriately
+
+---
+
+## 📝 License
+
+Part of the Hire-an-Expert platform.
+
+---
+
+## 🆘 Support
+
+For issues or questions:
+1. Check the [API Documentation](http://localhost:8009/docs)
+2. Review logs: `docker compose logs admin-service`
+3. Verify environment variables in `.env`
+
+---
+
+**Happy Building! 🚀**
+
 
 │   │   ├── document_processor.py # Document loading & chunking
 

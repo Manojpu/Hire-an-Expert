@@ -1,5 +1,6 @@
 """
-Configuration settings for Admin Service with RAG
+Configuration settings for Lightweight Admin Service with RAG
+Uses Pinecone for vector storage and Gemini for embeddings and LLM
 """
 import os
 from pydantic_settings import BaseSettings
@@ -20,21 +21,23 @@ class Settings(BaseSettings):
     
     # Gemini API Configuration
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
-    GEMINI_MODEL: str = "models/gemini-2.5-flash"
+    GEMINI_MODEL: str = "models/gemini-2.0-flash-exp"  # LLM for answer generation
+    GEMINI_EMBEDDING_MODEL: str = "models/embedding-001"  # Embedding model
+    
+    # Pinecone Configuration
+    PINECONE_API_KEY: str = os.getenv("PINECONE_API_KEY", "")
+    PINECONE_INDEX_NAME: str = "hire-expert-rag"
+    PINECONE_ENVIRONMENT: str = "us-east-1-aws"
+    VECTOR_DIMENSION: int = 768  # Dimension for Gemini embedding-001
     
     # RAG Configuration
-    CHUNK_SIZE: int = 1000
-    CHUNK_OVERLAP: int = 200
-    TOP_K_RESULTS: int = 5
-    EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
-    
-    # Vector Store Configuration
-    FAISS_INDEX_PATH: str = "./data/faiss_index"
-    VECTOR_DIMENSION: int = 384  # Dimension for all-MiniLM-L6-v2
+    CHUNK_SIZE: int = 500  # Words per chunk
+    CHUNK_OVERLAP: int = 50  # Word overlap between chunks
+    TOP_K_RESULTS: int = 5  # Top K similar chunks to retrieve
     
     # File Upload Configuration
     MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024  # 10MB
-    ALLOWED_EXTENSIONS: list = [".pdf", ".txt", ".docx", ".doc", ".md"]
+    ALLOWED_EXTENSIONS: list = [".pdf", ".txt"]
     UPLOAD_DIR: str = "./uploads"
     
     # JWT Configuration
@@ -66,3 +69,8 @@ if not settings.GOOGLE_API_KEY:
     print("⚠️  WARNING: GOOGLE_API_KEY not set in environment variables!")
     print("   Please add it to your .env file:")
     print("   GOOGLE_API_KEY=your-api-key-here")
+
+if not settings.PINECONE_API_KEY:
+    print("⚠️  WARNING: PINECONE_API_KEY not set in environment variables!")
+    print("   Please add it to your .env file:")
+    print("   PINECONE_API_KEY=your-api-key-here")
