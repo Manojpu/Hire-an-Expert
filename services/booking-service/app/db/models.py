@@ -9,6 +9,7 @@ Base = declarative_base()
 class BookingStatus(str, enum.Enum):
     PENDING = "pending"
     CONFIRMED = "confirmed"
+    JOINED = "JOINED"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 
@@ -22,5 +23,7 @@ class Booking(Base):
     status = Column(Enum(BookingStatus), nullable=False, default=BookingStatus.PENDING)
     scheduled_time = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    meeting_link = Column(String, nullable=True)  # Agora meeting link/channel name
+    
     def __repr__(self):
         return f"<Booking(id={self.id}, user_id={self.user_id}, gig_id={self.gig_id}, status='{self.status}')>"

@@ -113,9 +113,7 @@ async def get_gig_analytics(
             Calculate revenue by counting confirmed and completed bookings and multiplying by hourly_rate.
             Revenue = Number of (confirmed + completed) bookings × hourly_rate
             
-            Confirmed bookings count as revenue because they are approved and will happen.
-            Completed bookings count as revenue because they already happened.
-            Pending and cancelled bookings do NOT count as revenue.
+            We count bookings that were CREATED in the time period to show new revenue generated.
             """
             query = db.query(
                 func.count(Booking.id).label('booking_count')
@@ -134,11 +132,26 @@ async def get_gig_analytics(
             
             return round(float(total_revenue), 2)
         
-        # Current period revenues
+        # Calculate cumulative revenue (all time)
+        def calculate_total_revenue():
+            """Calculate total cumulative revenue from all confirmed/completed bookings"""
+            query = db.query(
+                func.count(Booking.id).label('booking_count')
+            ).filter(
+                and_(
+                    Booking.gig_id == gig_id,
+                    Booking.status.in_([BookingStatus.CONFIRMED, BookingStatus.COMPLETED])
+                )
+            )
+            booking_count = query.scalar() or 0
+            total_revenue = booking_count * hourly_rate
+            return round(float(total_revenue), 2)
+        
+        # Current period revenues (new bookings in each period)
         today_revenue = calculate_revenue(today_start)
         week_revenue = calculate_revenue(week_start)
         month_revenue = calculate_revenue(month_start)
-        year_revenue = calculate_revenue(year_start)
+        year_revenue = calculate_total_revenue()  # Year shows total cumulative revenue
         
         # Previous period revenues for growth calculation
         prev_day_revenue = calculate_revenue(prev_day_start, today_start)
