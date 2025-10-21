@@ -18,7 +18,7 @@ interface UIBooking {
   time: string;
   date: string;
   duration: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'joined' | 'completed' | 'cancelled';
   type: string;
   price: number;
   gigTitle: string;
@@ -26,6 +26,7 @@ interface UIBooking {
   client: { name: string };
   service: string;
   amount: number;
+  meetingLink?: string;
 }
 
 const GigBookings: React.FC<GigBookingsProps> = ({ gig }) => {
@@ -56,7 +57,8 @@ const GigBookings: React.FC<GigBookingsProps> = ({ gig }) => {
           : (booking.gig?.hourly_rate as number) || gig.hourly_rate || 0;
         const duration = booking.duration || 30;
         const calculatedPrice = hourlyRate * duration / 60;
-        
+
+        // Map meeting_link (snake_case) to meetingLink (camelCase) for BookingCard
         return {
           id: booking.id.toString(),
           clientName: booking.user?.name || `User ${String(booking.user_id).substring(0, 8)}...`,
@@ -78,7 +80,8 @@ const GigBookings: React.FC<GigBookingsProps> = ({ gig }) => {
           dateTime: booking.scheduled_time || new Date().toISOString(),
           client: { name: booking.user?.name || `User ${String(booking.user_id).substring(0, 8)}...` },
           service: booking.service || 'Consultation',
-          amount: calculatedPrice
+          amount: calculatedPrice,
+          meetingLink: booking.meeting_link // <-- FIX: map for BookingCard
         } as UIBooking;
       });
       
@@ -125,6 +128,21 @@ const GigBookings: React.FC<GigBookingsProps> = ({ gig }) => {
     }
   };
 
+  const handleJoinBooking = async (bookingId: string) => {
+    try {
+      setActionLoading(bookingId);
+      await bookingService.joinBooking(bookingId);
+      await loadBookings(); // Reload bookings
+      // Navigate to Agora meeting room
+      window.location.href = `/meeting/${bookingId}`;
+    } catch (err) {
+      console.error('Error joining booking:', err);
+      setError('Failed to join booking');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleCompleteBooking = async (bookingId: string) => {
     try {
       setActionLoading(bookingId);
@@ -136,6 +154,11 @@ const GigBookings: React.FC<GigBookingsProps> = ({ gig }) => {
     } finally {
       setActionLoading(null);
     }
+  };
+
+  // Callback to refresh bookings when BookingCard changes status
+  const handleStatusChange = async () => {
+    await loadBookings();
   };
 
   // Mock bookings data for fallback (keeping for reference)
@@ -310,11 +333,7 @@ const GigBookings: React.FC<GigBookingsProps> = ({ gig }) => {
             <BookingCard 
               key={booking.id} 
               booking={booking}
-              onAccept={() => handleAcceptBooking(booking.id)}
-              onReject={() => handleRejectBooking(booking.id)}
-              onJoin={(link) => link && window.open(link, '_blank')}
-              onComplete={() => handleCompleteBooking(booking.id)}
-              isLoading={actionLoading === booking.id}
+              onStatusChange={handleStatusChange}
             />
           ))
         )}

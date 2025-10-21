@@ -9,7 +9,7 @@ export interface Booking {
   id: number | string;
   user_id: number | string;
   gig_id: string;
-  status: "pending" | "confirmed" | "completed" | "cancelled";
+  status: "pending" | "confirmed" | "joined" | "completed" | "cancelled";
   created_at: string;
   scheduled_time?: string;
   duration?: number;
@@ -17,6 +17,7 @@ export interface Booking {
   service?: string;
   type?: string;
   notes?: string;
+  meeting_link?: string; // Agora meeting channel name
   // Optional nested data from backend
   user?: {
     id: number | string;
@@ -27,6 +28,14 @@ export interface Booking {
     id: number | string;
     title?: string;
     hourly_rate?: string | number;
+  };
+  gig_details?: {
+    id?: number | string;
+    title?: string;
+    service_description?: string;
+    hourly_rate?: string | number;
+    currency?: string;
+    thumbnail_url?: string;
   };
 }
 
@@ -121,7 +130,17 @@ class BookingService {
   }
 
   async confirmBooking(bookingId: string): Promise<Booking> {
-    return this.updateBooking(bookingId, { status: "confirmed" });
+    // Use the dedicated confirm endpoint that generates meeting link
+    return this.makeRequest<Booking>(`/bookings/${bookingId}/confirm`, {
+      method: "PUT",
+    });
+  }
+
+  async joinBooking(bookingId: string): Promise<Booking> {
+    // Use the dedicated join endpoint that updates status to joined
+    return this.makeRequest<Booking>(`/bookings/${bookingId}/join`, {
+      method: "PUT",
+    });
   }
 
   async cancelBooking(bookingId: string): Promise<Booking> {
@@ -129,7 +148,10 @@ class BookingService {
   }
 
   async completeBooking(bookingId: string): Promise<Booking> {
-    return this.updateBooking(bookingId, { status: "completed" });
+    // Use the dedicated complete endpoint that updates status to completed
+    return this.makeRequest<Booking>(`/bookings/${bookingId}/complete`, {
+      method: "PUT",
+    });
   }
 
   async healthCheck(): Promise<{ status: string; service: string; port: number }> {

@@ -78,7 +78,8 @@ def get_bookings_by_user_new_endpoint(
                         "gig_id": booking.gig_id,
                         "status": booking.status,
                         "scheduled_time": booking.scheduled_time,
-                        "created_at": booking.created_at
+                        "created_at": booking.created_at,
+                        "meeting_link": booking.meeting_link  # Include meeting link
                     }
                     
                     # Fetch gig details from gig service
@@ -183,7 +184,8 @@ def get_bookings_by_gig(
                     "gig_id": booking.gig_id,
                     "status": booking.status,
                     "scheduled_time": booking.scheduled_time,
-                    "created_at": booking.created_at
+                    "created_at": booking.created_at,
+                    "meeting_link": booking.meeting_link  # Include meeting link
                 }
                 
                 # Fetch user details from user service
@@ -321,6 +323,187 @@ def get_booking(
         raise HTTPException(
             status_code=500, 
             detail=f"Failed to get booking: {str(e)}"
+        )
+
+@router.put("/{booking_id}/confirm", response_model=BookingResponse)
+def confirm_booking(
+    booking_id: str = Path(..., description="The ID of the booking to confirm"),
+    db: Session = Depends(session.get_db)
+):
+    """Confirm a booking and generate Agora meeting link."""
+    try:
+        # Validate UUID format
+        try:
+            uuid_obj = uuid.UUID(booking_id)
+        except ValueError:
+            logger.warning(f"Invalid UUID format for booking_id: {booking_id}")
+            raise HTTPException(
+                status_code=400, 
+                detail="Invalid booking ID format. Must be a valid UUID."
+            )
+            
+        logger.info(f"Confirming booking with ID: {booking_id}")
+        
+        # Generate unique channel name for Agora
+        channel_name = f"booking-{booking_id}"
+        
+        # Update booking status to confirmed and add meeting link
+        booking_update = BookingUpdate(
+            status="confirmed",
+            meeting_link=channel_name
+        )
+        
+        db_booking = crud.update_booking(db=db, booking_id=str(uuid_obj), booking_update=booking_update)
+        if not db_booking:
+            logger.warning(f"Booking with ID {booking_id} not found for confirmation")
+            raise HTTPException(status_code=404, detail="Booking not found")
+            
+        logger.info(f"Booking {booking_id} confirmed with channel: {channel_name}")
+        return db_booking
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error confirming booking {booking_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to confirm booking: {str(e)}"
+        )
+
+@router.put("/{booking_id}/join", response_model=BookingResponse)
+def join_booking(
+    booking_id: str = Path(..., description="The ID of the booking to join"),
+    db: Session = Depends(session.get_db)
+):
+    """Mark a booking as joined when user enters the meeting."""
+    try:
+        # Validate UUID format
+        try:
+            uuid_obj = uuid.UUID(booking_id)
+        except ValueError:
+            logger.warning(f"Invalid UUID format for booking_id: {booking_id}")
+            raise HTTPException(
+                status_code=400, 
+                detail="Invalid booking ID format. Must be a valid UUID."
+            )
+            
+        logger.info(f"Marking booking as joined with ID: {booking_id}")
+        
+        # Update booking status to joined
+        booking_update = BookingUpdate(status="joined")
+        
+        db_booking = crud.update_booking(db=db, booking_id=str(uuid_obj), booking_update=booking_update)
+        if not db_booking:
+            logger.warning(f"Booking with ID {booking_id} not found for join")
+            raise HTTPException(status_code=404, detail="Booking not found")
+            
+        logger.info(f"Booking {booking_id} marked as joined")
+        return db_booking
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error marking booking as joined {booking_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to mark booking as joined: {str(e)}"
+        )
+
+@router.put("/{booking_id}/complete", response_model=BookingResponse)
+def complete_booking(
+    booking_id: str = Path(..., description="The ID of the booking to complete"),
+    db: Session = Depends(session.get_db)
+):
+    """Mark a booking as completed when user clicks done."""
+    try:
+        # Validate UUID format
+        try:
+            uuid_obj = uuid.UUID(booking_id)
+        except ValueError:
+            logger.warning(f"Invalid UUID format for booking_id: {booking_id}")
+            raise HTTPException(
+                status_code=400, 
+                detail="Invalid booking ID format. Must be a valid UUID."
+            )
+            
+        logger.info(f"Marking booking as completed with ID: {booking_id}")
+        
+        # Update booking status to completed
+        booking_update = BookingUpdate(status="completed")
+        
+        db_booking = crud.update_booking(db=db, booking_id=str(uuid_obj), booking_update=booking_update)
+        if not db_booking:
+            logger.warning(f"Booking with ID {booking_id} not found for completion")
+            raise HTTPException(status_code=404, detail="Booking not found")
+            
+        logger.info(f"Booking {booking_id} marked as completed")
+        return db_booking
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error marking booking as completed {booking_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to mark booking as completed: {str(e)}"
+        )
+
+@router.get("/verify/{booking_id}")
+def verify_booking(
+    booking_id: str = Path(..., description="The ID of the booking to verify"),
+    db: Session = Depends(session.get_db)
+):
+    """Verify booking exists and return details for review submission."""
+    try:
+        # Validate UUID format
+        try:
+            uuid_obj = uuid.UUID(booking_id)
+        except ValueError:
+            logger.warning(f"Invalid UUID format for booking_id: {booking_id}")
+            raise HTTPException(
+                status_code=400, 
+                detail="Invalid booking ID format. Must be a valid UUID."
+            )
+            
+        logger.info(f"Verifying booking with ID: {booking_id}")
+        
+        db_booking = crud.get_booking(db=db, booking_id=str(uuid_obj))
+        if not db_booking:
+            logger.warning(f"Booking with ID {booking_id} not found")
+            raise HTTPException(status_code=404, detail="Booking not found")
+        
+        # Get expert_id from gig service
+        from app.utils.gig_service import get_gig_details
+        gig_details = get_gig_details(str(db_booking.gig_id))
+        
+        seller_id = None
+        if gig_details and gig_details.get("expert_id"):
+            seller_id = gig_details.get("expert_id")
+        else:
+            logger.warning(f"Could not fetch expert_id for gig {db_booking.gig_id}")
+            # Fallback to gig_id if expert_id not available
+            seller_id = str(db_booking.gig_id)
+        
+        # Get status - return the actual database value
+        booking_status = db_booking.status
+        if hasattr(booking_status, 'value'):
+            status_str = booking_status.value
+        else:
+            status_str = str(booking_status)
+        
+        logger.info(f"Booking verification successful: buyer_id={db_booking.user_id}, seller_id={seller_id}, status={status_str}")
+        
+        # Return booking details needed for review
+        return {
+            "booking_id": str(db_booking.id),
+            "buyer_id": str(db_booking.user_id),
+            "seller_id": seller_id,
+            "status": status_str
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error verifying booking {booking_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to verify booking: {str(e)}"
         )
 
 @router.put("/{booking_id}", response_model=BookingResponse)

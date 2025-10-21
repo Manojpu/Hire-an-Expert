@@ -69,10 +69,13 @@ async def create_review(
         logger.info(f"Comparing buyer_id: {booking_data.get('buyer_id')} == {buyer_id}")
         logger.info(f"Booking status: {booking_data.get('status')}")
         
+        # Normalize status to uppercase for comparison (database uses UPPERCASE)
+        booking_status = str(booking_data.get("status", "")).upper()
+        
         if (booking_data.get("buyer_id") != buyer_id or 
-            booking_data.get("status") != "completed"):
-            print(f"❌ Authorization failed: buyer_id match={booking_data.get('buyer_id') == buyer_id}, status={booking_data.get('status')}")
-            logger.warning(f"Authorization failed: buyer_id match={booking_data.get('buyer_id') == buyer_id}, status={booking_data.get('status')}")
+            booking_status != "COMPLETED"):
+            print(f"❌ Authorization failed: buyer_id match={booking_data.get('buyer_id') == buyer_id}, status={booking_status}")
+            logger.warning(f"Authorization failed: buyer_id match={booking_data.get('buyer_id') == buyer_id}, status={booking_status}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You are not authorized to review this booking or booking is not completed"
