@@ -445,12 +445,78 @@ def complete_booking(
             detail=f"Failed to mark booking as completed: {str(e)}"
         )
 
+# @router.get("/verify/{booking_id}")
+# def verify_booking(
+#     booking_id: str = Path(..., description="The ID of the booking to verify"),
+#     db: Session = Depends(session.get_db)
+# ):
+#     """Verify booking exists and return details for review submission."""
+#     try:
+#         # Validate UUID format
+#         try:
+#             uuid_obj = uuid.UUID(booking_id)
+#         except ValueError:
+#             logger.warning(f"Invalid UUID format for booking_id: {booking_id}")
+#             raise HTTPException(
+#                 status_code=400, 
+#                 detail="Invalid booking ID format. Must be a valid UUID."
+#             )
+            
+#         logger.info(f"Verifying booking with ID: {booking_id}")
+        
+#         db_booking = crud.get_booking(db=db, booking_id=str(uuid_obj))
+#         if not db_booking:
+#             logger.warning(f"Booking with ID {booking_id} not found")
+#             raise HTTPException(status_code=404, detail="Booking not found")
+        
+#         # Get expert_id from gig service
+#         from app.utils.gig_service import get_gig_details
+#         gig_details = get_gig_details(str(db_booking.gig_id))
+        
+#         seller_id = None
+#         if gig_details and gig_details.get("expert_id"):
+#             seller_id = gig_details.get("expert_id")
+#         else:
+#             logger.warning(f"Could not fetch expert_id for gig {db_booking.gig_id}")
+#             # Fallback to gig_id if expert_id not available
+#             seller_id = str(db_booking.gig_id)
+        
+#         # Get status - return the actual database value
+#         booking_status = db_booking.status
+#         if hasattr(booking_status, 'value'):
+#             status_str = booking_status.value
+#         else:
+#             status_str = str(booking_status)
+        
+#         logger.info(f"Booking verification successful: buyer_id={db_booking.user_id}, seller_id={seller_id}, status={status_str}")
+        
+#         # Return booking details needed for review
+#         return {
+#             "booking_id": str(db_booking.id),
+#             "buyer_id": str(db_booking.user_id),
+#             "seller_id": seller_id,
+#             "status": status_str
+#         }
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         logger.error(f"Error verifying booking {booking_id}: {str(e)}")
+#         raise HTTPException(
+#             status_code=500, 
+#             detail=f"Failed to verify booking: {str(e)}"
+#         )
+    
+
+
 @router.get("/verify/{booking_id}")
-def verify_booking(
-    booking_id: str = Path(..., description="The ID of the booking to verify"),
+def verify_booking_for_review(
+    booking_id: str = Path(..., description="The ID of the booking to verify"), 
     db: Session = Depends(session.get_db)
 ):
-    """Verify booking exists and return details for review submission."""
+    """
+    Verify booking status for review service.
+    Returns minimal booking data needed for creating a review.
+    """
     try:
         # Validate UUID format
         try:
@@ -461,42 +527,48 @@ def verify_booking(
                 status_code=400, 
                 detail="Invalid booking ID format. Must be a valid UUID."
             )
-            
-        logger.info(f"Verifying booking with ID: {booking_id}")
         
+        logger.info(f"Verifying booking {booking_id} for review")
         db_booking = crud.get_booking(db=db, booking_id=str(uuid_obj))
+        
         if not db_booking:
             logger.warning(f"Booking with ID {booking_id} not found")
             raise HTTPException(status_code=404, detail="Booking not found")
         
-        # Get expert_id from gig service
-        from app.utils.gig_service import get_gig_details
-        gig_details = get_gig_details(str(db_booking.gig_id))
+        # Get gig details to find the expert (seller)
+        try:
+            gig_data = get_gig_details(str(db_booking.gig_id))
+            seller_id = gig_data.get("expert_id") if gig_data else None
+            print(f"🔍 GIG DATA: {gig_data}")
+            print(f"🔍 SELLER ID (expert_id): {seller_id}")
+        except Exception as e:
+            logger.error(f"Error fetching gig details: {str(e)}")
+            seller_id = None
         
-        seller_id = None
-        if gig_details and gig_details.get("expert_id"):
-            seller_id = gig_details.get("expert_id")
-        else:
-            logger.warning(f"Could not fetch expert_id for gig {db_booking.gig_id}")
-            # Fallback to gig_id if expert_id not available
-            seller_id = str(db_booking.gig_id)
+        # Get Firebase UID of the buyer from user service
+        buyer_firebase_uid = None
+        try:
+            user_data = asyncio.run(get_user_from_service(str(db_booking.user_id)))
+            print(f"🔍 USER DATA from user service: {user_data}")
+            print(f"🔍 user_data.get('firebase_uid'): {user_data.get('firebase_uid')}")
+            print(f"🔍 user_data.get('id'): {user_data.get('id')}")
+            # Try to get firebase_uid or fallback to id
+            buyer_firebase_uid = user_data.get("firebase_uid") or user_data.get("id")
+            print(f"🔍 Final buyer_firebase_uid: {buyer_firebase_uid}")
+            logger.info(f"Buyer Firebase UID: {buyer_firebase_uid} for user_id: {db_booking.user_id}")
+        except Exception as e:
+            logger.error(f"Error fetching user Firebase UID: {str(e)}")
+            buyer_firebase_uid = str(db_booking.user_id)  # Fallback to database ID
         
-        # Get status - return the actual database value
-        booking_status = db_booking.status
-        if hasattr(booking_status, 'value'):
-            status_str = booking_status.value
-        else:
-            status_str = str(booking_status)
-        
-        logger.info(f"Booking verification successful: buyer_id={db_booking.user_id}, seller_id={seller_id}, status={status_str}")
-        
-        # Return booking details needed for review
+        # Return minimal data needed for review
         return {
             "booking_id": str(db_booking.id),
-            "buyer_id": str(db_booking.user_id),
-            "seller_id": seller_id,
-            "status": status_str
+            "buyer_id": buyer_firebase_uid,  # Firebase UID of the buyer
+            "seller_id": seller_id,  # expert_id from gig
+            "status": db_booking.status.value if hasattr(db_booking.status, 'value') else db_booking.status,
+            "gig_id": str(db_booking.gig_id)
         }
+        
     except HTTPException:
         raise
     except Exception as e:
@@ -504,7 +576,9 @@ def verify_booking(
         raise HTTPException(
             status_code=500, 
             detail=f"Failed to verify booking: {str(e)}"
-        )
+        )   
+
+
 
 @router.put("/{booking_id}", response_model=BookingResponse)
 def update_booking(
