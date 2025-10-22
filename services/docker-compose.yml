@@ -56,9 +56,6 @@ services:
       - USER_SERVICE_WEBHOOK_SECRET=${USER_SERVICE_WEBHOOK_SECRET:-change-me}
     volumes:
       - ./serviceAccountKey.json:/app/serviceAccountKey.json:ro
-    depends_on:
-      user-db:
-        condition: service_healthy
     networks:
       - backend
 
@@ -80,8 +77,6 @@ services:
     volumes:
       - ./serviceAccountKey.json:/app/serviceAccountKey.json:ro
     depends_on:
-      gig-db:
-        condition: service_healthy
       user-service:
         condition: service_healthy
     networks:
@@ -105,8 +100,6 @@ services:
     volumes:
       - ./serviceAccountKey.json:/app/serviceAccountKey.json:ro
     depends_on:
-      booking-db:
-        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       user-service:
@@ -131,9 +124,6 @@ services:
       - CURRENCY=${PAYMENT_CURRENCY:-LKR}
       - PLATFORM_FEE_PERCENT=${PLATFORM_FEE_PERCENT:-5}
       - ENVIRONMENT=production
-    depends_on:
-      payment-db:
-        condition: service_healthy
     networks:
       - backend
 
@@ -147,9 +137,6 @@ services:
       - CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
     volumes:
       - ./serviceAccountKey.json:/app/serviceAccountKey.json:ro
-    depends_on:
-      review-db:
-        condition: service_healthy
     networks:
       - backend
 
@@ -170,9 +157,6 @@ services:
       - CLOUDINARY_API_KEY=${MSG_SERVICE_CLOUDINARY_API_KEY}
       - CLOUDINARY_API_SECRET=${MSG_SERVICE_CLOUDINARY_API_SECRET}
       - CLOUDINARY_URL=${MSG_SERVICE_CLOUDINARY_URL}
-    depends_on:
-      mongo:
-        condition: service_healthy
     networks:
       - backend
 
@@ -239,9 +223,6 @@ services:
       - BOOKING_SERVICE_URL=http://booking-service:8003
       - GIG_SERVICE_URL=http://gig-service:8002
       - PAYMENT_SERVICE_URL=http://payment-service:8004
-    depends_on:
-      mongo:
-        condition: service_healthy
     networks:
       - backend
 
