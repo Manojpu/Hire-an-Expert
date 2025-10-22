@@ -98,6 +98,7 @@ app.add_middleware(
         "http://localhost:8080",
         "http://localhost:3000",
         "http://localhost:5173",
+        "http://addwise.s3-website-ap-southeast-2.amazonaws.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
