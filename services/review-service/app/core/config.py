@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 import os
 from dotenv import load_dotenv
 
@@ -6,6 +6,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+        extra="allow",
+    )
     # App settings
     APP_NAME: str = "Review Service"
     API_PREFIX: str = "/api"
@@ -20,9 +25,6 @@ class Settings(BaseSettings):
     # CORS settings
     CORS_ORIGINS: list[str] = ["*"]
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
 
 # Create a global settings object
 settings = Settings()

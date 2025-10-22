@@ -18,10 +18,14 @@ origins = [
 
 load_dotenv()
 
-# USER_SERVICE_URL = os.getenv("USER_SERVICE_URL")
-# WEBHOOK_SECRET = os.getenv("USER_SERVICE_WEBHOOK_SECRET")
-USER_SERVICE_URL = "http://127.0.0.1:8006/internal/users/provision"
-WEBHOOK_SECRET = "7f6b8e2e6b9147f0b34a84d5b673d3e85d3a21b6b3c847c0a9e32f8f8a172ab4"
+USER_SERVICE_URL = os.getenv(
+    "USER_SERVICE_URL",
+    "http://user-service:8006/internal/users/provision",
+)
+WEBHOOK_SECRET = os.getenv(
+    "USER_SERVICE_WEBHOOK_SECRET",
+    "7f6b8e2e6b9147f0b34a84d5b673d3e85d3a21b6b3c847c0a9e32f8f8a172ab4",
+)
 
 app = FastAPI(
     description="Auth Service",

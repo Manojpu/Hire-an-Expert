@@ -14,6 +14,34 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _rag_unavailable_detail(request: Request) -> str:
+    reasons = getattr(request.app.state, "rag_disabled_reasons", []) or []
+    if reasons:
+        return "RAG features are disabled: " + ", ".join(reasons)
+    return "RAG features are currently disabled. Configure Pinecone and Gemini credentials to enable them."
+
+
+def _require_rag_engine(request: Request):
+    rag_engine = getattr(request.app.state, "rag_engine", None)
+    if not rag_engine:
+        raise HTTPException(status_code=503, detail=_rag_unavailable_detail(request))
+    return rag_engine
+
+
+def _require_pinecone(request: Request):
+    pinecone_service = getattr(request.app.state, "pinecone_service", None)
+    if not pinecone_service:
+        raise HTTPException(status_code=503, detail=_rag_unavailable_detail(request))
+    return pinecone_service
+
+
+def _require_mongodb(request: Request):
+    mongodb_service = getattr(request.app.state, "mongodb_service", None)
+    if not mongodb_service:
+        raise HTTPException(status_code=503, detail="Database connection unavailable")
+    return mongodb_service
+
+
 class QueryRequest(BaseModel):
     query: str
     top_k: Optional[int] = 5
@@ -30,7 +58,7 @@ class QueryResponse(BaseModel):
 @router.post("/upload")
 async def upload_document(request: Request, file: UploadFile = File(...)):
     try:
-        rag_engine = request.app.state.rag_engine
+        rag_engine = _require_rag_engine(request)
         filename = file.filename
         file_ext = filename.lower().split('.')[-1]
         
@@ -53,7 +81,7 @@ async def upload_document(request: Request, file: UploadFile = File(...)):
 @router.post("/query", response_model=QueryResponse)
 async def query_rag(request: Request, query_request: QueryRequest):
     try:
-        rag_engine = request.app.state.rag_engine
+        rag_engine = _require_rag_engine(request)
         
         if not query_request.query or len(query_request.query.strip()) == 0:
             raise HTTPException(status_code=400, detail="Query cannot be empty")
@@ -68,9 +96,10 @@ async def query_rag(request: Request, query_request: QueryRequest):
 @router.get("/list")
 async def list_documents(request: Request, limit: int = Query(50, ge=1, le=100), skip: int = Query(0, ge=0)):
     try:
-        rag_engine = request.app.state.rag_engine
+        rag_engine = _require_rag_engine(request)
         documents = await rag_engine.list_documents(limit=limit, skip=skip)
-        total_count = await rag_engine.mongodb.get_document_count()
+        mongodb_service = _require_mongodb(request)
+        total_count = await mongodb_service.get_document_count()
         
         return {"success": True, "total": total_count, "count": len(documents), "documents": documents}
         
@@ -81,7 +110,7 @@ async def list_documents(request: Request, limit: int = Query(50, ge=1, le=100),
 @router.delete("/delete/{doc_id}")
 async def delete_document(request: Request, doc_id: str):
     try:
-        rag_engine = request.app.state.rag_engine
+        rag_engine = _require_rag_engine(request)
         deleted = await rag_engine.delete_document(doc_id)
         
         if not deleted:
@@ -98,8 +127,8 @@ async def delete_document(request: Request, doc_id: str):
 @router.get("/stats")
 async def get_stats(request: Request):
     try:
-        rag_engine = request.app.state.rag_engine
-        pinecone = request.app.state.pinecone_service
+        rag_engine = _require_rag_engine(request)
+        pinecone = _require_pinecone(request)
         
         pinecone_stats = await pinecone.get_stats()
         doc_count = await rag_engine.mongodb.get_document_count()
@@ -125,7 +154,7 @@ async def get_stats(request: Request):
 async def ingest_file(request: Request, file: UploadFile = File(...)):
     """Frontend-compatible file upload endpoint"""
     try:
-        rag_engine = request.app.state.rag_engine
+        rag_engine = _require_rag_engine(request)
         filename = file.filename
         file_ext = filename.lower().split('.')[-1]
         
@@ -162,7 +191,7 @@ class TextIngestRequest(BaseModel):
 async def ingest_text(request: Request, data: TextIngestRequest):
     """Frontend-compatible text upload endpoint"""
     try:
-        rag_engine = request.app.state.rag_engine
+        rag_engine = _require_rag_engine(request)
         
         # Convert text to bytes for processing
         text_content = data.text.encode('utf-8')
@@ -190,9 +219,10 @@ async def ingest_text(request: Request, data: TextIngestRequest):
 async def get_documents(request: Request, skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=100)):
     """Frontend-compatible list documents endpoint"""
     try:
-        rag_engine = request.app.state.rag_engine
+        rag_engine = _require_rag_engine(request)
         documents = await rag_engine.list_documents(limit=limit, skip=skip)
-        total_count = await rag_engine.mongodb.get_document_count()
+        mongodb_service = _require_mongodb(request)
+        total_count = await mongodb_service.get_document_count()
         
         # Transform documents to include frontend-expected fields
         formatted_docs = []
@@ -229,7 +259,7 @@ async def get_documents(request: Request, skip: int = Query(0, ge=0), limit: int
 async def delete_document_by_id(request: Request, document_id: str):
     """Frontend-compatible delete document endpoint"""
     try:
-        rag_engine = request.app.state.rag_engine
+        rag_engine = _require_rag_engine(request)
         deleted = await rag_engine.delete_document(document_id)
         
         if not deleted:
@@ -265,7 +295,7 @@ async def chat(request: Request, data: ChatRequest):
     Supports conversational queries with context from documents
     """
     try:
-        rag_engine = request.app.state.rag_engine
+        rag_engine = _require_rag_engine(request)
         
         # Get the last user message
         user_messages = [msg for msg in data.messages if msg.role == "user"]
@@ -290,7 +320,9 @@ async def chat(request: Request, data: ChatRequest):
             }
         else:
             # Direct LLM query without RAG context
-            gemini_service = request.app.state.gemini_service
+            gemini_service = getattr(request.app.state, "gemini_service", None)
+            if not gemini_service:
+                raise HTTPException(status_code=503, detail=_rag_unavailable_detail(request))
             answer_result = gemini_service.generate_answer(last_message, [])
             
             return {

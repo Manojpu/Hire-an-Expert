@@ -1,0 +1,334 @@
+version: "3.9"
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - backend
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - USER_SERVICE_URL=http://user-service:8006/internal/users/provision
+      - USER_SERVICE_WEBHOOK_SECRET=${USER_SERVICE_WEBHOOK_SECRET}
+    volumes:
+      - ./serviceAccountKey.json:/app/serviceAccountKey.json:ro
+    depends_on:
+      user-service:
+        condition: service_healthy
+    networks:
+      - backend
+
+  user-service:
+    build:
+      context: ./user-service-v2
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=${USER_DATABASE_URL}
+      - SYNC_DATABASE_URL=${USER_SYNC_DATABASE_URL}
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - FIREBASE_PRIVATE_KEY_ID=${FIREBASE_PRIVATE_KEY_ID}
+      - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY}
+      - FIREBASE_CLIENT_EMAIL='firebase-adminsdk-fbsvc@fastapiauth-fc757.iam.gserviceaccount.com'
+      - FIREBASE_CLIENT_ID=${FIREBASE_CLIENT_ID}
+      - FIREBASE_AUTH_URI="https://accounts.google.com/o/oauth2/auth"
+      - FIREBASE_TOKEN_URI="https://oauth2.googleapis.com/token"
+      - FIREBASE_AUTH_PROVIDER_X509_CERT_URL="https://www.googleapis.com/oauth2/v1/certs"
+      - FIREBASE_CLIENT_X509_CERT_URL="https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40fastapiauth-fc757.iam.gserviceaccount.com"
+      - DEBUG=false
+      - CLOUDINARY_CLOUD_NAME=${USER_SERVICE_CLOUDINARY_CLOUD_NAME:-}
+      - CLOUDINARY_API_KEY=${USER_SERVICE_CLOUDINARY_API_KEY:-}
+      - CLOUDINARY_API_SECRET=${USER_SERVICE_CLOUDINARY_API_SECRET:-}
+      - USER_SERVICE_WEBHOOK_SECRET=${USER_SERVICE_WEBHOOK_SECRET:-change-me}
+    volumes:
+      - ./serviceAccountKey.json:/app/serviceAccountKey.json:ro
+    depends_on:
+      user-db:
+        condition: service_healthy
+    networks:
+      - backend
+
+  gig-service:
+    build:
+      context: ./gig-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=${DATABASE_URL}gig_db
+      - JWT_SECRET_KEY=${GIG_SERVICE_JWT_SECRET}
+      - ALGORITHM=HS256
+      - USER_SERVICE_BASE_URL=http://user-service:8006
+      - REVIEW_SERVICE_BASE_URL=http://review-service:8005
+      - CLOUDINARY_CLOUD_NAME=${GIG_SERVICE_CLOUDINARY_CLOUD_NAME:-}
+      - CLOUDINARY_API_KEY=${GIG_SERVICE_CLOUDINARY_API_KEY:-}
+      - CLOUDINARY_API_SECRET=${GIG_SERVICE_CLOUDINARY_API_SECRET:-}
+      - CLOUDINARY_BASE_FOLDER=${GIG_SERVICE_CLOUDINARY_BASE_FOLDER:-gig-service}
+    volumes:
+      - ./serviceAccountKey.json:/app/serviceAccountKey.json:ro
+    depends_on:
+      gig-db:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+    networks:
+      - backend
+
+  booking-service:
+    build:
+      context: ./booking-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=${DATABASE_URL}booking_db
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - USER_SERVICE_URL=http://user-service:8006
+      - GIG_SERVICE_URL=http://gig-service:8002
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASS=guest
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+    volumes:
+      - ./serviceAccountKey.json:/app/serviceAccountKey.json:ro
+    depends_on:
+      booking-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      gig-service:
+        condition: service_healthy
+    networks:
+      - backend
+
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=${DATABASE_URL}payment_db
+      - STRIPE_PUBLIC_KEY=${STRIPE_PUBLIC_KEY:-pk_test_placeholder}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-sk_test_placeholder}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-whsec_placeholder}
+      - BOOKING_SERVICE_URL=http://booking-service:8003
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
+      - CURRENCY=${PAYMENT_CURRENCY:-LKR}
+      - PLATFORM_FEE_PERCENT=${PLATFORM_FEE_PERCENT:-5}
+      - ENVIRONMENT=production
+    depends_on:
+      payment-db:
+        condition: service_healthy
+    networks:
+      - backend
+
+  review-service:
+    build:
+      context: ./review-service
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=${DATABASE_URL}reviews_db
+      - INTERNAL_JWT_SECRET_KEY=${REVIEW_SERVICE_INTERNAL_JWT_SECRET_KEY:-insecure-dev-key}
+      - CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
+    volumes:
+      - ./serviceAccountKey.json:/app/serviceAccountKey.json:ro
+    depends_on:
+      review-db:
+        condition: service_healthy
+    networks:
+      - backend
+
+  msg-service:
+    build:
+      context: ./msg-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - PORT=8005
+      - NODE_ENV=production
+      - MONGO_URI=${MSG_MONGO_URI}
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+      - MESSAGE_SERVICE_CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+      - MESSAGE_SERVICE_SOCKET_ORIGINS=http://localhost:5173,http://localhost:3000
+      - MESSAGE_SERVICE_SOCKET_METHODS=GET,POST
+      - CLOUDINARY_CLOUD_NAME=${MSG_SERVICE_CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${MSG_SERVICE_CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${MSG_SERVICE_CLOUDINARY_API_SECRET}
+      - CLOUDINARY_URL=${MSG_SERVICE_CLOUDINARY_URL}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - backend
+
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASS=guest
+      - USER_SERVICE_URL=http://user-service:8006
+      - EMAIL_ENABLED=${NOTIFICATION_EMAIL_ENABLED:-true}
+      - EMAIL_HOST=${NOTIFICATION_EMAIL_HOST:-smtp.gmail.com}
+      - EMAIL_PORT=${NOTIFICATION_EMAIL_PORT:-587}
+      - EMAIL_USERNAME=${NOTIFICATION_EMAIL_USERNAME:-}
+      - EMAIL_PASSWORD=${NOTIFICATION_EMAIL_PASSWORD:-}
+      - EMAIL_FROM=${NOTIFICATION_EMAIL_FROM:-notifications@example.com}
+      - EMAIL_SENDER_NAME=${NOTIFICATION_EMAIL_SENDER_NAME:-Hire an Expert Notifications}
+      - FRONTEND_BASE_URL=${FRONTEND_BASE_URL:-http://localhost:5173}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+    networks:
+      - backend
+
+  admin-service:
+    build:
+      context: ./admin-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - DEBUG=true
+      - HOST=0.0.0.0
+      - PORT=8009
+      - SERVICE_NAME=admin-service
+      - MONGO_URI=${ADMIN_MONGO_URI}
+      - MONGO_DB_NAME=hire_expert_admin
+      - GOOGLE_API_KEY=${ADMIN_GOOGLE_API_KEY}
+      - GEMINI_MODEL=models/gemini-2.0-flash-exp
+      - GEMINI_EMBEDDING_MODEL=models/embedding-001
+      - PINECONE_API_KEY=${ADMIN_PINECONE_API_KEY}
+      - PINECONE_INDEX_NAME=hire-expert-rag
+      - PINECONE_ENVIRONMENT=us-east-1-aws
+      - VECTOR_DIMENSION=768
+      - CHUNK_SIZE=500
+      - CHUNK_OVERLAP=50
+      - TOP_K_RESULTS=5
+      - MAX_UPLOAD_SIZE=10485760
+      - ALLOWED_EXTENSIONS=[".pdf",".txt"]
+      - UPLOAD_DIR=./uploads
+      - JWT_SECRET_KEY=${ADMIN_JWT_SECRET_KEY}
+      - JWT_ALGORITHM=HS256
+      - JWT_EXPIRATION_HOURS=24
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - USER_SERVICE_URL=http://user-service:8006
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - MESSAGE_SERVICE_URL=http://msg-service:8005
+      - BOOKING_SERVICE_URL=http://booking-service:8003
+      - GIG_SERVICE_URL=http://gig-service:8002
+      - PAYMENT_SERVICE_URL=http://payment-service:8004
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - backend
+
+  meeting-service:
+    build:
+      context: ./meeting-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - AGORA_APP_ID=${AGORA_APP_ID}
+      - AGORA_APP_CERTIFICATE=${AGORA_APP_CERTIFICATE}
+    networks:
+      - backend
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - PORT=8000
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - GIG_SERVICE_URL=http://gig-service:8002
+      - BOOKING_SERVICE_URL=http://booking-service:8003
+      - PAYMENT_SERVICE_URL=http://payment-service:8004
+      - MESSAGE_SERVICE_URL=http://msg-service:8005
+      - USER_SERVICE_URL=http://user-service:8006
+      - REVIEW_SERVICE_URL=http://review-service:8005
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8008
+      - ADMIN_SERVICE_URL=http://admin-service:8009
+      - MEETING_SERVICE_URL=http://meeting-service:8007
+      - SECRET_KEY=${GATEWAY_SECRET_KEY}
+      - REQUEST_TIMEOUT=30
+      - AUTH_TIMEOUT=5
+      - RATE_LIMIT_REQUESTS=100
+      - RATE_LIMIT_WINDOW=1/minute
+      - LOG_LEVEL=INFO
+      - LOG_FILE=logs/api_gateway.log
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      gig-service:
+        condition: service_healthy
+      booking-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+      msg-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      review-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+      admin-service:
+        condition: service_healthy
+      meeting-service:
+        condition: service_healthy
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  booking_db_data:
+  gig_db_data:
+  payment_db_data:
+  review_db_data:
+  user_db_data:
+  mongo_data:
+# services:
+#   admin-service:
+#     build: ./admin-service
+#     container_name: hire_expert_admin
+#     env_file:
+#       - ./admin-service/.env
+#     ports:
+#       - "8009:8009"
+#     volumes:
+#       - ./uploads:/app/uploads
+#       - ./admin-service:/app
+#     restart: unless-stopped
+#     healthcheck:
+#       test: ["CMD-SHELL", "curl -f http://localhost:8009/health || exit 1"]
+#       interval: 30s
+#       timeout: 10s
+#       retries: 3

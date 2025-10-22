@@ -3,10 +3,16 @@ Configuration settings for Lightweight Admin Service with RAG
 Uses Pinecone for vector storage and Gemini for embeddings and LLM
 """
 import os
-from pydantic_settings import BaseSettings
 from typing import Optional
 
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+        extra="allow",
+    )
     """Application settings"""
     
     # Service Configuration
@@ -46,22 +52,17 @@ class Settings(BaseSettings):
     JWT_EXPIRATION_HOURS: int = 24
     
     # External Services
-    USER_SERVICE_URL: str = "http://localhost:8006"
-    AUTH_SERVICE_URL: str = "http://localhost:8001"
-    MESSAGE_SERVICE_URL: str = "http://localhost:8005"
-    BOOKING_SERVICE_URL: str = "http://localhost:8003"
-    GIG_SERVICE_URL: str = "http://localhost:8004"
-    PAYMENT_SERVICE_URL: str = "http://localhost:8008"
+    USER_SERVICE_URL: str = os.getenv("USER_SERVICE_URL", "http://localhost:8006")
+    AUTH_SERVICE_URL: str = os.getenv("AUTH_SERVICE_URL", "http://localhost:8001")
+    MESSAGE_SERVICE_URL: str = os.getenv("MESSAGE_SERVICE_URL", "http://localhost:8005")
+    BOOKING_SERVICE_URL: str = os.getenv("BOOKING_SERVICE_URL", "http://localhost:8003")
+    GIG_SERVICE_URL: str = os.getenv("GIG_SERVICE_URL", "http://localhost:8004")
+    PAYMENT_SERVICE_URL: str = os.getenv("PAYMENT_SERVICE_URL", "http://localhost:8008")
     
     # Admin Credentials
     ADMIN_EMAIL: str = "admin@hireexpert.com"
     ADMIN_PASSWORD: str = "admin123"
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-        extra = "ignore"  # Ignore extra fields from .env
-
 settings = Settings()
 
 # Validate required settings
