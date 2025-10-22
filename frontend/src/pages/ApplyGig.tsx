@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { useAuth } from "@/context/auth/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import ProgressStepper from "@/components/expert/ProgressStepper";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +18,7 @@ import { DEFAULT_STEPS } from "@/components/expert/ProgressStepper";
 
 const ApplyGig: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<Partial<ExpertApplicationForm>>({
     availabilityRules: [],
@@ -129,7 +132,9 @@ const ApplyGig: React.FC = () => {
     if (!filteredForm.tos)
       errors.push("Terms of service acceptance is required");
     if (errors.length > 0) {
-      alert("Please fix the following errors:\n" + errors.join("\n"));
+      toast.error("Please fix the highlighted fields", {
+        description: errors.join("\n"),
+      });
       return;
     }
 
@@ -139,7 +144,7 @@ const ApplyGig: React.FC = () => {
       let licenseUrl = "";
 
       if (!user) {
-        alert("You must be logged in to submit an application.");
+        toast.error("You must be logged in to submit an application.");
         return;
       }
       const token = await user.getIdToken();
@@ -187,16 +192,20 @@ const ApplyGig: React.FC = () => {
       );
       syncExpertData(expertData);
 
-      alert(
-        `Application submitted successfully! \n\nYour expert profile has been created and is pending approval.\nGig ID: ${createdGig.id}\nStatus: ${createdGig.status}`
-      );
+      toast.success("Application submitted successfully", {
+        description:
+          "Your expert profile is pending approval. We'll notify you once it's reviewed.",
+      });
+      navigate("/", { replace: true });
     } catch (error) {
       console.error("Error submitting application:", error);
       let errorMessage = "Failed to submit application. Please try again.";
       if (error instanceof Error) {
         errorMessage = `Failed to submit application: ${error.message}`;
       }
-      alert(errorMessage);
+      toast.error("Submission failed", {
+        description: errorMessage,
+      });
       console.log("Form data:", filteredForm);
       console.log("Converted gig data:", convertFormToGigData(filteredForm));
     }
@@ -420,39 +429,52 @@ const ApplyGig: React.FC = () => {
                   {/* Services Section */}
                   <div className="border-b pb-4">
                     <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                      <span className="text-primary">📋</span> Services & Expertise
+                      <span className="text-primary">📋</span> Services &
+                      Expertise
                     </h3>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
                         <span className="text-muted-foreground">Category:</span>
                         <p className="font-medium">
-                          {categories.find(c => c.id === Number(form.category_id))?.name || 'Not selected'}
+                          {categories.find(
+                            (c) => c.id === Number(form.category_id)
+                          )?.name || "Not selected"}
                         </p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Hourly Rate:</span>
+                        <span className="text-muted-foreground">
+                          Hourly Rate:
+                        </span>
                         <p className="font-medium">Rs. {form.rate || 0}</p>
                       </div>
                       <div className="col-span-2">
-                        <span className="text-muted-foreground">Service Description:</span>
+                        <span className="text-muted-foreground">
+                          Service Description:
+                        </span>
                         <p className="font-medium text-gray-700 mt-1">
-                          {form.serviceDesc || 'Not provided'}
+                          {form.serviceDesc || "Not provided"}
                         </p>
                       </div>
                       <div className="col-span-2">
-                        <span className="text-muted-foreground">Availability Notes:</span>
+                        <span className="text-muted-foreground">
+                          Availability Notes:
+                        </span>
                         <p className="font-medium text-gray-700 mt-1">
-                          {form.availabilityNotes || 'Not provided'}
+                          {form.availabilityNotes || "Not provided"}
                         </p>
                       </div>
-                      {form.availabilityRules && form.availabilityRules.length > 0 && (
-                        <div className="col-span-2">
-                          <span className="text-muted-foreground">Availability Rules:</span>
-                          <p className="font-medium text-gray-700 mt-1">
-                            {form.availabilityRules.length} time slot(s) configured
-                          </p>
-                        </div>
-                      )}
+                      {form.availabilityRules &&
+                        form.availabilityRules.length > 0 && (
+                          <div className="col-span-2">
+                            <span className="text-muted-foreground">
+                              Availability Rules:
+                            </span>
+                            <p className="font-medium text-gray-700 mt-1">
+                              {form.availabilityRules.length} time slot(s)
+                              configured
+                            </p>
+                          </div>
+                        )}
                     </div>
                   </div>
 
@@ -463,27 +485,38 @@ const ApplyGig: React.FC = () => {
                     </h3>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div className="col-span-2">
-                        <span className="text-muted-foreground">Expertise Areas:</span>
+                        <span className="text-muted-foreground">
+                          Expertise Areas:
+                        </span>
                         <p className="font-medium text-gray-700 mt-1">
-                          {form.expertise_areas || 'Not provided'}
+                          {form.expertise_areas || "Not provided"}
                         </p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Experience:</span>
-                        <p className="font-medium">{form.experience_years || 0} years</p>
+                        <span className="text-muted-foreground">
+                          Experience:
+                        </span>
+                        <p className="font-medium">
+                          {form.experience_years || 0} years
+                        </p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Documents:</span>
+                        <span className="text-muted-foreground">
+                          Documents:
+                        </span>
                         <p className="font-medium">
-                          {form.qualificationDocs && form.qualificationDocs.length > 0
+                          {form.qualificationDocs &&
+                          form.qualificationDocs.length > 0
                             ? `${form.qualificationDocs.length} file(s) attached`
-                            : 'No files attached'}
+                            : "No files attached"}
                         </p>
                       </div>
                       <div className="col-span-2">
-                        <span className="text-muted-foreground">Work Experience:</span>
+                        <span className="text-muted-foreground">
+                          Work Experience:
+                        </span>
                         <p className="font-medium text-gray-700 mt-1">
-                          {form.experience || 'Not provided'}
+                          {form.experience || "Not provided"}
                         </p>
                       </div>
                     </div>
@@ -497,27 +530,37 @@ const ApplyGig: React.FC = () => {
                       </h3>
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div>
-                          <span className="text-muted-foreground">Government ID:</span>
+                          <span className="text-muted-foreground">
+                            Government ID:
+                          </span>
                           <p className="font-medium">
-                            {form.govId ? '✓ Uploaded' : '✗ Not uploaded'}
+                            {form.govId ? "✓ Uploaded" : "✗ Not uploaded"}
                           </p>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Professional License:</span>
+                          <span className="text-muted-foreground">
+                            Professional License:
+                          </span>
                           <p className="font-medium">
-                            {form.license ? '✓ Uploaded' : '✗ Not uploaded'}
+                            {form.license ? "✓ Uploaded" : "✗ Not uploaded"}
                           </p>
                         </div>
                         <div className="col-span-2">
-                          <span className="text-muted-foreground">References:</span>
+                          <span className="text-muted-foreground">
+                            References:
+                          </span>
                           <p className="font-medium text-gray-700 mt-1">
-                            {form.references || 'Not provided'}
+                            {form.references || "Not provided"}
                           </p>
                         </div>
                         <div className="col-span-2">
-                          <span className="text-muted-foreground">Background Check:</span>
+                          <span className="text-muted-foreground">
+                            Background Check:
+                          </span>
                           <p className="font-medium">
-                            {form.bgConsent ? '✓ Consent given' : '✗ Consent not given'}
+                            {form.bgConsent
+                              ? "✓ Consent given"
+                              : "✗ Consent not given"}
                           </p>
                         </div>
                       </div>
@@ -534,13 +577,17 @@ const ApplyGig: React.FC = () => {
                         onChange={(e) => handleChange("tos", e.target.checked)}
                         className="mt-1"
                       />
-                      <label htmlFor="tos-checkbox" className="text-sm cursor-pointer">
+                      <label
+                        htmlFor="tos-checkbox"
+                        className="text-sm cursor-pointer"
+                      >
                         <span className="font-medium text-blue-900">
                           I agree to the terms of service
                         </span>
                         <p className="text-blue-700 mt-1">
-                          By submitting this application, you confirm that all information provided is accurate and complete.
-                          Your application will be reviewed within 2-3 business days.
+                          By submitting this application, you confirm that all
+                          information provided is accurate and complete. Your
+                          application will be reviewed within 2-3 business days.
                         </p>
                       </label>
                     </div>
