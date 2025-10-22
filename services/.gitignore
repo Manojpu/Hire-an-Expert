@@ -1,0 +1,13 @@
+services/auth-service/serviceAccountKey.json
+services/user-service/serviceAccountKey.json
+services/gig-service/serviceAccountKey.json
+services/booking-service/serviceAccountKey.json
+services/payment-service/serviceAccountKey.json
+services/review-service/serviceAccountKey.json
+services/msg-service/serviceAccountKey.json
+services/notification-service/serviceAccountKey.json
+services/admin-service/serviceAccountKey.json
+services/meeting-service/serviceAccountKey.json
+services/api-gateway/serviceAccountKey.json
+
+serviceAccountKey.json
