@@ -318,6 +318,42 @@ export const userServiceAPI = {
       return [];
     }
   },
+  
+  /**
+   * Set availability rules and date overrides for user
+   */
+  async setAvailabilityRules(availabilityRules: AvailabilityRule[], dateOverrides: DateOverride[] = [], token?: string): Promise<AvailabilityRule[]> {
+    try {
+      console.log("🔄 Setting availability rules...", availabilityRules);
+      console.log("🔄 Setting date overrides...", dateOverrides);
+      
+      const idToken = token || await getIdToken();
+      const response = await fetch(`${USER_SERVICE_URL}/users/me/availability-rules`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          availabilityRules,
+          dateOverrides
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error("❌ Failed to set availability rules:", response.status, errorData);
+        throw new Error(`Failed to set availability rules: ${response.status} ${errorData}`);
+      }
+
+      const savedRules = await response.json();
+      console.log("✅ Successfully set availability rules:", savedRules);
+      return savedRules;
+    } catch (error) {
+      console.error("❌ Error setting availability rules:", error);
+      throw error;
+    }
+  },
 
   /**
    * Get user preferences
