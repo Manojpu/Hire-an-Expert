@@ -49,7 +49,7 @@ services:
       - FIREBASE_TOKEN_URI="https://oauth2.googleapis.com/token"
       - FIREBASE_AUTH_PROVIDER_X509_CERT_URL="https://www.googleapis.com/oauth2/v1/certs"
       - FIREBASE_CLIENT_X509_CERT_URL="https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40fastapiauth-fc757.iam.gserviceaccount.com"
-      - DEBUG=false
+      - DEBUG=true
       - CLOUDINARY_CLOUD_NAME=${USER_SERVICE_CLOUDINARY_CLOUD_NAME:-}
       - CLOUDINARY_API_KEY=${USER_SERVICE_CLOUDINARY_API_KEY:-}
       - CLOUDINARY_API_SECRET=${USER_SERVICE_CLOUDINARY_API_SECRET:-}

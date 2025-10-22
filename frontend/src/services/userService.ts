@@ -4,7 +4,8 @@
  */
 
 // User Service URL
-const USER_SERVICE_URL = import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:8001";
+const USER_SERVICE_URL =
+  import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:8001";
 
 // TypeScript interfaces based on backend models
 export interface ExpertData {
@@ -43,16 +44,16 @@ export interface VerificationDocument {
 }
 
 export interface AvailabilityRule {
-  id: string;
-  user_id: string;
+  id?: string;
+  user_id?: string;
   day_of_week: number; // 0=Monday, 1=Tuesday, ..., 6=Sunday
   start_time_utc: string; // "HH:MM" format
   end_time_utc: string; // "HH:MM" format
 }
 
 export interface DateOverride {
-  id: string;
-  user_id: string;
+  id?: string;
+  user_id?: string;
   unavailable_date: string; // ISO date string
 }
 
@@ -66,33 +67,19 @@ export interface UserPreference {
   uploaded_at: string;
 }
 
-export interface AvailabilityRule {
-  id: string;
-  user_id: string;
-  day_of_week: number; // 0=Monday, 1=Tuesday, ..., 6=Sunday
-  start_time_utc: string; // "HH:MM" format
-  end_time_utc: string;   // "HH:MM" format
-}
-
-export interface UserPreference {
-  id: string;
-  user_id: string;
-  key: string;
-  value: string;
-  created_at: string;
-  updated_at: string;
-}
+type AvailabilityRuleInput = Omit<AvailabilityRule, "user_id">;
+type DateOverrideInput = Omit<DateOverride, "user_id">;
 
 // Helper to get Firebase ID token
 async function getIdToken(): Promise<string> {
   try {
-    const { auth } = await import('@/firebase/firebase');
-    const { getIdToken: firebaseGetIdToken } = await import('firebase/auth');
-    
+    const { auth } = await import("@/firebase/firebase");
+    const { getIdToken: firebaseGetIdToken } = await import("firebase/auth");
+
     if (auth.currentUser) {
       return await firebaseGetIdToken(auth.currentUser);
     }
-    
+
     console.warn("No authenticated user found, using dev token");
     return "dev-mock-token";
   } catch (error) {
@@ -108,28 +95,35 @@ export const userServiceAPI = {
   async getCurrentUserProfile(): Promise<ExpertData> {
     try {
       console.log("🔄 Fetching current user profile from user service...");
-      
+
       const token = await getIdToken();
-      const { auth } = await import('@/firebase/firebase');
-      
+      const { auth } = await import("@/firebase/firebase");
+
       if (!auth.currentUser) {
         throw new Error("No authenticated user");
       }
 
       const firebaseUid = auth.currentUser.uid;
       console.log("🔍 Using Firebase UID:", firebaseUid);
-      
+
       // Use Firebase UID endpoint since there's no /users/me endpoint
-      const response = await fetch(`${USER_SERVICE_URL}/users/firebase/${firebaseUid}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await fetch(
+        `${USER_SERVICE_URL}/users/firebase/${firebaseUid}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("❌ Failed to fetch user profile:", response.status, errorText);
+        console.error(
+          "❌ Failed to fetch user profile:",
+          response.status,
+          errorText
+        );
         throw new Error(`Failed to fetch user profile: ${response.status}`);
       }
 
@@ -148,16 +142,23 @@ export const userServiceAPI = {
   async getUserByFirebaseUid(firebaseUid: string): Promise<ExpertData> {
     try {
       console.log("🔄 Fetching user by Firebase UID:", firebaseUid);
-      
-      const response = await fetch(`${USER_SERVICE_URL}/users/firebase/${firebaseUid}`, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+
+      const response = await fetch(
+        `${USER_SERVICE_URL}/users/firebase/${firebaseUid}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("❌ Failed to fetch user by Firebase UID:", response.status, errorText);
+        console.error(
+          "❌ Failed to fetch user by Firebase UID:",
+          response.status,
+          errorText
+        );
         throw new Error(`Failed to fetch user: ${response.status}`);
       }
 
@@ -176,18 +177,22 @@ export const userServiceAPI = {
   async getUserById(userId: string): Promise<ExpertData> {
     try {
       console.log("🔄 Fetching user by ID from user service:", userId);
-      
+
       const token = await getIdToken();
       const response = await fetch(`${USER_SERVICE_URL}/users/${userId}`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("❌ Failed to fetch user by ID:", response.status, errorText);
+        console.error(
+          "❌ Failed to fetch user by ID:",
+          response.status,
+          errorText
+        );
         throw new Error(`Failed to fetch user: ${response.status}`);
       }
 
@@ -206,20 +211,24 @@ export const userServiceAPI = {
   async updateUserProfile(updates: Partial<ExpertData>): Promise<ExpertData> {
     try {
       console.log("🔄 Updating user profile:", updates);
-      
+
       const token = await getIdToken();
       const response = await fetch(`${USER_SERVICE_URL}/users/me`, {
-        method: 'PUT',
+        method: "PUT",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(updates),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("❌ Failed to update user profile:", response.status, errorText);
+        console.error(
+          "❌ Failed to update user profile:",
+          response.status,
+          errorText
+        );
         throw new Error(`Failed to update profile: ${response.status}`);
       }
 
@@ -238,17 +247,23 @@ export const userServiceAPI = {
   async getVerificationDocuments(): Promise<VerificationDocument[]> {
     try {
       console.log("🔄 Fetching verification documents...");
-      
+
       const token = await getIdToken();
-      const response = await fetch(`${USER_SERVICE_URL}/verification-documents`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await fetch(
+        `${USER_SERVICE_URL}/verification-documents`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (!response.ok) {
-        console.error("❌ Failed to fetch verification documents:", response.status);
+        console.error(
+          "❌ Failed to fetch verification documents:",
+          response.status
+        );
         return []; // Return empty array if not found
       }
 
@@ -267,17 +282,23 @@ export const userServiceAPI = {
   async getAvailabilityRules(): Promise<AvailabilityRule[]> {
     try {
       console.log("🔄 Fetching availability rules...");
-      
+
       const token = await getIdToken();
-      const response = await fetch(`${USER_SERVICE_URL}/users/me/availability/rules`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await fetch(
+        `${USER_SERVICE_URL}/users/me/availability/rules`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (!response.ok) {
-        console.error("❌ Failed to fetch availability rules:", response.status);
+        console.error(
+          "❌ Failed to fetch availability rules:",
+          response.status
+        );
         return [];
       }
 
@@ -296,14 +317,17 @@ export const userServiceAPI = {
   async getDateOverrides(): Promise<DateOverride[]> {
     try {
       console.log("🔄 Fetching date overrides...");
-      
+
       const token = await getIdToken();
-      const response = await fetch(`${USER_SERVICE_URL}/users/me/availability/overrides`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await fetch(
+        `${USER_SERVICE_URL}/users/me/availability/overrides`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (!response.ok) {
         console.error("❌ Failed to fetch date overrides:", response.status);
@@ -318,32 +342,45 @@ export const userServiceAPI = {
       return [];
     }
   },
-  
+
   /**
    * Set availability rules and date overrides for user
    */
-  async setAvailabilityRules(availabilityRules: AvailabilityRule[], dateOverrides: DateOverride[] = [], token?: string): Promise<AvailabilityRule[]> {
+  async setAvailabilityRules(
+    availabilityRules: AvailabilityRuleInput[],
+    dateOverrides: DateOverrideInput[] = [],
+    token?: string
+  ): Promise<AvailabilityRule[]> {
     try {
       console.log("🔄 Setting availability rules...", availabilityRules);
       console.log("🔄 Setting date overrides...", dateOverrides);
-      
-      const idToken = token || await getIdToken();
-      const response = await fetch(`${USER_SERVICE_URL}/users/me/availability-rules`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${idToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          availabilityRules,
-          dateOverrides
-        }),
-      });
+
+      const idToken = token ?? (await getIdToken());
+      const response = await fetch(
+        `${USER_SERVICE_URL}/users/me/availability-rules`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            availabilityRules,
+            dateOverrides,
+          }),
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.text();
-        console.error("❌ Failed to set availability rules:", response.status, errorData);
-        throw new Error(`Failed to set availability rules: ${response.status} ${errorData}`);
+        console.error(
+          "❌ Failed to set availability rules:",
+          response.status,
+          errorData
+        );
+        throw new Error(
+          `Failed to set availability rules: ${response.status} ${errorData}`
+        );
       }
 
       const savedRules = await response.json();
@@ -361,12 +398,12 @@ export const userServiceAPI = {
   async getUserPreferences(): Promise<UserPreference[]> {
     try {
       console.log("🔄 Fetching user preferences...");
-      
+
       const token = await getIdToken();
       const response = await fetch(`${USER_SERVICE_URL}/users/me/preferences`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
       });
 
@@ -382,5 +419,5 @@ export const userServiceAPI = {
       console.error("❌ Error fetching user preferences:", error);
       return [];
     }
-  }
+  },
 };
