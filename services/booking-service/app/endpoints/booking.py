@@ -17,6 +17,14 @@ import uuid
 router = APIRouter()
 
 # Define routes in order - fixed paths before path parameters
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
 
 # 1. Root endpoint - list all bookings
 @router.get("/", response_model=List[BookingResponse])
@@ -576,8 +584,7 @@ def verify_booking_for_review(
         raise HTTPException(
             status_code=500, 
             detail=f"Failed to verify booking: {str(e)}"
-        )   
-
+        )
 
 
 @router.put("/{booking_id}", response_model=BookingResponse)
