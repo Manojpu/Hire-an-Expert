@@ -6,6 +6,7 @@ import json
 
 from typing import List, Optional
 from app.db import crud, session
+from app.core.config import settings
 from app.utils.logger import get_logger
 from app.utils.file_handler import save_certificate_files
 
@@ -813,7 +814,7 @@ async def get_user_details_for_admin(
         import httpx
         
         # Call the user service directly
-        user_service_url = "http://localhost:8006"  # User service URL
+        user_service_url = settings.user_service_base_url.rstrip("/")
         
         async with httpx.AsyncClient() as client:
             try:

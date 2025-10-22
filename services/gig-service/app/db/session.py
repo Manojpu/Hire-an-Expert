@@ -85,7 +85,8 @@ def get_current_user_id(token: HTTPBearer = Depends(security)):
         logger.info(f"✅ Token verified successfully for Firebase UID: {firebase_uid}")
         
         # Use the user-service to get the user ID
-        user_service_url = "http://localhost:8006/users/by-firebase-uid/" + firebase_uid
+        base_url = settings.user_service_base_url.rstrip("/")
+        user_service_url = f"{base_url}/users/by-firebase-uid/{firebase_uid}"
         
         # Call user service to get user information
         try:

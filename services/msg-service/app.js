@@ -6,30 +6,38 @@ const connectDB = require("./config/db");
 dotenv.config();
 
 // Only connect to DB if not in test environment (tests handle their own DB connection)
-if (process.env.NODE_ENV !== 'test') {
+if (process.env.NODE_ENV !== "test") {
   connectDB();
 }
 
 const app = express();
 
 // CORS configuration with environment variable support
-const corsOrigins = process.env.CORS_ORIGINS ? 
-  process.env.CORS_ORIGINS.split(',') : 
-  ["http://localhost:3000"];
+const parseOrigins = (value) =>
+  (value || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
-app.use(cors({ 
-  origin: corsOrigins,
-  credentials: true 
-}));
+const corsOrigins = parseOrigins(
+  process.env.MESSAGE_SERVICE_CORS_ORIGINS || process.env.CORS_ORIGINS
+);
+
+app.use(
+  cors({
+    origin: corsOrigins.length ? corsOrigins : true,
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 // Health check endpoint for Docker health checks
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'healthy', 
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    status: "healthy",
     timestamp: new Date().toISOString(),
-    service: 'message-service',
-    database: 'connected'
+    service: "message-service",
+    database: "connected",
   });
 });
 

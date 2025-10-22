@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str
     ALGORITHM: str
 
+    user_service_base_url: str = Field(default="http://localhost:8006", alias="USER_SERVICE_BASE_URL")
+    review_service_base_url: str = Field(default="http://localhost:8004", alias="REVIEW_SERVICE_BASE_URL")
+
     # Cloudinary configuration is optional to support local setups without uploads
     cloudinary_cloud_name: Optional[str] = Field(default=None, alias="CLOUDINARY_CLOUD_NAME")
     cloudinary_api_key: Optional[str] = Field(default=None, alias="CLOUDINARY_API_KEY")

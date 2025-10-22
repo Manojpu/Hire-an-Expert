@@ -9,13 +9,13 @@ from app.db.session import get_db
 from app.db.models import Gig
 import httpx
 import logging
-import os
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Review service URL
-REVIEW_SERVICE_URL = os.getenv("REVIEW_SERVICE_URL", "http://localhost:8004")
+REVIEW_SERVICE_URL = settings.review_service_base_url.rstrip("/")
 
 
 @router.get("/{gig_id}/performance")
