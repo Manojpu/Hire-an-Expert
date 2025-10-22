@@ -7,6 +7,7 @@ from typing import List, Dict, Optional
 from datetime import datetime
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
 from bson import ObjectId
+import certifi
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,12 @@ class MongoDBService:
     async def connect(self):
         """Connect to MongoDB"""
         try:
-            self.client = AsyncIOMotorClient(settings.MONGO_URI)
+            mongo_kwargs = {}
+            if settings.MONGO_URI.startswith("mongodb+srv://") or "mongodb.net" in settings.MONGO_URI:
+                # Atlas clusters require trusted CA bundle for TLS validation
+                mongo_kwargs["tlsCAFile"] = certifi.where()
+
+            self.client = AsyncIOMotorClient(settings.MONGO_URI, **mongo_kwargs)
             self.db = self.client[settings.MONGO_DB_NAME]
             
             # Initialize GridFS bucket for file storage
