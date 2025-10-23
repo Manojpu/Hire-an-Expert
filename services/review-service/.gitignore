@@ -82,3 +82,5 @@ settings.local.py
 # Other
 *.swp
 *.swo
+
+serviceAccountKey.json
