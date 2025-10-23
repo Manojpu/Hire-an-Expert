@@ -3,11 +3,13 @@
  * Fetches analytics data from booking and gig services for expert dashboard
  */
 
-import { auth } from '@/firebase/firebase';
-import { getIdToken } from 'firebase/auth';
+import { auth } from "@/firebase/firebase";
+import { getIdToken } from "firebase/auth";
 
-const BOOKING_SERVICE_URL = import.meta.env.VITE_BOOKING_SERVICE_URL || 'http://localhost:8003';
-const GIG_SERVICE_URL = import.meta.env.VITE_GIG_SERVICE_URL || 'http://localhost:8002';
+const API_GATEWAY_URL = (
+  import.meta.env.VITE_API_GATEWAY_URL || "http://localhost:8000"
+).replace(/\/$/, "");
+const BOOKING_SERVICE_URL = `${API_GATEWAY_URL}/api/bookings`;
 
 export interface RevenueMetrics {
   today: number;
@@ -59,13 +61,13 @@ export interface GigAnalyticsData {
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const user = auth.currentUser;
   if (!user) {
-    throw new Error('User not authenticated');
+    throw new Error("User not authenticated");
   }
-  
+
   const token = await getIdToken(user);
   return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`,
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
   };
 }
 
@@ -73,13 +75,16 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
  * Fetch comprehensive analytics for a specific gig
  * Combines data from booking service (revenue, bookings) and gig service (performance)
  */
-export async function fetchGigAnalytics(gigId: string, period: string = 'month'): Promise<GigAnalyticsData> {
+export async function fetchGigAnalytics(
+  gigId: string,
+  period: string = "month"
+): Promise<GigAnalyticsData> {
   try {
     const headers = await getAuthHeaders();
 
     // Fetch booking analytics (revenue and booking stats)
     const bookingResponse = await fetch(
-      `${BOOKING_SERVICE_URL}/bookings/analytics/gig/${gigId}?period=${period}`,
+      `${BOOKING_SERVICE_URL}/analytics/gig/${gigId}?period=${period}`,
       { headers }
     );
 
@@ -92,7 +97,7 @@ export async function fetchGigAnalytics(gigId: string, period: string = 'month')
           week: 0,
           month: 0,
           year: 0,
-          growth: { daily: 0, weekly: 0, monthly: 0 }
+          growth: { daily: 0, weekly: 0, monthly: 0 },
         },
         bookings: {
           total: 0,
@@ -101,16 +106,16 @@ export async function fetchGigAnalytics(gigId: string, period: string = 'month')
           cancelled: 0,
           pending: 0,
           confirmed: 0,
-          completionRate: 0
+          completionRate: 0,
         },
         performance: {
           rating: 0,
           totalReviews: 0,
-          responseTime: '< 24 hours',
+          responseTime: "< 24 hours",
           repeatCustomers: 0,
-          avgSessionDuration: '45 min',
+          avgSessionDuration: "45 min",
         },
-        chartData: []
+        chartData: [],
       };
     }
 
@@ -121,9 +126,10 @@ export async function fetchGigAnalytics(gigId: string, period: string = 'month')
     const performanceData: PerformanceMetrics = {
       rating: bookingData.performance?.rating || 0,
       totalReviews: 0, // This will be fetched from review service by the component
-      responseTime: bookingData.performance?.responseTime || '< 24 hours',
+      responseTime: bookingData.performance?.responseTime || "< 24 hours",
       repeatCustomers: bookingData.performance?.repeatCustomers || 0,
-      avgSessionDuration: bookingData.performance?.avgSessionDuration || '1 hour',
+      avgSessionDuration:
+        bookingData.performance?.avgSessionDuration || "1 hour",
     };
 
     // Combine all analytics data
@@ -133,7 +139,7 @@ export async function fetchGigAnalytics(gigId: string, period: string = 'month')
         week: 0,
         month: 0,
         year: 0,
-        growth: { daily: 0, weekly: 0, monthly: 0 }
+        growth: { daily: 0, weekly: 0, monthly: 0 },
       },
       bookings: bookingData.bookings || {
         total: 0,
@@ -142,16 +148,15 @@ export async function fetchGigAnalytics(gigId: string, period: string = 'month')
         cancelled: 0,
         pending: 0,
         confirmed: 0,
-        completionRate: 0
+        completionRate: 0,
       },
       performance: performanceData,
       chartData: bookingData.chartData || [],
       hourlyRate: bookingData.hourlyRate,
-      currency: bookingData.currency || 'LKR'
+      currency: bookingData.currency || "LKR",
     };
-
   } catch (error) {
-    console.error('Error fetching gig analytics:', error);
+    console.error("Error fetching gig analytics:", error);
     // Return empty analytics instead of throwing
     return {
       revenue: {
@@ -159,7 +164,7 @@ export async function fetchGigAnalytics(gigId: string, period: string = 'month')
         week: 0,
         month: 0,
         year: 0,
-        growth: { daily: 0, weekly: 0, monthly: 0 }
+        growth: { daily: 0, weekly: 0, monthly: 0 },
       },
       bookings: {
         total: 0,
@@ -168,16 +173,16 @@ export async function fetchGigAnalytics(gigId: string, period: string = 'month')
         cancelled: 0,
         pending: 0,
         confirmed: 0,
-        completionRate: 0
+        completionRate: 0,
       },
       performance: {
         rating: 0,
         totalReviews: 0,
-        responseTime: '< 24 hours',
+        responseTime: "< 24 hours",
         repeatCustomers: 0,
-        avgSessionDuration: '45 min',
+        avgSessionDuration: "45 min",
       },
-      chartData: []
+      chartData: [],
     };
   }
 }

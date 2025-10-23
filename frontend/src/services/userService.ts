@@ -4,8 +4,11 @@
  */
 
 // User Service URL
-const USER_SERVICE_URL =
-  import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:8001";
+const API_GATEWAY_URL = (
+  import.meta.env.VITE_API_GATEWAY_URL || "http://localhost:8000"
+).replace(/\/$/, "");
+
+const USER_SERVICE_URL = `${API_GATEWAY_URL}/api/user-v2`;
 
 // TypeScript interfaces based on backend models
 export interface ExpertData {

@@ -207,7 +207,7 @@ async def proxy_user_v2_admin(request):
 
 async def proxy_gigs(request):
     path = request.path_params.get("path", "")
-    return await proxy_request(request, services["gig"], f"/gigs/{path}")
+    return await proxy_request(request, services["gig"], f"/gigs/{path}", auth_required=False)
 
 async def proxy_gigs_admin(request):
     """Proxy for gig admin endpoints - authentication handled by gig service"""
@@ -217,6 +217,10 @@ async def proxy_gigs_admin(request):
 async def proxy_bookings(request):
     path = request.path_params.get("path", "")
     return await proxy_request(request, services["booking"], f"/bookings/{path}")
+
+async def proxy_categories(request):
+    path = request.path_params.get("path", "")
+    return await proxy_request(request, services["gig"], f"/categories/{path}", auth_required=False)
 
 async def proxy_payments(request):
     path = request.path_params.get("path", "")
@@ -282,7 +286,7 @@ async def rag_health_check(request):
 
 async def proxy_reviews(request):
     path = request.path_params.get("path", "")
-    return await proxy_request(request, services["review"], f"/reviews/{path}")
+    return await proxy_request(request, services["review"], f"/reviews/{path}", auth_required=False)
 
 async def catch_all(request):
     """404 handler"""
@@ -319,6 +323,7 @@ routes = [
     Route("/api/user-v2/{path:path}", proxy_user_v2, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/gigs/admin/{path:path}", proxy_gigs_admin, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/gigs/{path:path}", proxy_gigs, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
+    Route("/api/categories/{path:path}", proxy_categories, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/bookings/{path:path}", proxy_bookings, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/payments/{path:path}", proxy_payments, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/message/{path:path}", proxy_messages, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),

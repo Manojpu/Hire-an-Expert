@@ -1,8 +1,10 @@
 import { AvailabilityRule, DateOverride } from "@/types/availability";
 
 // User service API endpoint for availability rules
-const USER_SERVICE_URL =
-  import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:8006";
+const API_GATEWAY_URL = (
+  import.meta.env.VITE_API_GATEWAY_URL || "http://localhost:8000"
+).replace(/\/$/, "");
+const USER_SERVICE_URL = `${API_GATEWAY_URL}/api/user-v2`;
 
 export interface AvailabilityData {
   availabilityRules: AvailabilityRule[];

@@ -135,6 +135,7 @@ services:
       - DATABASE_URL=${DATABASE_URL}reviews_db
       - INTERNAL_JWT_SECRET_KEY=${REVIEW_SERVICE_INTERNAL_JWT_SECRET_KEY:-insecure-dev-key}
       - CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
+      - BOOKING_SERVICE_URL=http://booking-service:8003
     volumes:
       - ./serviceAccountKey.json:/app/serviceAccountKey.json:ro
     networks:

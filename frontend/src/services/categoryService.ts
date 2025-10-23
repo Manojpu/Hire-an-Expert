@@ -1,20 +1,22 @@
-import {Category} from "@/types/category.ts";
+import { Category } from "@/types/category.ts";
 
-const GIG_SERVICE_URL =
-    import.meta.env.VITE_GIG_SERVICE_URL || "http://localhost:8002";
+const API_GATEWAY_URL = (
+  import.meta.env.VITE_API_GATEWAY_URL || "http://localhost:8000"
+).replace(/\/$/, "");
+const CATEGORY_SERVICE_URL = `${API_GATEWAY_URL}/api/categories`;
 
 export async function getAllCategories(): Promise<Category[]> {
-    const response = await fetch(`${GIG_SERVICE_URL}/categories/categories`, {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json",
-        },
-    });
+  const response = await fetch(`${CATEGORY_SERVICE_URL}/categories`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
 
-    if (!response.ok) {
-        throw new Error("Failed to fetch categories");
-    }
+  if (!response.ok) {
+    throw new Error("Failed to fetch categories");
+  }
 
-    const data = await response.json();
-    return data as Category[];
+  const data = await response.json();
+  return data as Category[];
 }

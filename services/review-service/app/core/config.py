@@ -12,7 +12,6 @@ class Settings(BaseSettings):
     )
     # App settings
     APP_NAME: str = "Review Service"
-    API_PREFIX: str = "/api"
     
     # JWT settings
     ALGORITHM: str = "HS256"

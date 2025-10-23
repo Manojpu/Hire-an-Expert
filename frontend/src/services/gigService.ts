@@ -195,7 +195,10 @@ export function convertFormToGigData(
 }
 
 // API Configuration - Connect directly to gig service (bypassing API Gateway for now)
-const GIG_SERVICE_URL = import.meta.env.VITE_GIG_SERVICE_URL || "http://localhost:8002";
+const API_GATEWAY_URL = (
+  import.meta.env.VITE_API_GATEWAY_URL || "http://localhost:8000"
+).replace(/\/$/, "");
+const GIG_SERVICE_URL = `${API_GATEWAY_URL}/api`;
 
 // Debug logging for environment variable
 console.log("API_GATEWAY_URL from env:", import.meta.env.VITE_API_GATEWAY_URL);
@@ -327,7 +330,8 @@ export const gigServiceAPI: GigServiceAPI = {
           hourly_rate: 2800,
           currency: "LKR",
           availability_preferences: "Tuesday to Saturday: 10:00 AM - 5:00 PM",
-          education: "BSc in Electronic Engineering, MSc in Consumer Electronics",
+          education:
+            "BSc in Electronic Engineering, MSc in Consumer Electronics",
           experience:
             "12 years in consumer electronics industry, 3 years as technical consultant",
           certifications: [
@@ -395,24 +399,30 @@ export const gigServiceAPI: GigServiceAPI = {
     try {
       console.log("🔄 Fetching all gigs from backend API...");
       console.log("🌐 Backend URL:", GIG_SERVICE_URL);
-      
+
       // Get all gigs belonging to the current authenticated user
       const token = await getIdToken();
       console.log("🔐 Using auth token:", token?.substring(0, 20) + "...");
-      
+
       const myGigsResponse = await fetch(`${GIG_SERVICE_URL}/gigs/my/gigs`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
       });
 
       console.log("📡 Response status:", myGigsResponse.status);
-      console.log("📡 Response headers:", Object.fromEntries(myGigsResponse.headers.entries()));
-      
+      console.log(
+        "📡 Response headers:",
+        Object.fromEntries(myGigsResponse.headers.entries())
+      );
+
       if (myGigsResponse.ok) {
         const myGigs = await myGigsResponse.json();
-        console.log("✅ Successfully fetched user's gigs from backend:", myGigs);
+        console.log(
+          "✅ Successfully fetched user's gigs from backend:",
+          myGigs
+        );
         return myGigs; // Backend now returns array of gigs
       } else if (myGigsResponse.status === 404) {
         // User has no gigs yet
@@ -432,14 +442,14 @@ export const gigServiceAPI: GigServiceAPI = {
 
   async getGigById(gigId: string): Promise<ExpertGig> {
     console.log("🔍 Fetching gig by ID from backend API:", gigId);
-    
+
     try {
       // Call the real API endpoint
       const token = await getIdToken();
       const response = await fetch(`${GIG_SERVICE_URL}/gigs/${gigId}`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
       });
 
@@ -461,16 +471,16 @@ export const gigServiceAPI: GigServiceAPI = {
 
   async getMyGigById(gigId: string): Promise<ExpertGig> {
     console.log("🔍 Fetching my gig by ID:", gigId);
-    
+
     try {
       // Get all my gigs and find the one with matching ID
       const myGigs = await this.getMyGigs();
-      const gig = myGigs.find(g => g.id === gigId);
-      
+      const gig = myGigs.find((g) => g.id === gigId);
+
       if (!gig) {
         throw new Error(`Gig not found in your gigs`);
       }
-      
+
       console.log("✅ Successfully found my gig by ID:", gig);
       return gig;
     } catch (error) {
@@ -521,23 +531,25 @@ export const gigServiceAPI: GigServiceAPI = {
   ): Promise<ExpertGig> {
     try {
       console.log("🔄 Updating gig via backend API:", gigId, updates);
-      
+
       const token = await getIdToken();
       const response = await fetch(`${GIG_SERVICE_URL}/gigs/my/gig`, {
-        method: 'PUT',
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updates)
+        body: JSON.stringify(updates),
       });
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error("❌ Failed to update gig:", response.status, errorText);
-        throw new Error(`Failed to update gig: ${response.status} ${errorText}`);
+        throw new Error(
+          `Failed to update gig: ${response.status} ${errorText}`
+        );
       }
-      
+
       const updatedGig = await response.json();
       console.log("✅ Successfully updated gig:", updatedGig);
       return updatedGig;
@@ -555,38 +567,51 @@ export const gigServiceAPI: GigServiceAPI = {
   }> {
     try {
       const token = await getIdToken();
-      
+
       // The /gigs/my/stats endpoint doesn't exist - calculate from /gigs/my/gigs
       const response = await fetch(`${GIG_SERVICE_URL}/gigs/my/gigs`, {
-        method: 'GET',
+        method: "GET",
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
-      
+
       if (!response.ok) {
         console.warn("Failed to get gigs, returning zeros");
         return {
           total_gigs: 0,
           active_gigs: 0,
           views: 0,
-          bookings: 0
+          bookings: 0,
         };
       }
-      
+
       const gigs = await response.json();
-      interface GigStats { is_active?: boolean; status?: string; views?: number; bookings_count?: number; }
-      const activeGigs = gigs.filter((g: GigStats) => g.is_active || g.status === 'active');
-      
+      interface GigStats {
+        is_active?: boolean;
+        status?: string;
+        views?: number;
+        bookings_count?: number;
+      }
+      const activeGigs = gigs.filter(
+        (g: GigStats) => g.is_active || g.status === "active"
+      );
+
       // Calculate totals from gig data
-      const totalViews = gigs.reduce((sum: number, g: GigStats) => sum + (g.views || 0), 0);
-      const totalBookings = gigs.reduce((sum: number, g: GigStats) => sum + (g.bookings_count || 0), 0);
-      
+      const totalViews = gigs.reduce(
+        (sum: number, g: GigStats) => sum + (g.views || 0),
+        0
+      );
+      const totalBookings = gigs.reduce(
+        (sum: number, g: GigStats) => sum + (g.bookings_count || 0),
+        0
+      );
+
       return {
         total_gigs: gigs.length,
         active_gigs: activeGigs.length,
         views: totalViews,
-        bookings: totalBookings
+        bookings: totalBookings,
       };
     } catch (error) {
       console.error("Error getting gig stats:", error);
@@ -594,7 +619,7 @@ export const gigServiceAPI: GigServiceAPI = {
         total_gigs: 0,
         active_gigs: 0,
         views: 0,
-        bookings: 23
+        bookings: 23,
       };
     }
   },
@@ -604,13 +629,13 @@ export const gigServiceAPI: GigServiceAPI = {
 async function getIdToken(): Promise<string> {
   try {
     // Try to get Firebase ID token from auth context
-    const { auth } = await import('@/firebase/firebase');
-    const { getIdToken: firebaseGetIdToken } = await import('firebase/auth');
-    
+    const { auth } = await import("@/firebase/firebase");
+    const { getIdToken: firebaseGetIdToken } = await import("firebase/auth");
+
     if (auth.currentUser) {
       return await firebaseGetIdToken(auth.currentUser);
     }
-    
+
     // For development, return a mock token
     console.warn("No authenticated user found, using dev token");
     return "dev-mock-token";
@@ -653,11 +678,10 @@ export const getGigById = async (gigId: string): Promise<ExpertGig> => {
   }
 
   // Use the API if not in development mode
-  const API_GATEWAY_URL = import.meta.env.VITE_API_GATEWAY_URL || "http://localhost:8000";
-  const FULL_GIG_SERVICE_URL = `${API_GATEWAY_URL}/api/gigs`;
-  console.log("Making API call to:", `${FULL_GIG_SERVICE_URL}/${gigId}`);
+  const fullGigServiceUrl = `${GIG_SERVICE_URL}/gigs`;
+  console.log("Making API call to:", `${fullGigServiceUrl}/${gigId}`);
 
-  const response = await fetch(`${FULL_GIG_SERVICE_URL}/${gigId}`);
+  const response = await fetch(`${fullGigServiceUrl}/${gigId}`);
   if (!response.ok) {
     throw new Error(`Failed to fetch gig: ${response.status}`);
   }

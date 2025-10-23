@@ -26,7 +26,7 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(reviews_router, prefix="/api/reviews", tags=["reviews"])
+app.include_router(reviews_router, prefix="/reviews", tags=["reviews"])
 
 @app.get("/")
 def read_root():

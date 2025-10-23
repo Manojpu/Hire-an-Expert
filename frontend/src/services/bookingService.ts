@@ -1,8 +1,11 @@
 import { getIdToken } from "firebase/auth";
 import { auth } from "../firebase/firebase";
 
-const BOOKING_SERVICE_BASE_URL =
-  import.meta.env.VITE_BOOKING_SERVICE_URL || "http://localhost:8003";
+const API_GATEWAY_URL = (
+  import.meta.env.VITE_API_GATEWAY_URL || "http://localhost:8000"
+).replace(/\/$/, "");
+
+const BOOKING_SERVICE_BASE_URL = `${API_GATEWAY_URL}/api/bookings`;
 
 // Types used by components
 export interface Booking {
@@ -100,25 +103,23 @@ class BookingService {
 
   // Queries used by multiple components
   async getAllBookings(skip = 0, limit = 100): Promise<Booking[]> {
-    return this.makeRequest<Booking[]>(
-      `/bookings/?skip=${skip}&limit=${limit}`
-    );
+    return this.makeRequest<Booking[]>(`/?skip=${skip}&limit=${limit}`);
   }
 
   async getBookingsByGig(gigId: string): Promise<Booking[]> {
-    return this.makeRequest<Booking[]>(`/bookings/gig/${gigId}`);
+    return this.makeRequest<Booking[]>(`/gig/${gigId}`);
   }
 
   async getUserBookings(): Promise<Booking[]> {
-    return this.makeRequest<Booking[]>("/bookings/user");
+    return this.makeRequest<Booking[]>("/user");
   }
 
   async getBooking(bookingId: string): Promise<Booking> {
-    return this.makeRequest<Booking>(`/bookings/${bookingId}`);
+    return this.makeRequest<Booking>(`/${bookingId}`);
   }
 
   async createBooking(booking: BookingCreate): Promise<Booking> {
-    return this.makeRequest<Booking>("/bookings/", {
+    return this.makeRequest<Booking>("/", {
       method: "POST",
       body: JSON.stringify(booking),
     });
@@ -128,28 +129,28 @@ class BookingService {
     bookingId: string,
     updates: BookingUpdate
   ): Promise<Booking> {
-    return this.makeRequest<Booking>(`/bookings/${bookingId}`, {
+    return this.makeRequest<Booking>(`/${bookingId}`, {
       method: "PUT",
       body: JSON.stringify(updates),
     });
   }
 
   async deleteBooking(bookingId: string): Promise<void> {
-    await this.makeRequest<void>(`/bookings/${bookingId}`, {
+    await this.makeRequest<void>(`/${bookingId}`, {
       method: "DELETE",
     });
   }
 
   async confirmBooking(bookingId: string): Promise<Booking> {
     // Use the dedicated confirm endpoint that generates meeting link
-    return this.makeRequest<Booking>(`/bookings/${bookingId}/confirm`, {
+    return this.makeRequest<Booking>(`/${bookingId}/confirm`, {
       method: "PUT",
     });
   }
 
   async joinBooking(bookingId: string): Promise<Booking> {
     // Use the dedicated join endpoint that updates status to joined
-    return this.makeRequest<Booking>(`/bookings/${bookingId}/join`, {
+    return this.makeRequest<Booking>(`/${bookingId}/join`, {
       method: "PUT",
     });
   }
@@ -160,7 +161,7 @@ class BookingService {
 
   async completeBooking(bookingId: string): Promise<Booking> {
     // Use the dedicated complete endpoint that updates status to completed
-    return this.makeRequest<Booking>(`/bookings/${bookingId}/complete`, {
+    return this.makeRequest<Booking>(`/${bookingId}/complete`, {
       method: "PUT",
     });
   }
@@ -203,9 +204,7 @@ class BookingService {
   }> {
     // These endpoints don't exist - calculate from actual bookings
     try {
-      const bookings = await this.makeRequest<Booking[]>(
-        `/bookings/by-current-user`
-      );
+      const bookings = await this.makeRequest<Booking[]>(`/by-current-user`);
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -234,9 +233,7 @@ class BookingService {
   async getRecentBookings(limit = 5): Promise<Booking[]> {
     try {
       // Use /by-current-user endpoint and limit results on frontend
-      const allBookings = await this.makeRequest<Booking[]>(
-        `/bookings/by-current-user`
-      );
+      const allBookings = await this.makeRequest<Booking[]>(`/by-current-user`);
       // Sort by created_at descending and take the first 'limit' items
       return allBookings
         .sort(

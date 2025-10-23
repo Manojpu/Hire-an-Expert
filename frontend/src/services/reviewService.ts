@@ -4,7 +4,10 @@
  */
 
 // Review Service URL
-const REVIEW_SERVICE_URL = import.meta.env.VITE_REVIEW_SERVICE_URL || "http://localhost:8005";
+const API_GATEWAY_URL = (
+  import.meta.env.VITE_API_GATEWAY_URL || "http://localhost:8000"
+).replace(/\/$/, "");
+const REVIEW_API_BASE = `${API_GATEWAY_URL}/api/reviews`;
 
 // TypeScript interfaces based on backend models
 export interface Review {
@@ -49,13 +52,13 @@ export interface ExpertReviewSummary {
 // Helper to get Firebase ID token
 async function getIdToken(): Promise<string> {
   try {
-    const { auth } = await import('@/firebase/firebase');
-    const { getIdToken: firebaseGetIdToken } = await import('firebase/auth');
-    
+    const { auth } = await import("@/firebase/firebase");
+    const { getIdToken: firebaseGetIdToken } = await import("firebase/auth");
+
     if (auth.currentUser) {
       return await firebaseGetIdToken(auth.currentUser);
     }
-    
+
     console.warn("No authenticated user found, using dev token");
     return "dev-mock-token";
   } catch (error) {
@@ -68,12 +71,18 @@ export const reviewServiceAPI = {
   /**
    * Get reviews for a specific gig
    */
-  async getGigReviews(gigId: string, page: number = 1, size: number = 10): Promise<{ reviews: Review[], total: number }> {
+  async getGigReviews(
+    gigId: string,
+    page: number = 1,
+    size: number = 10
+  ): Promise<{ reviews: Review[]; total: number }> {
     try {
       console.log("🔄 Fetching reviews for gig:", gigId);
-      
+
       // Don't require auth for public gig reviews
-      const response = await fetch(`${REVIEW_SERVICE_URL}/api/reviews/gig/${gigId}/reviews?page=${page}&size=${size}`);
+      const response = await fetch(
+        `${REVIEW_API_BASE}/gig/${gigId}/reviews?page=${page}&size=${size}`
+      );
 
       if (!response.ok) {
         console.error("❌ Failed to fetch gig reviews:", response.status);
@@ -95,16 +104,16 @@ export const reviewServiceAPI = {
   async getGigReviewStats(gigId: string): Promise<ReviewStats> {
     try {
       console.log("🔄 Fetching review stats for gig:", gigId);
-      
+
       // Don't require auth for public gig review stats
-      const response = await fetch(`${REVIEW_SERVICE_URL}/api/reviews/gig/${gigId}/stats`);
+      const response = await fetch(`${REVIEW_API_BASE}/gig/${gigId}/stats`);
 
       if (!response.ok) {
         console.error("❌ Failed to fetch gig review stats:", response.status);
         return {
           total_reviews: 0,
           average_rating: 0,
-          rating_distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+          rating_distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
         };
       }
 
@@ -116,7 +125,7 @@ export const reviewServiceAPI = {
       return {
         total_reviews: 0,
         average_rating: 0,
-        rating_distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+        rating_distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
       };
     }
   },
@@ -127,12 +136,12 @@ export const reviewServiceAPI = {
   async getExpertReviews(expertId: string): Promise<ExpertReviewSummary> {
     try {
       console.log("🔄 Fetching reviews for expert:", expertId);
-      
+
       const token = await getIdToken();
-      const response = await fetch(`${REVIEW_SERVICE_URL}/api/reviews/expert/${expertId}`, {
+      const response = await fetch(`${REVIEW_API_BASE}/expert/${expertId}`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
       });
 
@@ -143,7 +152,7 @@ export const reviewServiceAPI = {
           total_reviews: 0,
           average_rating: 0,
           recent_reviews: [],
-          monthly_stats: []
+          monthly_stats: [],
         };
       }
 
@@ -157,7 +166,7 @@ export const reviewServiceAPI = {
         total_reviews: 0,
         average_rating: 0,
         recent_reviews: [],
-        monthly_stats: []
+        monthly_stats: [],
       };
     }
   },
@@ -168,13 +177,13 @@ export const reviewServiceAPI = {
   async getMyReviews(): Promise<ExpertReviewSummary> {
     try {
       console.log("🔄 Fetching my reviews...");
-      
+
       const token = await getIdToken();
       // Use buyer/my-reviews endpoint which returns reviews for the current user
-      const response = await fetch(`${REVIEW_SERVICE_URL}/api/reviews/buyer/my-reviews`, {
+      const response = await fetch(`${REVIEW_API_BASE}/buyer/my-reviews`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
       });
 
@@ -185,22 +194,26 @@ export const reviewServiceAPI = {
           total_reviews: 0,
           average_rating: 0,
           recent_reviews: [],
-          monthly_stats: []
+          monthly_stats: [],
         };
       }
 
       const data = await response.json();
       console.log("✅ Successfully fetched my reviews:", data);
-      
+
       // The endpoint returns ReviewList { reviews: Review[], total: number }
       // We need to transform it to ExpertReviewSummary format
-      const reviews = Array.isArray(data) ? data : (data.reviews || []);
+      const reviews = Array.isArray(data) ? data : data.reviews || [];
       const total = data.total || reviews.length;
-      
+
       // Calculate average rating
-      const avgRating = reviews.length > 0 
-        ? reviews.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / reviews.length 
-        : 0;
+      const avgRating =
+        reviews.length > 0
+          ? reviews.reduce(
+              (sum: number, r: { rating: number }) => sum + r.rating,
+              0
+            ) / reviews.length
+          : 0;
     } catch (error) {
       console.error("❌ Error fetching my reviews:", error);
       return {
@@ -208,7 +221,7 @@ export const reviewServiceAPI = {
         total_reviews: 0,
         average_rating: 0,
         recent_reviews: [],
-        monthly_stats: []
+        monthly_stats: [],
       };
     }
   },
@@ -221,20 +234,25 @@ export const reviewServiceAPI = {
    * @param comment - Optional review comment
    */
   async submitReview(
-    bookingId: string, 
+    bookingId: string,
     gigId: string,
-    rating: number, 
+    rating: number,
     comment?: string
   ): Promise<Review> {
     try {
-      console.log("🔄 Submitting review:", { bookingId, gigId, rating, comment });
-      
+      console.log("🔄 Submitting review:", {
+        bookingId,
+        gigId,
+        rating,
+        comment,
+      });
+
       const token = await getIdToken();
-      const response = await fetch(`${REVIEW_SERVICE_URL}/api/reviews/`, {
-        method: 'POST',
+      const response = await fetch(`${REVIEW_API_BASE}/`, {
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           booking_id: bookingId,
@@ -246,8 +264,14 @@ export const reviewServiceAPI = {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error("❌ Failed to submit review:", response.status, errorData);
-        throw new Error(errorData.detail || `Failed to submit review: ${response.status}`);
+        console.error(
+          "❌ Failed to submit review:",
+          response.status,
+          errorData
+        );
+        throw new Error(
+          errorData.detail || `Failed to submit review: ${response.status}`
+        );
       }
 
       const review = await response.json();
@@ -257,5 +281,5 @@ export const reviewServiceAPI = {
       console.error("❌ Error submitting review:", error);
       throw error;
     }
-  }
+  },
 };

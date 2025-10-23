@@ -1,7 +1,9 @@
 import axios from "axios";
 
-const REVIEW_SERVICE_URL =
-  import.meta.env.VITE_REVIEW_SERVICE_URL || "http://localhost:8005";
+const API_GATEWAY_URL = (
+  import.meta.env.VITE_API_GATEWAY_URL || "http://localhost:8000"
+).replace(/\/$/, "");
+const REVIEW_API_BASE = `${API_GATEWAY_URL}/api/reviews`;
 
 export interface GigRatingAnalytics {
   gig_id: string;
@@ -14,7 +16,7 @@ const fetchGigRatingAnalytics = async (
 ): Promise<GigRatingAnalytics> => {
   try {
     const response = await axios.get(
-      `${REVIEW_SERVICE_URL}/api/reviews/gig/${gigId}/average-rating`
+      `${REVIEW_API_BASE}/gig/${gigId}/average-rating`
     );
     return response.data;
   } catch (error) {
