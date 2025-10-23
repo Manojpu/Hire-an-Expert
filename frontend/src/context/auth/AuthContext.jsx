@@ -17,7 +17,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, initializeUser);
-    
+
     // Set up token refresh interval (refresh every 50 minutes)
     const tokenRefreshInterval = setInterval(async () => {
       if (firebaseUser) {
@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }) => {
       try {
         const idToken = await getIdToken(currentUser);
         const response = await fetch(
-          `${import.meta.env.VITE_USER_SERVICE_URL}/users/firebase/${
+          `${import.meta.env.VITE_API_GATEWAY_URL}/api/users/firebase/${
             currentUser.uid
           }`,
           {
@@ -69,7 +69,7 @@ export const AuthProvider = ({ children }) => {
         } else {
           console.warn("Failed to load user profile from User Service");
           setUserProfile(null);
-          
+
           // If user service fails with 401/403, it might mean token is invalid
           if (response.status === 401 || response.status === 403) {
             console.warn("🔒 Authentication failed - user will be signed out");
@@ -79,9 +79,9 @@ export const AuthProvider = ({ children }) => {
       } catch (error) {
         console.error("Error fetching user profile:", error);
         setUserProfile(null);
-        
+
         // Check if it's a network error vs auth error
-        if (error.message.includes('token') || error.message.includes('auth')) {
+        if (error.message.includes("token") || error.message.includes("auth")) {
           console.warn("🔒 Token-related error detected");
         }
       }
@@ -131,7 +131,7 @@ export const AuthProvider = ({ children }) => {
   // Function to validate current session
   const validateSession = async () => {
     if (!firebaseUser) return false;
-    
+
     try {
       // Try to get a fresh token
       const token = await getIdToken(firebaseUser, true);

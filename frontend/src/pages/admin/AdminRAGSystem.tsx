@@ -1,11 +1,27 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Brain, Database, Upload, Search, Settings, Zap, FileText, MessageSquare, BarChart3, Trash2, X, CheckCircle, AlertCircle, Loader2, Eye } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import axios from 'axios';
-import { useToast } from '@/components/ui/use-toast';
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Brain,
+  Database,
+  Upload,
+  Search,
+  Settings,
+  Zap,
+  FileText,
+  MessageSquare,
+  BarChart3,
+  Trash2,
+  X,
+  CheckCircle,
+  AlertCircle,
+  Loader2,
+  Eye,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import axios from "axios";
+import { useToast } from "@/components/ui/use-toast";
 
 // API Configuration
-const RAG_API_BASE = 'http://localhost:8000/api/rag';
+const RAG_API_BASE = "http://localhost:8000/api/rag";
 
 interface Document {
   _id: string;
@@ -19,7 +35,7 @@ interface Document {
   file_type?: string;
   file_size?: number;
   file_path?: string;
-  file_id?: string;  // GridFS file ID for viewing original file
+  file_id?: string; // GridFS file ID for viewing original file
   // PDF-specific metadata
   page_count?: number;
   pdf_title?: string;
@@ -37,17 +53,20 @@ interface UploadProgress {
 }
 
 const AdminRAGSystem = () => {
-  const [activeTab, setActiveTab] = useState('knowledge-base');
+  const [activeTab, setActiveTab] = useState("knowledge-base");
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({
     isUploading: false,
     progress: 0,
-    fileName: ''
+    fileName: "",
   });
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [textUploadData, setTextUploadData] = useState({ title: '', content: '' });
+  const [textUploadData, setTextUploadData] = useState({
+    title: "",
+    content: "",
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -64,14 +83,17 @@ const AdminRAGSystem = () => {
       setDocuments(response.data.documents || []);
       toast({
         title: "Documents Loaded",
-        description: `Successfully loaded ${response.data.count || 0} documents`,
+        description: `Successfully loaded ${
+          response.data.count || 0
+        } documents`,
       });
     } catch (error) {
-      console.error('Error loading documents:', error);
+      console.error("Error loading documents:", error);
       toast({
         title: "Error",
-        description: "Failed to load documents. Please check if services are running.",
-        variant: "destructive"
+        description:
+          "Failed to load documents. Please check if services are running.",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -79,29 +101,35 @@ const AdminRAGSystem = () => {
   };
 
   // Upload file
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append("file", file);
 
     setUploadProgress({
       isUploading: true,
       progress: 0,
-      fileName: file.name
+      fileName: file.name,
     });
 
     try {
-      const response = await axios.post(`${RAG_API_BASE}/ingest/file`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: (progressEvent) => {
-          const progress = progressEvent.total 
-            ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
-            : 0;
-          setUploadProgress(prev => ({ ...prev, progress }));
+      const response = await axios.post(
+        `${RAG_API_BASE}/ingest/file`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+          onUploadProgress: (progressEvent) => {
+            const progress = progressEvent.total
+              ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
+              : 0;
+            setUploadProgress((prev) => ({ ...prev, progress }));
+          },
         }
-      });
+      );
 
       toast({
         title: "Upload Successful",
@@ -111,20 +139,20 @@ const AdminRAGSystem = () => {
       // Reload documents
       await loadDocuments();
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error("Upload error:", error);
       toast({
         title: "Upload Failed",
         description: "Failed to upload document. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setUploadProgress({
         isUploading: false,
         progress: 0,
-        fileName: ''
+        fileName: "",
       });
       if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        fileInputRef.current.value = "";
       }
     }
   };
@@ -135,7 +163,7 @@ const AdminRAGSystem = () => {
       toast({
         title: "Validation Error",
         description: "Please provide both title and content",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -144,16 +172,16 @@ const AdminRAGSystem = () => {
       setUploadProgress({
         isUploading: true,
         progress: 50,
-        fileName: textUploadData.title
+        fileName: textUploadData.title,
       });
 
       await axios.post(`${RAG_API_BASE}/ingest/text`, {
         text: textUploadData.content,
         title: textUploadData.title,
         metadata: {
-          source: 'admin_upload',
-          uploaded_at: new Date().toISOString()
-        }
+          source: "admin_upload",
+          uploaded_at: new Date().toISOString(),
+        },
       });
 
       toast({
@@ -162,33 +190,37 @@ const AdminRAGSystem = () => {
       });
 
       setShowUploadModal(false);
-      setTextUploadData({ title: '', content: '' });
+      setTextUploadData({ title: "", content: "" });
       await loadDocuments();
     } catch (error) {
-      console.error('Text upload error:', error);
+      console.error("Text upload error:", error);
       toast({
         title: "Upload Failed",
         description: "Failed to add text document. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setUploadProgress({
         isUploading: false,
         progress: 0,
-        fileName: ''
+        fileName: "",
       });
     }
   };
 
   // Delete document
   const handleDeleteDocument = async (documentId: string, title: string) => {
-    if (!confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) {
+    if (
+      !confirm(
+        `Are you sure you want to delete "${title}"? This action cannot be undone.`
+      )
+    ) {
       return;
     }
 
     try {
       await axios.delete(`${RAG_API_BASE}/documents/${documentId}`);
-      
+
       toast({
         title: "Document Deleted",
         description: `"${title}" has been removed successfully`,
@@ -197,55 +229,79 @@ const AdminRAGSystem = () => {
       // Reload documents
       await loadDocuments();
     } catch (error) {
-      console.error('Delete error:', error);
+      console.error("Delete error:", error);
       toast({
         title: "Delete Failed",
         description: "Failed to delete document. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
 
   // Filter documents based on search
-  const filteredDocuments = documents.filter(doc => 
-    doc.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    doc.filename?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    doc.content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    doc.source_type?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredDocuments = documents.filter(
+    (doc) =>
+      doc.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doc.filename?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doc.content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doc.source_type?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Calculate stats
   const stats = {
     totalDocuments: documents.length,
-    categories: new Set(documents.map(d => d.source_type)).size,
-    totalChunks: documents.reduce((acc, doc) => acc + (doc.metadata?.chunks?.length || 0), 0),
+    categories: new Set(documents.map((d) => d.source_type)).size,
+    totalChunks: documents.reduce(
+      (acc, doc) => acc + (doc.metadata?.chunks?.length || 0),
+      0
+    ),
   };
 
   const knowledgeBaseStats = [
-    { label: 'Total Documents', value: stats.totalDocuments.toString(), icon: FileText, color: 'blue' },
-    { label: 'Categories', value: stats.categories.toString(), icon: Database, color: 'green' },
-    { label: 'Total Chunks', value: stats.totalChunks.toString(), icon: MessageSquare, color: 'purple' },
-    { label: 'System Status', value: loading ? 'Loading...' : 'Active', icon: BarChart3, color: 'orange' }
+    {
+      label: "Total Documents",
+      value: stats.totalDocuments.toString(),
+      icon: FileText,
+      color: "blue",
+    },
+    {
+      label: "Categories",
+      value: stats.categories.toString(),
+      icon: Database,
+      color: "green",
+    },
+    {
+      label: "Total Chunks",
+      value: stats.totalChunks.toString(),
+      icon: MessageSquare,
+      color: "purple",
+    },
+    {
+      label: "System Status",
+      value: loading ? "Loading..." : "Active",
+      icon: BarChart3,
+      color: "orange",
+    },
   ];
 
   // Format date
   const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A';
+    if (!dateString) return "N/A";
     return new Date(dateString).toLocaleString();
   };
 
   // Get file size estimate
   const getContentSize = (content: string) => {
     const bytes = new Blob([content]).size;
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
   const tabs = [
-    { id: 'knowledge-base', label: 'Knowledge Base', icon: Database },
-    { id: 'ai-queries', label: 'AI Queries', icon: MessageSquare },
-    { id: 'system-config', label: 'System Config', icon: Settings }
+    { id: "knowledge-base", label: "Knowledge Base", icon: Database },
+    { id: "ai-queries", label: "AI Queries", icon: MessageSquare },
+    { id: "system-config", label: "System Config", icon: Settings },
   ];
 
   return (
@@ -261,7 +317,9 @@ const AdminRAGSystem = () => {
               <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
                 RAG System Management
               </h1>
-              <p className="text-slate-600 mt-1">Manage knowledge base and AI-powered assistance</p>
+              <p className="text-slate-600 mt-1">
+                Manage knowledge base and AI-powered assistance
+              </p>
             </div>
           </div>
         </div>
@@ -271,16 +329,22 @@ const AdminRAGSystem = () => {
           <div className="fixed top-4 right-4 bg-white rounded-xl shadow-2xl border border-slate-200 p-6 z-50 min-w-[300px]">
             <div className="flex items-center gap-3 mb-3">
               <Loader2 className="h-5 w-5 text-purple-600 animate-spin" />
-              <span className="font-semibold text-slate-900">Uploading Document</span>
+              <span className="font-semibold text-slate-900">
+                Uploading Document
+              </span>
             </div>
-            <p className="text-sm text-slate-600 mb-2">{uploadProgress.fileName}</p>
+            <p className="text-sm text-slate-600 mb-2">
+              {uploadProgress.fileName}
+            </p>
             <div className="w-full bg-slate-200 rounded-full h-2">
-              <div 
+              <div
                 className="bg-gradient-to-r from-purple-500 to-indigo-600 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${uploadProgress.progress}%` }}
               />
             </div>
-            <p className="text-xs text-slate-500 mt-2">{uploadProgress.progress}% complete</p>
+            <p className="text-xs text-slate-500 mt-2">
+              {uploadProgress.progress}% complete
+            </p>
           </div>
         )}
 
@@ -289,20 +353,31 @@ const AdminRAGSystem = () => {
           {knowledgeBaseStats.map((stat, index) => {
             const Icon = stat.icon;
             const colorClasses = {
-              blue: 'bg-blue-100 text-blue-600',
-              green: 'bg-green-100 text-green-600',
-              purple: 'bg-purple-100 text-purple-600',
-              orange: 'bg-orange-100 text-orange-600'
+              blue: "bg-blue-100 text-blue-600",
+              green: "bg-green-100 text-green-600",
+              purple: "bg-purple-100 text-purple-600",
+              orange: "bg-orange-100 text-orange-600",
             };
-            
+
             return (
-              <div key={index} className="bg-white rounded-2xl shadow-lg p-6 border border-slate-200">
+              <div
+                key={index}
+                className="bg-white rounded-2xl shadow-lg p-6 border border-slate-200"
+              >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-slate-600 text-sm font-medium">{stat.label}</p>
-                    <p className="text-3xl font-bold text-slate-900 mt-1">{stat.value}</p>
+                    <p className="text-slate-600 text-sm font-medium">
+                      {stat.label}
+                    </p>
+                    <p className="text-3xl font-bold text-slate-900 mt-1">
+                      {stat.value}
+                    </p>
                   </div>
-                  <div className={`p-3 rounded-xl ${colorClasses[stat.color as keyof typeof colorClasses]}`}>
+                  <div
+                    className={`p-3 rounded-xl ${
+                      colorClasses[stat.color as keyof typeof colorClasses]
+                    }`}
+                  >
                     <Icon className="h-6 w-6" />
                   </div>
                 </div>
@@ -322,8 +397,8 @@ const AdminRAGSystem = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors ${
                     activeTab === tab.id
-                      ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      ? "text-purple-600 border-b-2 border-purple-600 bg-purple-50"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                   }`}
                 >
                   <Icon className="h-5 w-5" />
@@ -335,7 +410,7 @@ const AdminRAGSystem = () => {
 
           <div className="p-6">
             {/* Knowledge Base Tab */}
-            {activeTab === 'knowledge-base' && (
+            {activeTab === "knowledge-base" && (
               <div className="space-y-6">
                 <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
                   <div className="flex-1 max-w-md">
@@ -351,16 +426,16 @@ const AdminRAGSystem = () => {
                     </div>
                   </div>
                   <div className="flex gap-3">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="flex items-center gap-2"
                       onClick={() => setShowUploadModal(true)}
                     >
                       <FileText className="h-4 w-4" />
                       Add Text Document
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="flex items-center gap-2"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploadProgress.isUploading}
@@ -375,7 +450,7 @@ const AdminRAGSystem = () => {
                       onChange={handleFileUpload}
                       className="hidden"
                     />
-                    <Button 
+                    <Button
                       className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700"
                       onClick={loadDocuments}
                       disabled={loading}
@@ -399,14 +474,18 @@ const AdminRAGSystem = () => {
                 {loading ? (
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-8 w-8 text-purple-600 animate-spin" />
-                    <span className="ml-3 text-slate-600">Loading documents...</span>
+                    <span className="ml-3 text-slate-600">
+                      Loading documents...
+                    </span>
                   </div>
                 ) : filteredDocuments.length === 0 ? (
                   <div className="text-center py-12">
                     <FileText className="h-16 w-16 text-slate-300 mx-auto mb-4" />
                     <p className="text-slate-600 text-lg">No documents found</p>
                     <p className="text-slate-500 text-sm mt-2">
-                      {searchQuery ? 'Try adjusting your search' : 'Upload your first document to get started'}
+                      {searchQuery
+                        ? "Try adjusting your search"
+                        : "Upload your first document to get started"}
                     </p>
                   </div>
                 ) : (
@@ -414,16 +493,29 @@ const AdminRAGSystem = () => {
                     <table className="w-full">
                       <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
-                          <th className="text-left py-3 px-4 font-semibold text-slate-700">Document</th>
-                          <th className="text-left py-3 px-4 font-semibold text-slate-700">Type</th>
-                          <th className="text-left py-3 px-4 font-semibold text-slate-700">Created</th>
-                          <th className="text-left py-3 px-4 font-semibold text-slate-700">Status</th>
-                          <th className="text-left py-3 px-4 font-semibold text-slate-700">Actions</th>
+                          <th className="text-left py-3 px-4 font-semibold text-slate-700">
+                            Document
+                          </th>
+                          <th className="text-left py-3 px-4 font-semibold text-slate-700">
+                            Type
+                          </th>
+                          <th className="text-left py-3 px-4 font-semibold text-slate-700">
+                            Created
+                          </th>
+                          <th className="text-left py-3 px-4 font-semibold text-slate-700">
+                            Status
+                          </th>
+                          <th className="text-left py-3 px-4 font-semibold text-slate-700">
+                            Actions
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredDocuments.map((doc) => (
-                          <tr key={doc._id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                          <tr
+                            key={doc._id}
+                            className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
+                          >
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-3">
                                 <div className="p-2 rounded-lg bg-purple-100">
@@ -431,7 +523,7 @@ const AdminRAGSystem = () => {
                                 </div>
                                 <div className="max-w-md">
                                   <span className="font-medium text-slate-900 block truncate">
-                                    {doc.title || doc.filename || 'Untitled'}
+                                    {doc.title || doc.filename || "Untitled"}
                                   </span>
                                   <div className="flex items-center gap-2 mt-1">
                                     {doc.filename && (
@@ -450,11 +542,13 @@ const AdminRAGSystem = () => {
                             </td>
                             <td className="py-3 px-4">
                               <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
-                                {doc.source_type || 'unknown'}
+                                {doc.source_type || "unknown"}
                               </span>
                             </td>
                             <td className="py-3 px-4">
-                              <span className="text-slate-700 text-sm">{formatDate(doc.created_at)}</span>
+                              <span className="text-slate-700 text-sm">
+                                {formatDate(doc.created_at)}
+                              </span>
                             </td>
                             <td className="py-3 px-4">
                               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border bg-green-100 text-green-800 border-green-200">
@@ -466,25 +560,32 @@ const AdminRAGSystem = () => {
                               <div className="flex gap-2">
                                 {/* Eye icon for PDFs/Files with GridFS storage */}
                                 {doc.file_id && (
-                                  <Button 
-                                    size="sm" 
+                                  <Button
+                                    size="sm"
                                     variant="outline"
-                                    onClick={() => window.open(`${RAG_API_BASE}/documents/${doc._id}/view`, '_blank')}
+                                    onClick={() =>
+                                      window.open(
+                                        `${RAG_API_BASE}/documents/${doc._id}/view`,
+                                        "_blank"
+                                      )
+                                    }
                                     title="View original file"
                                   >
                                     <Eye className="h-4 w-4" />
                                   </Button>
                                 )}
-                                
+
                                 {/* View button only for text documents (no file_id) */}
                                 {!doc.file_id && (
-                                  <Button 
-                                    size="sm" 
+                                  <Button
+                                    size="sm"
                                     variant="outline"
                                     onClick={() => {
-                                      setTextUploadData({ 
-                                        title: doc.title || 'Untitled', 
-                                        content: doc.content || 'No content available for this document.' 
+                                      setTextUploadData({
+                                        title: doc.title || "Untitled",
+                                        content:
+                                          doc.content ||
+                                          "No content available for this document.",
                                       });
                                       setShowUploadModal(true);
                                     }}
@@ -493,13 +594,15 @@ const AdminRAGSystem = () => {
                                     View
                                   </Button>
                                 )}
-                                
+
                                 {/* Delete button for all documents */}
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
+                                <Button
+                                  size="sm"
+                                  variant="outline"
                                   className="text-red-600 hover:bg-red-50"
-                                  onClick={() => handleDeleteDocument(doc._id, doc.title)}
+                                  onClick={() =>
+                                    handleDeleteDocument(doc._id, doc.title)
+                                  }
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -515,20 +618,24 @@ const AdminRAGSystem = () => {
             )}
 
             {/* AI Queries Tab - Coming Soon */}
-            {activeTab === 'ai-queries' && (
+            {activeTab === "ai-queries" && (
               <div className="text-center py-12">
                 <MessageSquare className="h-16 w-16 text-slate-300 mx-auto mb-4" />
                 <p className="text-slate-600 text-lg">AI Query Analytics</p>
-                <p className="text-slate-500 text-sm mt-2">Coming soon - Track and analyze AI chat interactions</p>
+                <p className="text-slate-500 text-sm mt-2">
+                  Coming soon - Track and analyze AI chat interactions
+                </p>
               </div>
             )}
 
             {/* System Config Tab - Coming Soon */}
-            {activeTab === 'system-config' && (
+            {activeTab === "system-config" && (
               <div className="text-center py-12">
                 <Settings className="h-16 w-16 text-slate-300 mx-auto mb-4" />
                 <p className="text-slate-600 text-lg">System Configuration</p>
-                <p className="text-slate-500 text-sm mt-2">Coming soon - Configure RAG system settings</p>
+                <p className="text-slate-500 text-sm mt-2">
+                  Coming soon - Configure RAG system settings
+                </p>
               </div>
             )}
           </div>
@@ -539,18 +646,20 @@ const AdminRAGSystem = () => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white">
-                <h2 className="text-2xl font-bold text-slate-900">Add Text Document</h2>
+                <h2 className="text-2xl font-bold text-slate-900">
+                  Add Text Document
+                </h2>
                 <button
                   onClick={() => {
                     setShowUploadModal(false);
-                    setTextUploadData({ title: '', content: '' });
+                    setTextUploadData({ title: "", content: "" });
                   }}
                   className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
                 >
                   <X className="h-5 w-5 text-slate-500" />
                 </button>
               </div>
-              
+
               <div className="p-6 space-y-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -559,7 +668,12 @@ const AdminRAGSystem = () => {
                   <input
                     type="text"
                     value={textUploadData.title}
-                    onChange={(e) => setTextUploadData({ ...textUploadData, title: e.target.value })}
+                    onChange={(e) =>
+                      setTextUploadData({
+                        ...textUploadData,
+                        title: e.target.value,
+                      })
+                    }
                     placeholder="e.g., Platform Pricing Guide"
                     className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   />
@@ -571,13 +685,18 @@ const AdminRAGSystem = () => {
                   </label>
                   <textarea
                     value={textUploadData.content}
-                    onChange={(e) => setTextUploadData({ ...textUploadData, content: e.target.value })}
+                    onChange={(e) =>
+                      setTextUploadData({
+                        ...textUploadData,
+                        content: e.target.value,
+                      })
+                    }
                     placeholder="Enter the document content here..."
                     rows={12}
                     className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
                   />
                   <p className="text-xs text-slate-500 mt-2">
-                    {(textUploadData.content || '').length} characters
+                    {(textUploadData.content || "").length} characters
                   </p>
                 </div>
 
@@ -585,12 +704,16 @@ const AdminRAGSystem = () => {
                   <div className="flex gap-3">
                     <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
                     <div className="text-sm text-blue-800">
-                      <p className="font-semibold mb-1">Tips for better results:</p>
+                      <p className="font-semibold mb-1">
+                        Tips for better results:
+                      </p>
                       <ul className="list-disc list-inside space-y-1 text-blue-700">
                         <li>Use clear, descriptive titles</li>
                         <li>Include relevant keywords in the content</li>
                         <li>Organize information in paragraphs</li>
-                        <li>Add details about your platform features and policies</li>
+                        <li>
+                          Add details about your platform features and policies
+                        </li>
                       </ul>
                     </div>
                   </div>
@@ -602,7 +725,7 @@ const AdminRAGSystem = () => {
                   variant="outline"
                   onClick={() => {
                     setShowUploadModal(false);
-                    setTextUploadData({ title: '', content: '' });
+                    setTextUploadData({ title: "", content: "" });
                   }}
                 >
                   Cancel
@@ -610,7 +733,11 @@ const AdminRAGSystem = () => {
                 <Button
                   className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700"
                   onClick={handleTextUpload}
-                  disabled={!textUploadData.title || !textUploadData.content || uploadProgress.isUploading}
+                  disabled={
+                    !textUploadData.title ||
+                    !textUploadData.content ||
+                    uploadProgress.isUploading
+                  }
                 >
                   {uploadProgress.isUploading ? (
                     <>

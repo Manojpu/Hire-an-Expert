@@ -189,6 +189,11 @@ async def proxy_user_v2(request):
     path = request.path_params.get("path", "")
     return await proxy_request(request, services["user_v2"], f"/{path}")
 
+async def proxy_users_legacy(request):
+    """Legacy /users route - redirects to user-v2 service"""
+    path = request.path_params.get("path", "")
+    return await proxy_request(request, services["user_v2"], f"/users/{path}", auth_required=False)
+
 async def proxy_user_v2_admin(request):
     """Proxy for user admin endpoints - route to regular user endpoints as fallback"""
     path = request.path_params.get("path", "")
@@ -321,6 +326,7 @@ routes = [
     Route("/api/auth/{path:path}", proxy_auth, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/user-v2/admin/{path:path}", proxy_user_v2_admin, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/user-v2/{path:path}", proxy_user_v2, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
+    Route("/api/users/{path:path}", proxy_users_legacy, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/gigs/admin/{path:path}", proxy_gigs_admin, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/gigs/{path:path}", proxy_gigs, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/categories/{path:path}", proxy_categories, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),

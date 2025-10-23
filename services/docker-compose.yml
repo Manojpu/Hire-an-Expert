@@ -250,7 +250,7 @@ services:
       - BOOKING_SERVICE_URL=http://booking-service:8003
       - PAYMENT_SERVICE_URL=http://payment-service:8004
       - MESSAGE_SERVICE_URL=http://msg-service:8005
-      - USER_SERVICE_URL=http://user-service:8006
+      - USER_SERVICE_V2_URL=http://user-service:8006
       - REVIEW_SERVICE_URL=http://review-service:8005
       - NOTIFICATION_SERVICE_URL=http://notification-service:8008
       - ADMIN_SERVICE_URL=http://admin-service:8009
@@ -262,6 +262,8 @@ services:
       - RATE_LIMIT_WINDOW=1/minute
       - LOG_LEVEL=INFO
       - LOG_FILE=logs/api_gateway.log
+    ports:
+      - "8000:8000"
     depends_on:
       auth-service:
         condition: service_healthy

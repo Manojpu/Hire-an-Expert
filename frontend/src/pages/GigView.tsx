@@ -75,7 +75,10 @@ const GigView = () => {
   const [expertLoading, setExpertLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [ratingData, setRatingData] = useState({ average_rating: 0, total_reviews: 0 });
+  const [ratingData, setRatingData] = useState({
+    average_rating: 0,
+    total_reviews: 0,
+  });
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsTotal, setReviewsTotal] = useState(0);
@@ -118,13 +121,13 @@ const GigView = () => {
         console.log("API returned gig data:", gigData);
         setGig(gigData);
         setError("");
-        
+
         // Fetch expert profile if expert_id is available
         if (gigData.expert_id) {
           try {
             console.log("Fetching expert profile for:", gigData.expert_id);
             const expertResponse = await fetch(
-              `http://localhost:8006/users/firebase/${gigData.expert_id}`
+              `http://localhost:8000/api/user_v2/users/firebase/${gigData.expert_id}`
             );
             if (expertResponse.ok) {
               const expertData = await expertResponse.json();
@@ -152,19 +155,21 @@ const GigView = () => {
   useEffect(() => {
     const fetchExpertData = async () => {
       if (!gig?.expert_id) {
-        console.log('No expert_id found in gig');
+        console.log("No expert_id found in gig");
         return;
       }
-      
+
       try {
         setExpertLoading(true);
-        console.log('Fetching expert data for Firebase UID:', gig.expert_id);
-        
-        const expertData = await userServiceAPI.getUserByFirebaseUid(gig.expert_id);
-        console.log('Expert data loaded:', expertData);
+        console.log("Fetching expert data for Firebase UID:", gig.expert_id);
+
+        const expertData = await userServiceAPI.getUserByFirebaseUid(
+          gig.expert_id
+        );
+        console.log("Expert data loaded:", expertData);
         setExpert(expertData);
       } catch (err) {
-        console.error('Error fetching expert data:', err);
+        console.error("Error fetching expert data:", err);
         // Don't show error to user, just log it
       } finally {
         setExpertLoading(false);
@@ -180,16 +185,19 @@ const GigView = () => {
   useEffect(() => {
     const fetchRating = async () => {
       if (!id) return;
-      
+
       try {
         const data = await reviewAnalyticsService.fetchGigRatingAnalytics(id);
-        setRatingData({ average_rating: data.average_rating, total_reviews: data.total_reviews });
+        setRatingData({
+          average_rating: data.average_rating,
+          total_reviews: data.total_reviews,
+        });
       } catch (error) {
-        console.error('Error fetching rating:', error);
+        console.error("Error fetching rating:", error);
         setRatingData({ average_rating: 0, total_reviews: 0 });
       }
     };
-    
+
     fetchRating();
   }, [id]);
 
@@ -197,21 +205,21 @@ const GigView = () => {
   useEffect(() => {
     const fetchReviews = async () => {
       if (!id) return;
-      
+
       try {
         setReviewsLoading(true);
         const data = await reviewServiceAPI.getGigReviews(id, 1, 50); // Get first 50 reviews
         setReviews(data.reviews);
         setReviewsTotal(data.total);
       } catch (error) {
-        console.error('Error fetching reviews:', error);
+        console.error("Error fetching reviews:", error);
         setReviews([]);
         setReviewsTotal(0);
       } finally {
         setReviewsLoading(false);
       }
     };
-    
+
     fetchReviews();
   }, [id]);
 
@@ -249,19 +257,20 @@ const GigView = () => {
       console.log(`✅ Conversation ready: ${conversation.id}`);
 
       // Get expert name from profile or gig title
-      const expertName = expertProfile?.name || 
-                        expertProfile?.email?.split('@')[0] || 
-                        gig.title || 
-                        "Expert";
+      const expertName =
+        expertProfile?.name ||
+        expertProfile?.email?.split("@")[0] ||
+        gig.title ||
+        "Expert";
 
       // Navigate to messages page with the conversation ID as state
       navigate("/messages", {
         state: {
           conversationId: conversation.id,
           expertId: gig.expert_id,
-          expertName: expertName
+          expertName: expertName,
         },
-        replace: true // Use replace to prevent back button issues
+        replace: true, // Use replace to prevent back button issues
       });
     } catch (error) {
       console.error("❌ Error contacting expert:", error);
@@ -455,10 +464,12 @@ const GigView = () => {
                 <div className="flex items-center gap-2">
                   <Star className="h-5 w-5 fill-amber-500 text-amber-500" />
                   <span className="font-semibold text-lg">
-                    {ratingData.average_rating > 0 ? ratingData.average_rating.toFixed(1) : 'N/A'}
+                    {ratingData.average_rating > 0
+                      ? ratingData.average_rating.toFixed(1)
+                      : "N/A"}
                   </span>
                   <span className="text-sm text-muted-foreground">
-                    ({reviewsTotal} {reviewsTotal === 1 ? 'review' : 'reviews'})
+                    ({reviewsTotal} {reviewsTotal === 1 ? "review" : "reviews"})
                   </span>
                 </div>
               </div>
@@ -478,7 +489,10 @@ const GigView = () => {
               ) : (
                 <div className="space-y-4">
                   {reviews.map((review) => (
-                    <Card key={review.id} className="border-0 bg-slate-50 dark:bg-slate-900">
+                    <Card
+                      key={review.id}
+                      className="border-0 bg-slate-50 dark:bg-slate-900"
+                    >
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex items-center gap-2">
@@ -486,13 +500,18 @@ const GigView = () => {
                               <Users className="h-5 w-5 text-slate-500 dark:text-slate-400" />
                             </div>
                             <div>
-                              <p className="font-medium text-sm">Anonymous User</p>
+                              <p className="font-medium text-sm">
+                                Anonymous User
+                              </p>
                               <p className="text-xs text-muted-foreground">
-                                {new Date(review.created_at).toLocaleDateString('en-US', {
-                                  year: 'numeric',
-                                  month: 'long',
-                                  day: 'numeric'
-                                })}
+                                {new Date(review.created_at).toLocaleDateString(
+                                  "en-US",
+                                  {
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
+                                  }
+                                )}
                               </p>
                             </div>
                           </div>
@@ -502,8 +521,8 @@ const GigView = () => {
                                 key={star}
                                 className={`h-4 w-4 ${
                                   star <= review.rating
-                                    ? 'fill-amber-500 text-amber-500'
-                                    : 'text-slate-300 dark:text-slate-700'
+                                    ? "fill-amber-500 text-amber-500"
+                                    : "text-slate-300 dark:text-slate-700"
                                 }`}
                               />
                             ))}
@@ -557,9 +576,11 @@ const GigView = () => {
               </div>
 
               {/* Expert Brief Info */}
-              <div 
+              <div
                 className="flex items-center gap-4 mb-6 pb-6 border-b cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors rounded-lg p-2 -m-2"
-                onClick={() => gig?.expert_id && navigate(`/expert/${gig.expert_id}`)}
+                onClick={() =>
+                  gig?.expert_id && navigate(`/expert/${gig.expert_id}`)
+                }
                 title="View expert profile"
               >
                 {expert?.profile_image_url ? (
@@ -580,7 +601,7 @@ const GigView = () => {
                     ) : expert ? (
                       expert.name
                     ) : (
-                      'Expert Profile'
+                      "Expert Profile"
                     )}
                   </h3>
                   <div className="flex items-center text-sm text-muted-foreground gap-1">
@@ -599,14 +620,15 @@ const GigView = () => {
                   <div className="flex items-center gap-2">
                     <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
                     <span className="font-medium text-foreground">
-                      {ratingData.average_rating > 0 
-                        ? ratingData.average_rating.toFixed(1) 
-                        : 'No ratings yet'}
+                      {ratingData.average_rating > 0
+                        ? ratingData.average_rating.toFixed(1)
+                        : "No ratings yet"}
                     </span>
                   </div>
                   {ratingData.total_reviews > 0 && (
                     <span className="text-muted-foreground">
-                      ({ratingData.total_reviews} {ratingData.total_reviews === 1 ? 'review' : 'reviews'})
+                      ({ratingData.total_reviews}{" "}
+                      {ratingData.total_reviews === 1 ? "review" : "reviews"})
                     </span>
                   )}
                 </div>
@@ -621,9 +643,9 @@ const GigView = () => {
                 >
                   Book Consultation
                 </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full" 
+                <Button
+                  variant="outline"
+                  className="w-full"
                   size="lg"
                   onClick={handleContactExpert}
                   disabled={contactingExpert || !user}

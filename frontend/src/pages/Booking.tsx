@@ -1,31 +1,45 @@
-import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Calendar, Clock, MapPin, Video, FileText, CreditCard, MessageCircle } from 'lucide-react';
-import { format, addDays, isSameDay } from 'date-fns';
-import Header from '@/components/navigation/Header';
-import Footer from '@/components/ui/footer';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from '@/hooks/use-toast';
-import { experts } from '@/data/mockData';
+import { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  Calendar,
+  Clock,
+  MapPin,
+  Video,
+  FileText,
+  CreditCard,
+  MessageCircle,
+} from "lucide-react";
+import { format, addDays, isSameDay } from "date-fns";
+import Header from "@/components/navigation/Header";
+import Footer from "@/components/ui/footer";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "@/hooks/use-toast";
+import { experts } from "@/data/mockData";
 
 const Booking = () => {
   const { expertId } = useParams();
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedTime, setSelectedTime] = useState('');
-  const [duration, setDuration] = useState('60');
-  const [meetingType, setMeetingType] = useState('online');
-  const [description, setDescription] = useState('');
-  const [specialRequirements, setSpecialRequirements] = useState('');
+  const [selectedTime, setSelectedTime] = useState("");
+  const [duration, setDuration] = useState("60");
+  const [meetingType, setMeetingType] = useState("online");
+  const [description, setDescription] = useState("");
+  const [specialRequirements, setSpecialRequirements] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const expert = experts.find(exp => exp.id === expertId);
+  const expert = experts.find((exp) => exp.id === expertId);
 
   if (!expert) {
     return (
@@ -33,8 +47,10 @@ const Booking = () => {
         <Header />
         <main className="container mx-auto px-4 py-8">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-foreground">Expert not found</h1>
-            <Button onClick={() => navigate('/')} className="mt-4">
+            <h1 className="text-2xl font-bold text-foreground">
+              Expert not found
+            </h1>
+            <Button onClick={() => navigate("/")} className="mt-4">
               Back to Home
             </Button>
           </div>
@@ -49,21 +65,36 @@ const Booking = () => {
 
   // Mock available time slots
   const timeSlots = [
-    '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-    '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
-    '16:00', '16:30', '17:00', '17:30'
+    "09:00",
+    "09:30",
+    "10:00",
+    "10:30",
+    "11:00",
+    "11:30",
+    "13:00",
+    "13:30",
+    "14:00",
+    "14:30",
+    "15:00",
+    "15:30",
+    "16:00",
+    "16:30",
+    "17:00",
+    "17:30",
   ];
 
   const durationOptions = [
-    { value: '30', label: '30 minutes', multiplier: 0.5 },
-    { value: '60', label: '1 hour', multiplier: 1 },
-    { value: '90', label: '1.5 hours', multiplier: 1.5 },
-    { value: '120', label: '2 hours', multiplier: 2 },
+    { value: "30", label: "30 minutes", multiplier: 0.5 },
+    { value: "60", label: "1 hour", multiplier: 1 },
+    { value: "90", label: "1.5 hours", multiplier: 1.5 },
+    { value: "120", label: "2 hours", multiplier: 2 },
   ];
 
-  const selectedDurationOption = durationOptions.find(d => d.value === duration);
-  const totalAmount = selectedDurationOption 
-    ? expert.pricing.hourlyRate * selectedDurationOption.multiplier 
+  const selectedDurationOption = durationOptions.find(
+    (d) => d.value === duration
+  );
+  const totalAmount = selectedDurationOption
+    ? expert.pricing.hourlyRate * selectedDurationOption.multiplier
     : expert.pricing.hourlyRate;
 
   const platformFee = Math.round(totalAmount * 0.05); // 5% platform fee
@@ -72,30 +103,30 @@ const Booking = () => {
   const handleSubmit = async () => {
     if (!selectedDate || !selectedTime || !description.trim()) {
       toast({
-        title: 'Missing Information',
-        description: 'Please fill in all required fields.',
-        variant: 'destructive',
+        title: "Missing Information",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
       });
       return;
     }
 
     setIsSubmitting(true);
-    
+
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
     toast({
-      title: 'Booking Request Sent!',
+      title: "Booking Request Sent!",
       description: `Your booking request has been sent to ${expert.name}. You'll receive a confirmation shortly.`,
     });
 
-    navigate('/my-bookings');
+    navigate("/my-bookings");
   };
 
   return (
-    <div className="min-h-screen bg-background container ">
+    <div className="min-h-scree container ">
       <Header />
-      
+
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           {/* Breadcrumb */}
@@ -120,28 +151,25 @@ const Booking = () => {
                   {/* Date Grid */}
                   <div className="grid grid-cols-7 gap-2 mb-6">
                     {weekDays.map((day) => {
-                      const isSelected = selectedDate && isSameDay(day, selectedDate);
+                      const isSelected =
+                        selectedDate && isSameDay(day, selectedDate);
                       const isToday = isSameDay(day, new Date());
-                      
+
                       return (
                         <button
                           key={day.toISOString()}
                           onClick={() => setSelectedDate(day)}
                           className={`p-3 text-center rounded-lg border transition-colors ${
-                            isSelected 
-                              ? 'border-primary bg-primary text-primary-foreground' 
-                              : 'border-border hover:bg-muted'
-                          } ${isToday ? 'font-semibold' : ''}`}
+                            isSelected
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border hover:bg-muted"
+                          } ${isToday ? "font-semibold" : ""}`}
                         >
                           <div className="text-xs text-muted-foreground">
-                            {format(day, 'EEE')}
+                            {format(day, "EEE")}
                           </div>
-                          <div className="text-sm">
-                            {format(day, 'dd')}
-                          </div>
-                          <div className="text-xs">
-                            {format(day, 'MMM')}
-                          </div>
+                          <div className="text-sm">{format(day, "dd")}</div>
+                          <div className="text-xs">{format(day, "MMM")}</div>
                         </button>
                       );
                     })}
@@ -156,7 +184,7 @@ const Booking = () => {
                           const isSelected = selectedTime === time;
                           // Mock some slots as booked
                           const isBooked = Math.random() > 0.7;
-                          
+
                           return (
                             <button
                               key={time}
@@ -164,10 +192,10 @@ const Booking = () => {
                               disabled={isBooked}
                               className={`p-2 text-sm rounded border transition-colors ${
                                 isSelected
-                                  ? 'border-primary bg-primary text-primary-foreground'
+                                  ? "border-primary bg-primary text-primary-foreground"
                                   : isBooked
-                                  ? 'border-border bg-muted text-muted-foreground cursor-not-allowed'
-                                  : 'border-border hover:bg-muted'
+                                  ? "border-border bg-muted text-muted-foreground cursor-not-allowed"
+                                  : "border-border hover:bg-muted"
                               }`}
                             >
                               {time}
@@ -191,7 +219,9 @@ const Booking = () => {
                 <CardContent className="space-y-4">
                   {/* Duration */}
                   <div>
-                    <Label className="text-sm font-medium mb-2 block">Duration *</Label>
+                    <Label className="text-sm font-medium mb-2 block">
+                      Duration *
+                    </Label>
                     <Select value={duration} onValueChange={setDuration}>
                       <SelectTrigger>
                         <SelectValue />
@@ -208,18 +238,30 @@ const Booking = () => {
 
                   {/* Meeting Type */}
                   <div>
-                    <Label className="text-sm font-medium mb-2 block">Meeting Type *</Label>
-                    <RadioGroup value={meetingType} onValueChange={setMeetingType} className="flex gap-6">
+                    <Label className="text-sm font-medium mb-2 block">
+                      Meeting Type *
+                    </Label>
+                    <RadioGroup
+                      value={meetingType}
+                      onValueChange={setMeetingType}
+                      className="flex gap-6"
+                    >
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="online" id="online" />
-                        <Label htmlFor="online" className="flex items-center gap-2 cursor-pointer">
+                        <Label
+                          htmlFor="online"
+                          className="flex items-center gap-2 cursor-pointer"
+                        >
                           <Video className="h-4 w-4" />
                           Online (Video Call)
                         </Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="physical" id="physical" />
-                        <Label htmlFor="physical" className="flex items-center gap-2 cursor-pointer">
+                        <Label
+                          htmlFor="physical"
+                          className="flex items-center gap-2 cursor-pointer"
+                        >
                           <MapPin className="h-4 w-4" />
                           In-Person
                         </Label>
@@ -255,7 +297,9 @@ const Booking = () => {
 
                   {/* Language */}
                   <div>
-                    <Label className="text-sm font-medium mb-2 block">Preferred Language</Label>
+                    <Label className="text-sm font-medium mb-2 block">
+                      Preferred Language
+                    </Label>
                     <Select defaultValue={expert.languages[0]}>
                       <SelectTrigger>
                         <SelectValue />
@@ -299,9 +343,10 @@ const Booking = () => {
               </div>
 
               <div className="text-sm text-muted-foreground">
-                ✓ Your booking request will be sent to the expert for approval<br />
-                ✓ You'll receive a confirmation email once approved<br />
-                ✓ Payment will be processed after expert approval
+                ✓ Your booking request will be sent to the expert for approval
+                <br />
+                ✓ You'll receive a confirmation email once approved
+                <br />✓ Payment will be processed after expert approval
               </div>
             </div>
 
@@ -322,7 +367,9 @@ const Booking = () => {
                     />
                     <div>
                       <h4 className="font-medium">{expert.name}</h4>
-                      <p className="text-sm text-muted-foreground">{expert.title}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {expert.title}
+                      </p>
                       <div className="flex items-center gap-1 mt-1">
                         <span className="text-sm">⭐ {expert.rating}</span>
                         <span className="text-sm text-muted-foreground">
@@ -337,7 +384,9 @@ const Booking = () => {
                     {selectedDate && (
                       <div className="flex justify-between">
                         <span>Date:</span>
-                        <span className="font-medium">{format(selectedDate, 'MMM dd, yyyy')}</span>
+                        <span className="font-medium">
+                          {format(selectedDate, "MMM dd, yyyy")}
+                        </span>
                       </div>
                     )}
                     {selectedTime && (
@@ -349,12 +398,17 @@ const Booking = () => {
                     <div className="flex justify-between">
                       <span>Duration:</span>
                       <span className="font-medium">
-                        {durationOptions.find(d => d.value === duration)?.label}
+                        {
+                          durationOptions.find((d) => d.value === duration)
+                            ?.label
+                        }
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span>Type:</span>
-                      <span className="font-medium capitalize">{meetingType}</span>
+                      <span className="font-medium capitalize">
+                        {meetingType}
+                      </span>
                     </div>
                   </div>
 
@@ -384,11 +438,15 @@ const Booking = () => {
 
                   {/* Status Badge */}
                   <div className="flex items-center justify-center">
-                    <Badge 
-                      variant={expert.status === 'available' ? 'default' : 'secondary'}
+                    <Badge
+                      variant={
+                        expert.status === "available" ? "default" : "secondary"
+                      }
                       className="text-xs"
                     >
-                      {expert.status === 'available' ? 'Available Now' : 'Will respond soon'}
+                      {expert.status === "available"
+                        ? "Available Now"
+                        : "Will respond soon"}
                     </Badge>
                   </div>
                 </CardContent>

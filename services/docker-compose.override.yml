@@ -29,6 +29,3 @@ services:
   meeting-service:
     ports:
       - "8010:8007"
-  api-gateway:
-    ports:
-      - "8000:8000"
