@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   db:
@@ -10,7 +10,7 @@ services:
       POSTGRES_DB: review_service
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
     ports:
-      - "5435:5432"  # Use different port to avoid conflicts with other services
+      - "5435:5432" # Use different port to avoid conflicts with other services
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
@@ -25,7 +25,7 @@ services:
     restart: unless-stopped
 
   review-service:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
     container_name: hire-expert-review-dev
@@ -46,13 +46,13 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - .:/app:delegated  # Mount source code for hot reload
-      - ./serviceAccountKey.json:/app/serviceAccountKey.json:ro  # Mount Firebase key
-      - /app/__pycache__  # Exclude pycache
+      - .:/app:delegated # Mount source code for hot reload
+      - ./serviceAccountKey.json:/app/serviceAccountKey.json:ro # Mount Firebase key
+      - /app/__pycache__ # Exclude pycache
     networks:
       - review-network
     extra_hosts:
-      - "host.docker.internal:host-gateway"  # Allow connection to host services
+      - "host.docker.internal:host-gateway" # Allow connection to host services
     restart: unless-stopped
     command: >
       sh -c "
@@ -64,10 +64,10 @@ services:
         echo 'Running database migrations...' &&
         alembic upgrade head &&
         echo '================================' &&
-        echo 'Starting Review Service on port 8005' &&
+        echo 'Starting Review Service on port 8007' &&
         echo 'Hot reload enabled!' &&
         echo '================================' &&
-        uvicorn app.main:app --host 0.0.0.0 --port 8005 --reload --log-level info
+        uvicorn app.main:app --host 0.0.0.0 --port 8007 --reload --log-level info
       "
 
 networks:
