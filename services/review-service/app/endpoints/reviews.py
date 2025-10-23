@@ -21,6 +21,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 BOOKING_SERVICE_URL = os.getenv("BOOKING_SERVICE_URL", "http://booking-service:8003")
 GIG_SERVICE_URL = os.getenv("GIG_SERVICE_URL", "http://gig-service:8004")
+USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service:8001")
+
+# Normalize service base URLs (avoid double slashes when joining paths)
+BOOKING_BASE = (BOOKING_SERVICE_URL or "").rstrip("/")
+GIG_BASE = (GIG_SERVICE_URL or "").rstrip("/")
+USER_BASE = (USER_SERVICE_URL or "").rstrip("/")
 
 # Create Review
 @router.post("/", response_model=ReviewOut, status_code=status.HTTP_201_CREATED)
@@ -31,6 +37,31 @@ async def create_review(
 ):
     """Create a new review for a completed booking"""
     buyer_id = current_user.sub
+    print(f"👤 Current user resolved from token: {current_user}")
+    logger.info(f"Current user resolved from token: {current_user}")
+
+    # Resolve internal user UUID from user-service using Firebase UID
+    internal_buyer_id = None
+    try:
+        if USER_BASE:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                # Prefer the explicit by-firebase-uid endpoint; fallback to /users/firebase
+                url_primary = f"{USER_BASE}/users/by-firebase-uid/{buyer_id}"
+                url_fallback = f"{USER_BASE}/users/firebase/{buyer_id}"
+                resp = await client.get(url_primary)
+                if resp.status_code == 404:
+                    resp = await client.get(url_fallback)
+                if resp.status_code == 200:
+                    user_payload = resp.json()
+                    internal_buyer_id = str(user_payload.get("id") or user_payload.get("user_id") or "").strip()
+                    print(f"🧭 Mapped Firebase UID -> internal user ID: {buyer_id} -> {internal_buyer_id}")
+                    logger.info(f"Mapped Firebase UID -> internal user ID: {buyer_id} -> {internal_buyer_id}")
+                else:
+                    print(f"⚠️ Failed to resolve internal user ID from user-service: {resp.status_code} {resp.text[:200]}")
+                    logger.warning(f"Failed to resolve internal user ID from user-service: {resp.status_code} {resp.text[:200]}")
+    except Exception as e:
+        print(f"⚠️ Error calling user-service for ID mapping: {e}")
+        logger.warning(f"Error calling user-service for ID mapping: {e}")
     
     # Check if review already exists for this booking
     existing_review = review_crud.get_review_by_booking_id(db, review_in.booking_id)
@@ -44,9 +75,12 @@ async def create_review(
     try:
         print(f"🔍 Verifying booking {review_in.booking_id} for user {buyer_id}")
         logger.info(f"Verifying booking {review_in.booking_id} for user {buyer_id}")
+        verify_url = f"{BOOKING_BASE}/bookings/verify/{review_in.booking_id}"
+        print(f"🌐 Calling Booking Verify URL: {verify_url}")
+        logger.info(f"Calling Booking Verify URL: {verify_url}")
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{BOOKING_SERVICE_URL}/bookings/verify/{review_in.booking_id}",
+                verify_url,
                 headers={"Authorization": f"Bearer {current_user.original_token}"}
             )
         
@@ -68,14 +102,31 @@ async def create_review(
         logger.info(f"Booking data: {booking_data}")
         logger.info(f"Comparing buyer_id: {booking_data.get('buyer_id')} == {buyer_id}")
         logger.info(f"Booking status: {booking_data.get('status')}")
+
+        # Normalize buyer_id for comparison
+        # booking_buyer_id comes from booking DB (internal UUID as string)
+        booking_buyer_id = str(booking_data.get("buyer_id", "")).lower().strip()
+        # Prefer internal mapped UUID for the current user when available; fallback to Firebase UID
+        current_buyer_id_raw = internal_buyer_id or buyer_id
+        current_buyer_id = str(current_buyer_id_raw).lower().strip()
+
+        # Normalize status for comparison (handle case variations)
+        booking_status = str(booking_data.get("status", "")).upper().strip()
+
+        print(f"🔍 Normalized comparison:")
+        print(f"   Booking buyer_id: '{booking_buyer_id}'")
+        print(f"   Current user ID: '{current_buyer_id}' (source={'internal' if internal_buyer_id else 'firebase'})")
+        print(f"   Buyer IDs match: {booking_buyer_id == current_buyer_id}")
+        print(f"   Booking status: '{booking_status}'")
+        print(f"   Status is COMPLETED: {booking_status == 'COMPLETED'}")
+
+        logger.info(f"Normalized - booking_buyer_id: {booking_buyer_id}, current_buyer_id: {current_buyer_id}, match: {booking_buyer_id == current_buyer_id}")
+        logger.info(f"Normalized - booking_status: {booking_status}, is_completed: {booking_status == 'COMPLETED'}")
         
-        # Normalize status to uppercase for comparison (database uses UPPERCASE)
-        booking_status = str(booking_data.get("status", "")).upper()
-        
-        if (booking_data.get("buyer_id") != buyer_id or 
+        if (booking_buyer_id != current_buyer_id or 
             booking_status != "COMPLETED"):
-            print(f"❌ Authorization failed: buyer_id match={booking_data.get('buyer_id') == buyer_id}, status={booking_status}")
-            logger.warning(f"Authorization failed: buyer_id match={booking_data.get('buyer_id') == buyer_id}, status={booking_status}")
+            print(f"❌ Authorization failed: buyer_id match={booking_buyer_id == current_buyer_id}, status={booking_status}")
+            logger.warning(f"Authorization failed: buyer_id match={booking_buyer_id == current_buyer_id}, status={booking_status}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You are not authorized to review this booking or booking is not completed"
@@ -98,7 +149,7 @@ async def create_review(
     return review_crud.create_review(
         db=db, 
         review=review_in, 
-        buyer_id=buyer_id,
+        buyer_id=(internal_buyer_id or buyer_id),
         seller_id=seller_id
     )
 
