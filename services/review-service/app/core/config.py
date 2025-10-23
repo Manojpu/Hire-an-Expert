@@ -2,7 +2,6 @@ from pydantic_settings import BaseSettings
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
 load_dotenv()
 
 class Settings(BaseSettings):
@@ -17,6 +16,11 @@ class Settings(BaseSettings):
     # Database settings
     DATABASE_URL: str = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/review_service")
     
+    # Service URLs
+    GIG_SERVICE_URL: str
+    BOOKING_SERVICE_URL: str
+    USER_SERVICE_URL: str
+
     # CORS settings
     CORS_ORIGINS: list[str] = ["*"]
 
@@ -24,5 +28,4 @@ class Settings(BaseSettings):
         env_file = ".env"
         case_sensitive = True
 
-# Create a global settings object
 settings = Settings()

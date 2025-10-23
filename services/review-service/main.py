@@ -44,3 +44,21 @@ def health_check():
         "service": "review-service"
     }
 
+if __name__ == "__main__":
+    import uvicorn
+    import os
+    
+    port = int(os.getenv("PORT", 8005))
+    host = os.getenv("HOST", "0.0.0.0")
+    
+    print(f"🚀 Starting Review Service on {host}:{port}")
+    uvicorn.run(
+        "main:app",
+        host=host,
+        port=port,
+        reload=True,
+        log_level="info"
+    )
+
+
+
