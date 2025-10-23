@@ -17,9 +17,14 @@ const MyBookings = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [reviewModalOpen, setReviewModalOpen] = useState<boolean>(false);
-  const [currentReviewBookingId, setCurrentReviewBookingId] = useState<string | null>(null);
-  const [currentReviewGigId, setCurrentReviewGigId] = useState<string | null>(null);
-  const [currentReviewExpertName, setCurrentReviewExpertName] = useState<string>("");
+  const [currentReviewBookingId, setCurrentReviewBookingId] = useState<
+    string | null
+  >(null);
+  const [currentReviewGigId, setCurrentReviewGigId] = useState<string | null>(
+    null
+  );
+  const [currentReviewExpertName, setCurrentReviewExpertName] =
+    useState<string>("");
   const [isSubmittingReview, setIsSubmittingReview] = useState<boolean>(false);
 
   // Fetch bookings from API when component mounts or userId changes
@@ -36,8 +41,14 @@ const MyBookings = () => {
         setError(null); // Clear any previous errors
         const userBookings = await bookingService.getUserBookings();
         console.log("Fetched bookings:", userBookings); // Debug log
-        console.log("Bookings with meeting_link:", userBookings.filter(b => b.meeting_link));
-        console.log("Confirmed bookings:", userBookings.filter(b => b.status === 'confirmed'));
+        console.log(
+          "Bookings with meeting_link:",
+          userBookings.filter((b) => b.meeting_link)
+        );
+        console.log(
+          "Confirmed bookings:",
+          userBookings.filter((b) => b.status === "confirmed")
+        );
         setBookings(userBookings || []);
       } catch (err) {
         console.error("Error fetching bookings:", err);
@@ -84,7 +95,8 @@ const MyBookings = () => {
 
       toast({
         title: "Booking confirmed",
-        description: "Meeting link has been generated. The client can now join.",
+        description:
+          "Meeting link has been generated. The client can now join.",
       });
     } catch (err) {
       console.error(`Failed to confirm booking:`, err);
@@ -101,7 +113,11 @@ const MyBookings = () => {
     window.location.href = `/meeting/${bookingId}`;
   };
 
-  const handleCompleteBooking = async (bookingId: string, gigId: string, expertName: string) => {
+  const handleCompleteBooking = async (
+    bookingId: string,
+    gigId: string,
+    expertName: string
+  ) => {
     try {
       await bookingService.completeBooking(bookingId);
       // Refresh bookings after completion
@@ -147,13 +163,24 @@ const MyBookings = () => {
         description: "Thank you for your feedback!",
       });
 
+      setBookings((prevBookings) =>
+        prevBookings.map((booking) =>
+          String(booking.id) === currentReviewBookingId
+            ? { ...booking, has_review: true }
+            : booking
+        )
+      );
+
       setReviewModalOpen(false);
       setCurrentReviewBookingId(null);
       setCurrentReviewGigId(null);
       setCurrentReviewExpertName("");
     } catch (err) {
       console.error("Failed to submit review:", err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to submit review. Please try again.";
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Failed to submit review. Please try again.";
       toast({
         title: "Submission failed",
         description: errorMessage,
@@ -209,15 +236,24 @@ const MyBookings = () => {
             const expertId = booking.gig_id;
             const expert = MOCK_EXPERTS.find((e) => e.id === expertId);
             const gigDetails = booking.gig_details || {};
-            const onExpertApprove = () => handleConfirmBooking(String(booking.id));
-            const onExpertReject = () => handleUpdateStatus(String(booking.id), "cancelled");
-            const onClientCancel = () => handleUpdateStatus(String(booking.id), "cancelled");
+            const onExpertApprove = () =>
+              handleConfirmBooking(String(booking.id));
+            const onExpertReject = () =>
+              handleUpdateStatus(String(booking.id), "cancelled");
+            const onClientCancel = () =>
+              handleUpdateStatus(String(booking.id), "cancelled");
             return (
-              <div key={booking.id} className="border rounded p-4 bg-background flex items-start justify-between">
+              <div
+                key={booking.id}
+                className="border rounded p-4 bg-background flex items-start justify-between"
+              >
                 <div className="flex-1">
                   <div className="font-medium">
                     {gigDetails.service_description
-                      ? gigDetails.service_description.substring(0, 50) + (gigDetails.service_description.length > 50 ? "..." : "")
+                      ? gigDetails.service_description.substring(0, 50) +
+                        (gigDetails.service_description.length > 50
+                          ? "..."
+                          : "")
                       : expert
                       ? `Booking for Gig — ${expert.name}`
                       : `Booking for Gig ID: ${booking.gig_id.substring(0, 8)}`}
@@ -231,7 +267,8 @@ const MyBookings = () => {
                     {toSriLankaTime(booking.scheduled_time)} (Sri Lanka time)
                   </div>
                   <div className="text-sm text-muted-foreground mt-2">
-                    Status: <span className="font-medium">{booking.status}</span>
+                    Status:{" "}
+                    <span className="font-medium">{booking.status}</span>
                   </div>
                 </div>
                 {gigDetails.thumbnail_url && (
@@ -244,21 +281,42 @@ const MyBookings = () => {
                   </div>
                 )}
                 <div className="flex flex-col items-end gap-2">
-                  {user?.role === "expert" && user?.id === expert?.userId && booking.status === "pending" && (
-                    <div className="flex gap-2">
-                      <Button onClick={onExpertApprove} size="sm">Approve</Button>
-                      <Button variant="ghost" onClick={onExpertReject} size="sm">Reject</Button>
-                    </div>
-                  )}
-                  {user?.role === "client" && booking.user_id === userId && booking.status === "pending" && (
-                    <div className="flex flex-col items-end gap-2">
-                      <Button variant="ghost" onClick={onClientCancel} size="sm">Cancel</Button>
-                    </div>
-                  )}
+                  {user?.role === "expert" &&
+                    user?.id === expert?.userId &&
+                    booking.status === "pending" && (
+                      <div className="flex gap-2">
+                        <Button onClick={onExpertApprove} size="sm">
+                          Approve
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={onExpertReject}
+                          size="sm"
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+                  {user?.role === "client" &&
+                    booking.user_id === userId &&
+                    booking.status === "pending" && (
+                      <div className="flex flex-col items-end gap-2">
+                        <Button
+                          variant="ghost"
+                          onClick={onClientCancel}
+                          size="sm"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
                   {/* Show Join Meeting button when booking is confirmed and has meeting link */}
                   {booking.status === "confirmed" && booking.meeting_link && (
                     <div className="flex flex-col items-end gap-2">
-                      <Button size="sm" onClick={() => handleJoinMeeting(String(booking.id))}>
+                      <Button
+                        size="sm"
+                        onClick={() => handleJoinMeeting(String(booking.id))}
+                      >
                         Join Meeting
                       </Button>
                       <a
@@ -267,41 +325,77 @@ const MyBookings = () => {
                         onClick={(e) => {
                           e.preventDefault();
                           const startTime = new Date(booking.scheduled_time);
-                          const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
-                          const title = `Booking - ${gigDetails.service_description ? gigDetails.service_description.substring(0, 30) : "Expert Session"}`;
-                          const description = `Booking session for ${gigDetails.service_description || "Expert Service"}.`;
-                          const googleUrl = new URL("https://calendar.google.com/calendar/render");
+                          const endTime = new Date(
+                            startTime.getTime() + 60 * 60 * 1000
+                          );
+                          const title = `Booking - ${
+                            gigDetails.service_description
+                              ? gigDetails.service_description.substring(0, 30)
+                              : "Expert Session"
+                          }`;
+                          const description = `Booking session for ${
+                            gigDetails.service_description || "Expert Service"
+                          }.`;
+                          const googleUrl = new URL(
+                            "https://calendar.google.com/calendar/render"
+                          );
                           googleUrl.searchParams.append("action", "TEMPLATE");
                           googleUrl.searchParams.append("text", title);
                           googleUrl.searchParams.append("details", description);
-                          googleUrl.searchParams.append("dates",
-                            `${startTime.toISOString().replace(/[-:]/g, "").split(".")[0]}Z/` +
-                            `${endTime.toISOString().replace(/[-:]/g, "").split(".")[0]}Z`
+                          googleUrl.searchParams.append(
+                            "dates",
+                            `${
+                              startTime
+                                .toISOString()
+                                .replace(/[-:]/g, "")
+                                .split(".")[0]
+                            }Z/` +
+                              `${
+                                endTime
+                                  .toISOString()
+                                  .replace(/[-:]/g, "")
+                                  .split(".")[0]
+                              }Z`
                           );
                           window.open(googleUrl.toString(), "_blank");
                         }}
-                      >Add to Calendar</a>
+                      >
+                        Add to Calendar
+                      </a>
                     </div>
                   )}
-                  
+
                   {/* Show Done button after meeting is joined - clicking opens review popup */}
                   {booking.status === "joined" && (
-                    <Button size="sm" onClick={() => handleCompleteBooking(
-                      String(booking.id),
-                      booking.gig_id,
-                      expert?.name || gigDetails.service_description || "Expert"
-                    )}>Done</Button>
+                    <Button
+                      size="sm"
+                      onClick={() =>
+                        handleCompleteBooking(
+                          String(booking.id),
+                          booking.gig_id,
+                          expert?.name ||
+                            gigDetails.service_description ||
+                            "Expert"
+                        )
+                      }
+                    >
+                      Done
+                    </Button>
                   )}
-                  
+
                   {/* Show Leave a Review button for completed bookings */}
-                  {booking.status === "completed" && (
-                    <Button 
-                      size="sm" 
+                  {booking.status === "completed" && !booking.has_review && (
+                    <Button
+                      size="sm"
                       variant="outline"
                       onClick={() => {
                         setCurrentReviewBookingId(String(booking.id));
                         setCurrentReviewGigId(booking.gig_id);
-                        setCurrentReviewExpertName(expert?.name || gigDetails.service_description || "Expert");
+                        setCurrentReviewExpertName(
+                          expert?.name ||
+                            gigDetails.service_description ||
+                            "Expert"
+                        );
                         setReviewModalOpen(true);
                       }}
                     >

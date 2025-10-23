@@ -18,6 +18,7 @@ export interface Booking {
   type?: string;
   notes?: string;
   meeting_link?: string; // Agora meeting channel name
+  has_review?: boolean;
   // Optional nested data from backend
   user?: {
     id: number | string;
@@ -66,7 +67,10 @@ class BookingService {
     return {} as Record<string, string>;
   }
 
-  private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  private async makeRequest<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const defaultHeaders: HeadersInit = {
       "Content-Type": "application/json",
@@ -96,7 +100,9 @@ class BookingService {
 
   // Queries used by multiple components
   async getAllBookings(skip = 0, limit = 100): Promise<Booking[]> {
-    return this.makeRequest<Booking[]>(`/bookings/?skip=${skip}&limit=${limit}`);
+    return this.makeRequest<Booking[]>(
+      `/bookings/?skip=${skip}&limit=${limit}`
+    );
   }
 
   async getBookingsByGig(gigId: string): Promise<Booking[]> {
@@ -118,7 +124,10 @@ class BookingService {
     });
   }
 
-  async updateBooking(bookingId: string, updates: BookingUpdate): Promise<Booking> {
+  async updateBooking(
+    bookingId: string,
+    updates: BookingUpdate
+  ): Promise<Booking> {
     return this.makeRequest<Booking>(`/bookings/${bookingId}`, {
       method: "PUT",
       body: JSON.stringify(updates),
@@ -126,7 +135,9 @@ class BookingService {
   }
 
   async deleteBooking(bookingId: string): Promise<void> {
-    await this.makeRequest<void>(`/bookings/${bookingId}`, { method: "DELETE" });
+    await this.makeRequest<void>(`/bookings/${bookingId}`, {
+      method: "DELETE",
+    });
   }
 
   async confirmBooking(bookingId: string): Promise<Booking> {
@@ -154,8 +165,14 @@ class BookingService {
     });
   }
 
-  async healthCheck(): Promise<{ status: string; service: string; port: number }> {
-    return this.makeRequest<{ status: string; service: string; port: number }>("/health");
+  async healthCheck(): Promise<{
+    status: string;
+    service: string;
+    port: number;
+  }> {
+    return this.makeRequest<{ status: string; service: string; port: number }>(
+      "/health"
+    );
   }
 
   // Stats used by OverallExpertProfile and dashboards
@@ -167,12 +184,14 @@ class BookingService {
   }> {
     // These endpoints don't exist - return mock data for now
     // TODO: Implement proper analytics aggregation from gig-level analytics
-    console.warn("getExpertRevenue: endpoint not implemented, returning mock data");
+    console.warn(
+      "getExpertRevenue: endpoint not implemented, returning mock data"
+    );
     return {
       total_revenue: 0,
       monthly_revenue: 0,
       completed_bookings: 0,
-      average_rating: 0
+      average_rating: 0,
     };
   }
 
@@ -184,15 +203,22 @@ class BookingService {
   }> {
     // These endpoints don't exist - calculate from actual bookings
     try {
-      const bookings = await this.makeRequest<Booking[]>(`/bookings/by-current-user`);
+      const bookings = await this.makeRequest<Booking[]>(
+        `/bookings/by-current-user`
+      );
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      
+
       return {
         total_consultations: bookings.length,
-        monthly_consultations: bookings.filter(b => new Date(b.created_at) >= monthStart).length,
-        pending_consultations: bookings.filter(b => b.status === 'pending').length,
-        confirmed_consultations: bookings.filter(b => b.status === 'confirmed').length
+        monthly_consultations: bookings.filter(
+          (b) => new Date(b.created_at) >= monthStart
+        ).length,
+        pending_consultations: bookings.filter((b) => b.status === "pending")
+          .length,
+        confirmed_consultations: bookings.filter(
+          (b) => b.status === "confirmed"
+        ).length,
       };
     } catch (error) {
       console.error("Error calculating consultation stats:", error);
@@ -200,7 +226,7 @@ class BookingService {
         total_consultations: 0,
         monthly_consultations: 0,
         pending_consultations: 0,
-        confirmed_consultations: 0
+        confirmed_consultations: 0,
       };
     }
   }
@@ -208,10 +234,15 @@ class BookingService {
   async getRecentBookings(limit = 5): Promise<Booking[]> {
     try {
       // Use /by-current-user endpoint and limit results on frontend
-      const allBookings = await this.makeRequest<Booking[]>(`/bookings/by-current-user`);
+      const allBookings = await this.makeRequest<Booking[]>(
+        `/bookings/by-current-user`
+      );
       // Sort by created_at descending and take the first 'limit' items
       return allBookings
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
         .slice(0, limit);
     } catch (error) {
       console.error("Error fetching recent bookings:", error);
