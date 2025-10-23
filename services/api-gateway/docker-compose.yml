@@ -16,6 +16,9 @@ services:
       - MESSAGE_SERVICE_URL=http://host.docker.internal:8005
       - USER_SERVICE_V2_URL=http://host.docker.internal:8006
       - REVIEW_SERVICE_URL=http://host.docker.internal:8007
+      - ADMIN_SERVICE_URL=http://host.docker.internal:8009
+      - NOTIFICATION_SERVICE_URL=http://host.docker.internal:8008
+      - MEETING_SERVICE_URL=http://host.docker.internal:8010
       - FRONTEND_URL=http://localhost:3000
       - REQUEST_TIMEOUT=30
       - AUTH_TIMEOUT=5
