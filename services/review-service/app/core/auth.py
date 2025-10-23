@@ -43,7 +43,7 @@ if not firebase_admin._apps:
 
 # Security scheme
 security = HTTPBearer()
-USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service:8001")
+USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service:8006")
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security)

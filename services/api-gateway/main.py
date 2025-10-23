@@ -56,6 +56,8 @@ class Config:
     USER_SERVICE_V2_URL = os.getenv("USER_SERVICE_V2_URL", "http://localhost:8006")
     REVIEW_SERVICE_URL = os.getenv("REVIEW_SERVICE_URL", "http://localhost:8007")
     ADMIN_SERVICE_URL = os.getenv("ADMIN_SERVICE_URL", "http://localhost:8009")
+    NOTIFICATION_SERVICE_URL = os.getenv("NOTIFICATION_SERVICE_URL", "http://localhost:8008")
+    MEETING_SERVICE_URL = os.getenv("MEETING_SERVICE_URL", "http://localhost:8010")
     
     REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "30"))
 

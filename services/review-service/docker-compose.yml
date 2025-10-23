@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   db:
@@ -9,7 +9,7 @@ services:
       POSTGRES_DB: review_service
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
     ports:
-      - "5435:5432"  # Use different port to avoid conflicts
+      - "5435:5432" # Use different port to avoid conflicts
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
@@ -24,25 +24,25 @@ services:
     restart: unless-stopped
 
   review-service:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8005:8005"  # Correct port for review service
+      - "8005:8005" # Correct port for review service
     environment:
       - DATABASE_URL=postgresql://review_user:review_pass_123@db:5432/review_service
       - INTERNAL_JWT_SECRET_KEY=docker-dev-secret-key-change-in-production
       - ALGORITHM=HS256
       - BOOKING_SERVICE_URL=http://booking-service:8003
       - GIG_SERVICE_URL=http://gig-service:8004
-      - USER_SERVICE_URL=http://user-service:8001
+      - USER_SERVICE_URL=http://user-service:8006
       - CORS_ORIGINS=["http://localhost:3000", "http://localhost:5173"]
       - DEBUG=true
     depends_on:
       db:
         condition: service_healthy
     volumes:
-      - .:/app  # Mount source code for development
+      - .:/app # Mount source code for development
     networks:
       - review-network
     restart: unless-stopped

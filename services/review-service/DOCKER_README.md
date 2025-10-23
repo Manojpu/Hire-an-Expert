@@ -60,7 +60,7 @@ DATABASE_URL: postgresql://review_user:review_pass_123@db:5432/review_service
 INTERNAL_JWT_SECRET_KEY: docker-dev-secret-key-change-in-production
 BOOKING_SERVICE_URL: http://booking-service:8003
 GIG_SERVICE_URL: http://gig-service:8004
-USER_SERVICE_URL: http://user-service:8001
+USER_SERVICE_URL: http://user-service:8006
 ```
 
 ### Custom Configuration

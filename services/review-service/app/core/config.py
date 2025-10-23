@@ -22,9 +22,9 @@ class Settings(BaseSettings):
     DATABASE_URL: str = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/review_service")
     
     # Service URLs
-    GIG_SERVICE_URL: str
-    BOOKING_SERVICE_URL: str
-    USER_SERVICE_URL: str
+    GIG_SERVICE_URL: str = os.environ.get("GIG_SERVICE_URL", "http://localhost:8002")
+    BOOKING_SERVICE_URL: str = os.environ.get("BOOKING_SERVICE_URL", "http://localhost:8003")
+    USER_SERVICE_URL: str = os.environ.get("USER_SERVICE_URL", "http://localhost:8006")
 
     # CORS settings
     CORS_ORIGINS: list[str] = ["*"]

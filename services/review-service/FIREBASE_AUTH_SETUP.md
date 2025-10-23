@@ -31,11 +31,13 @@ graph TB
 ### Option 1: Full Firebase Setup (Recommended for Production)
 
 1. **Create Firebase Project**:
+
    - Go to [Firebase Console](https://console.firebase.google.com/)
    - Create new project or use existing
    - Enable Authentication
 
 2. **Generate Service Account Key**:
+
    ```bash
    # Go to Firebase Console > Project Settings > Service Accounts
    # Click "Generate new private key"
@@ -43,6 +45,7 @@ graph TB
    ```
 
 3. **Place Service Account Key**:
+
    ```bash
    # Copy the downloaded JSON file to:
    /services/review-service/serviceAccountKey.json
@@ -62,6 +65,7 @@ graph TB
 ### Option 2: Development Mode (Current Setup)
 
 The service currently runs in **development mode** without Firebase:
+
 - ⚠️ **Warning**: Uses mock authentication for testing
 - 🔧 **Dev User**: `dev-user-123` with email `dev@example.com`
 - 🚫 **Not for Production**: Only for local development/testing
@@ -90,7 +94,7 @@ curl -X POST "http://localhost:8005/api/reviews/" \
   -H "Authorization: Bearer dev-token-123" \
   -H "Content-Type: application/json" \
   -d '{
-    "booking_id": "12345", 
+    "booking_id": "12345",
     "rating": 5,
     "comment": "Great service!"
   }'
@@ -101,32 +105,31 @@ curl -X POST "http://localhost:8005/api/reviews/" \
 ### JavaScript/React Example
 
 ```javascript
-import { auth } from './firebase-config';
-import { getIdToken } from 'firebase/auth';
+import { auth } from "./firebase-config";
+import { getIdToken } from "firebase/auth";
 
 async function createReview(reviewData) {
   try {
     // Get Firebase ID token
     const user = auth.currentUser;
-    if (!user) throw new Error('Not authenticated');
-    
+    if (!user) throw new Error("Not authenticated");
+
     const token = await getIdToken(user);
-    
+
     // Call review service
-    const response = await fetch('http://localhost:8005/api/reviews/', {
-      method: 'POST',
+    const response = await fetch("http://localhost:8005/api/reviews/", {
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify(reviewData)
+      body: JSON.stringify(reviewData),
     });
-    
-    if (!response.ok) throw new Error('Failed to create review');
+
+    if (!response.ok) throw new Error("Failed to create review");
     return await response.json();
-    
   } catch (error) {
-    console.error('Review creation failed:', error);
+    console.error("Review creation failed:", error);
     throw error;
   }
 }
@@ -135,18 +138,21 @@ async function createReview(reviewData) {
 ## Testing Authentication
 
 ### 1. Health Check (No Auth Required)
+
 ```bash
 curl http://localhost:8005/health
 # Expected: {"status":"healthy","service":"review-service"}
 ```
 
 ### 2. Protected Endpoint (Auth Required)
+
 ```bash
 curl -X GET "http://localhost:8005/api/reviews/buyer/my-reviews" \
   -H "Authorization: Bearer any-token-in-dev-mode"
 ```
 
 ### 3. API Documentation
+
 ```bash
 # Open in browser
 http://localhost:8005/docs
@@ -154,16 +160,16 @@ http://localhost:8005/docs
 
 ## Authentication Endpoints
 
-| Endpoint | Auth Required | Description |
-|----------|---------------|-------------|
-| `GET /health` | ❌ No | Health check |
-| `GET /docs` | ❌ No | API documentation |
-| `POST /api/reviews/` | ✅ Yes | Create review |
-| `PUT /api/reviews/{id}` | ✅ Yes | Update review |
-| `DELETE /api/reviews/{id}` | ✅ Yes | Delete review |
-| `GET /api/reviews/buyer/my-reviews` | ✅ Yes | Get user's reviews |
-| `POST /api/reviews/{id}/helpful` | ✅ Yes | Mark as helpful |
-| `GET /api/reviews/gig/{id}/reviews` | ❌ No | Public gig reviews |
+| Endpoint                            | Auth Required | Description        |
+| ----------------------------------- | ------------- | ------------------ |
+| `GET /health`                       | ❌ No         | Health check       |
+| `GET /docs`                         | ❌ No         | API documentation  |
+| `POST /api/reviews/`                | ✅ Yes        | Create review      |
+| `PUT /api/reviews/{id}`             | ✅ Yes        | Update review      |
+| `DELETE /api/reviews/{id}`          | ✅ Yes        | Delete review      |
+| `GET /api/reviews/buyer/my-reviews` | ✅ Yes        | Get user's reviews |
+| `POST /api/reviews/{id}/helpful`    | ✅ Yes        | Mark as helpful    |
+| `GET /api/reviews/gig/{id}/reviews` | ❌ No         | Public gig reviews |
 
 ## Environment Variables
 
@@ -171,18 +177,19 @@ http://localhost:8005/docs
 # Database
 DATABASE_URL=postgresql://review_user:review_pass_123@review-db:5432/review_service
 
-# Authentication  
+# Authentication
 INTERNAL_JWT_SECRET_KEY=your-secret-key
 
 # Service URLs
 BOOKING_SERVICE_URL=http://booking-service:8003
 GIG_SERVICE_URL=http://gig-service:8004
-USER_SERVICE_URL=http://user-service:8001
+USER_SERVICE_URL=http://user-service:8006
 ```
 
 ## Troubleshooting
 
 ### Firebase Token Issues
+
 ```bash
 # Check container logs
 docker logs review-service
@@ -194,11 +201,13 @@ docker logs review-service
 ```
 
 ### Authentication Errors
+
 - **401 Unauthorized**: Invalid or missing token
-- **403 Forbidden**: Valid token but insufficient permissions  
+- **403 Forbidden**: Valid token but insufficient permissions
 - **404 Not Found**: User not found (with real Firebase)
 
 ### Development Mode Indicators
+
 ```bash
 # Look for these log messages:
 # "⚠️ serviceAccountKey.json not found - Firebase authentication disabled"

@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 BOOKING_SERVICE_URL = os.getenv("BOOKING_SERVICE_URL", "http://booking-service:8003")
 GIG_SERVICE_URL = os.getenv("GIG_SERVICE_URL", "http://gig-service:8004")
-USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service:8001")
+USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service:8006")
 
 # Normalize service base URLs (avoid double slashes when joining paths)
 BOOKING_BASE = (BOOKING_SERVICE_URL or "").rstrip("/")
