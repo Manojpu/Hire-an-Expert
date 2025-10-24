@@ -3,12 +3,11 @@ FROM node:20-alpine as build
 # Set working directory
 WORKDIR /app
 
-# Copy package files and install dependencies
+# Copy package files only
 COPY package.json ./
-COPY package-lock.json* bun.lockb* ./
 
-# Install dependencies
-RUN npm i
+# Install dependencies (without lock files to avoid platform issues)
+RUN npm install --legacy-peer-deps
 
 # Copy all files
 COPY . .
