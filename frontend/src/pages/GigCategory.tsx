@@ -300,7 +300,7 @@ const Category = () => {
                               View Service
                             </Button>
                           </Link>
-                          <Link to={`/book/${gig.id}`}>
+                          <Link to={`/book/${gig.expert_id}`}>
                             <Button
                               variant="outline"
                               size="sm"

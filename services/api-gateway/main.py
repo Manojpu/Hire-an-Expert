@@ -244,6 +244,10 @@ async def proxy_conversations(request):
     path = request.path_params.get("path", "")
     return await proxy_request(request, services["message"], f"/api/conversations/{path}", auth_required=False)
 
+async def proxy_conversations_root(request):
+    """Handle POST /api/conversations (without additional path)"""
+    return await proxy_request(request, services["message"], "/api/conversations", auth_required=False)
+
 async def proxy_upload(request):
     """Proxy for file upload endpoints - message service"""
     path = request.path_params.get("path", "")
@@ -338,6 +342,7 @@ routes = [
     Route("/api/bookings/{path:path}", proxy_bookings, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/payments/{path:path}", proxy_payments, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/message/{path:path}", proxy_messages, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
+    Route("/api/conversations", proxy_conversations_root, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/conversations/{path:path}", proxy_conversations, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/upload/{path:path}", proxy_upload, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
     Route("/api/reviews/{path:path}", proxy_reviews, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]),
