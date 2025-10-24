@@ -108,7 +108,9 @@ const BookConsultation = () => {
         }
 
         // Try to fetch using API
-        const apiUrl = `http://localhost:8000/api/gigs/${gigId}`;
+        const apiUrl = `${
+          import.meta.env.VITE_API_GATEWAY_URL
+        }/api/gigs/${gigId}`;
         const response = await fetch(apiUrl);
 
         if (!response.ok) {
@@ -141,7 +143,9 @@ const BookConsultation = () => {
 
       try {
         const response = await fetch(
-          `http://localhost:8000/api/users/${expertId}/availability-rules`
+          `${
+            import.meta.env.VITE_API_GATEWAY_URL
+          }/api/users/${expertId}/availability-rules`
         );
         if (!response.ok) {
           throw new Error(
@@ -385,14 +389,17 @@ const BookConsultation = () => {
         }
 
         // Submit booking to API
-        const response = await fetch("http://localhost:8000/api/bookings/", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${idToken}`,
-          },
-          body: JSON.stringify(bookingPayload),
-        });
+        const response = await fetch(
+          `${import.meta.env.VITE_API_GATEWAY_URL}/api/bookings/`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify(bookingPayload),
+          }
+        );
 
         if (!response.ok) {
           const errorData = await response.json();
