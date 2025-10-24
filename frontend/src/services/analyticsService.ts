@@ -3,22 +3,23 @@
  * Fetches system-wide analytics data for admin dashboard
  */
 
-import { auth } from '@/firebase/firebase';
-import { getIdToken } from 'firebase/auth';
+import { auth } from "@/firebase/firebase";
+import { getIdToken } from "firebase/auth";
 
-const API_GATEWAY_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8000';
-const ADMIN_SERVICE_URL = import.meta.env.VITE_ADMIN_SERVICE_URL || 'http://localhost:8009';
+const API_GATEWAY_URL =
+  import.meta.env.VITE_API_GATEWAY_URL || "http://localhost:8000";
+const ADMIN_SERVICE_URL = API_GATEWAY_URL;
 
 export interface AnalyticsFilters {
   startDate?: string;
   endDate?: string;
-  period?: 'day' | 'week' | 'month' | 'year';
+  period?: "day" | "week" | "month" | "year";
 }
 
 export interface DailyUserCount {
   date: string;
   count: number;
-  type?: 'users' | 'experts';
+  type?: "users" | "experts";
 }
 
 export interface DailyGigCount {
@@ -46,13 +47,13 @@ export interface SystemStats {
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const user = auth.currentUser;
   if (!user) {
-    throw new Error('User not authenticated');
+    throw new Error("User not authenticated");
   }
-  
+
   const token = await getIdToken(user);
   return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`,
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
   };
 }
 
@@ -61,24 +62,24 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
  */
 function getDateRange(period: string): { startDate: string; endDate: string } {
   const now = new Date();
-  const endDate = now.toISOString().split('T')[0];
+  const endDate = now.toISOString().split("T")[0];
   let startDate: string;
 
   switch (period) {
-    case 'week':
+    case "week":
       const weekAgo = new Date(now);
       weekAgo.setDate(weekAgo.getDate() - 7);
-      startDate = weekAgo.toISOString().split('T')[0];
+      startDate = weekAgo.toISOString().split("T")[0];
       break;
-    case 'month':
+    case "month":
       const monthAgo = new Date(now);
       monthAgo.setMonth(monthAgo.getMonth() - 1);
-      startDate = monthAgo.toISOString().split('T')[0];
+      startDate = monthAgo.toISOString().split("T")[0];
       break;
-    case 'year':
+    case "year":
       const yearAgo = new Date(now);
       yearAgo.setFullYear(yearAgo.getFullYear() - 1);
-      startDate = yearAgo.toISOString().split('T')[0];
+      startDate = yearAgo.toISOString().split("T")[0];
       break;
     default:
       startDate = endDate;
@@ -93,14 +94,14 @@ function getDateRange(period: string): { startDate: string; endDate: string } {
 async function fetchSystemStats(): Promise<SystemStats> {
   try {
     const headers = await getAuthHeaders();
-    
+
     // Fetch stats from admin service
     const response = await fetch(`${ADMIN_SERVICE_URL}/admin/stats`, {
-      headers
+      headers,
     });
 
     if (!response.ok) {
-      console.error('Failed to fetch system stats:', response.status);
+      console.error("Failed to fetch system stats:", response.status);
       return {
         totalUsers: 0,
         totalExperts: 0,
@@ -111,7 +112,7 @@ async function fetchSystemStats(): Promise<SystemStats> {
 
     return await response.json();
   } catch (error) {
-    console.error('Error fetching system stats:', error);
+    console.error("Error fetching system stats:", error);
     return {
       totalUsers: 0,
       totalExperts: 0,
@@ -124,14 +125,16 @@ async function fetchSystemStats(): Promise<SystemStats> {
 /**
  * Fetch user growth analytics
  */
-async function fetchUserAnalytics(filters: AnalyticsFilters): Promise<DailyUserCount[]> {
+async function fetchUserAnalytics(
+  filters: AnalyticsFilters
+): Promise<DailyUserCount[]> {
   try {
     const headers = await getAuthHeaders();
     const params = new URLSearchParams();
-    
-    if (filters.startDate) params.append('start_date', filters.startDate);
-    if (filters.endDate) params.append('end_date', filters.endDate);
-    if (filters.period) params.append('period', filters.period);
+
+    if (filters.startDate) params.append("start_date", filters.startDate);
+    if (filters.endDate) params.append("end_date", filters.endDate);
+    if (filters.period) params.append("period", filters.period);
 
     const response = await fetch(
       `${ADMIN_SERVICE_URL}/admin/analytics/users?${params.toString()}`,
@@ -139,13 +142,13 @@ async function fetchUserAnalytics(filters: AnalyticsFilters): Promise<DailyUserC
     );
 
     if (!response.ok) {
-      console.error('Failed to fetch user analytics:', response.status);
+      console.error("Failed to fetch user analytics:", response.status);
       return [];
     }
 
     return await response.json();
   } catch (error) {
-    console.error('Error fetching user analytics:', error);
+    console.error("Error fetching user analytics:", error);
     return [];
   }
 }
@@ -153,14 +156,16 @@ async function fetchUserAnalytics(filters: AnalyticsFilters): Promise<DailyUserC
 /**
  * Fetch expert growth analytics
  */
-async function fetchExpertAnalytics(filters: AnalyticsFilters): Promise<DailyUserCount[]> {
+async function fetchExpertAnalytics(
+  filters: AnalyticsFilters
+): Promise<DailyUserCount[]> {
   try {
     const headers = await getAuthHeaders();
     const params = new URLSearchParams();
-    
-    if (filters.startDate) params.append('start_date', filters.startDate);
-    if (filters.endDate) params.append('end_date', filters.endDate);
-    if (filters.period) params.append('period', filters.period);
+
+    if (filters.startDate) params.append("start_date", filters.startDate);
+    if (filters.endDate) params.append("end_date", filters.endDate);
+    if (filters.period) params.append("period", filters.period);
 
     const response = await fetch(
       `${ADMIN_SERVICE_URL}/admin/analytics/experts?${params.toString()}`,
@@ -168,13 +173,13 @@ async function fetchExpertAnalytics(filters: AnalyticsFilters): Promise<DailyUse
     );
 
     if (!response.ok) {
-      console.error('Failed to fetch expert analytics:', response.status);
+      console.error("Failed to fetch expert analytics:", response.status);
       return [];
     }
 
     return await response.json();
   } catch (error) {
-    console.error('Error fetching expert analytics:', error);
+    console.error("Error fetching expert analytics:", error);
     return [];
   }
 }
@@ -182,14 +187,16 @@ async function fetchExpertAnalytics(filters: AnalyticsFilters): Promise<DailyUse
 /**
  * Fetch gig creation analytics
  */
-async function fetchGigAnalytics(filters: AnalyticsFilters): Promise<DailyGigCount[]> {
+async function fetchGigAnalytics(
+  filters: AnalyticsFilters
+): Promise<DailyGigCount[]> {
   try {
     const headers = await getAuthHeaders();
     const params = new URLSearchParams();
-    
-    if (filters.startDate) params.append('start_date', filters.startDate);
-    if (filters.endDate) params.append('end_date', filters.endDate);
-    if (filters.period) params.append('period', filters.period);
+
+    if (filters.startDate) params.append("start_date", filters.startDate);
+    if (filters.endDate) params.append("end_date", filters.endDate);
+    if (filters.period) params.append("period", filters.period);
 
     const response = await fetch(
       `${ADMIN_SERVICE_URL}/admin/analytics/gigs?${params.toString()}`,
@@ -197,13 +204,13 @@ async function fetchGigAnalytics(filters: AnalyticsFilters): Promise<DailyGigCou
     );
 
     if (!response.ok) {
-      console.error('Failed to fetch gig analytics:', response.status);
+      console.error("Failed to fetch gig analytics:", response.status);
       return [];
     }
 
     return await response.json();
   } catch (error) {
-    console.error('Error fetching gig analytics:', error);
+    console.error("Error fetching gig analytics:", error);
     return [];
   }
 }
@@ -211,14 +218,16 @@ async function fetchGigAnalytics(filters: AnalyticsFilters): Promise<DailyGigCou
 /**
  * Fetch booking analytics
  */
-async function fetchBookingAnalytics(filters: AnalyticsFilters): Promise<DailyBookingCount[]> {
+async function fetchBookingAnalytics(
+  filters: AnalyticsFilters
+): Promise<DailyBookingCount[]> {
   try {
     const headers = await getAuthHeaders();
     const params = new URLSearchParams();
-    
-    if (filters.startDate) params.append('start_date', filters.startDate);
-    if (filters.endDate) params.append('end_date', filters.endDate);
-    if (filters.period) params.append('period', filters.period);
+
+    if (filters.startDate) params.append("start_date", filters.startDate);
+    if (filters.endDate) params.append("end_date", filters.endDate);
+    if (filters.period) params.append("period", filters.period);
 
     const response = await fetch(
       `${ADMIN_SERVICE_URL}/admin/analytics/bookings?${params.toString()}`,
@@ -226,13 +235,13 @@ async function fetchBookingAnalytics(filters: AnalyticsFilters): Promise<DailyBo
     );
 
     if (!response.ok) {
-      console.error('Failed to fetch booking analytics:', response.status);
+      console.error("Failed to fetch booking analytics:", response.status);
       return [];
     }
 
     return await response.json();
   } catch (error) {
-    console.error('Error fetching booking analytics:', error);
+    console.error("Error fetching booking analytics:", error);
     return [];
   }
 }
