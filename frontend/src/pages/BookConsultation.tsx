@@ -108,7 +108,7 @@ const BookConsultation = () => {
         }
 
         // Try to fetch using API
-        const apiUrl = `http://localhost:8002/gigs/${gigId}`;
+        const apiUrl = `http://localhost:8000/api/gigs/${gigId}`;
         const response = await fetch(apiUrl);
 
         if (!response.ok) {
@@ -141,7 +141,7 @@ const BookConsultation = () => {
 
       try {
         const response = await fetch(
-          `http://localhost:8006/users/${expertId}/availability-rules`
+          `http://localhost:8000/api/users/${expertId}/availability-rules`
         );
         if (!response.ok) {
           throw new Error(
@@ -169,7 +169,7 @@ const BookConsultation = () => {
     try {
       const formattedDate = format(date, "yyyy-MM-dd");
       const response = await fetch(
-        `http://localhost:8003/bookings/gigs/${gigId}/available-slots?date=${formattedDate}`,
+        `http://localhost:8000/api/bookings/gigs/${gigId}/available-slots?date=${formattedDate}`,
         {
           headers: {
             Authorization: `Bearer ${await user?.getIdToken()}`,
@@ -383,7 +383,7 @@ const BookConsultation = () => {
         }
 
         // Submit booking to API
-        const response = await fetch("http://localhost:8003/bookings/", {
+        const response = await fetch("http://localhost:8000/api/bookings/", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

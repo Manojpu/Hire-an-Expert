@@ -63,8 +63,8 @@ class Config:
 
 config = Config()
 
-# HTTP client for proxy requests
-client = httpx.AsyncClient(timeout=config.REQUEST_TIMEOUT)
+# HTTP client for proxy requests - follow redirects automatically
+client = httpx.AsyncClient(timeout=config.REQUEST_TIMEOUT, follow_redirects=True)
 
 # Service mapping
 services = {
@@ -135,6 +135,9 @@ async def proxy_request(request: Request, service_url: str, target_path: str, au
     url = f"{service_url.rstrip('/')}{target_path}"
     if request.query_params:
         url += f"?{request.query_params}"
+    
+    # Log routing details
+    logger.info(f"🔀 PROXY: {request.method} {request.url.path} → {url}")
     
     # Prepare headers
     headers = {}
@@ -225,6 +228,7 @@ async def proxy_bookings(request):
 
 async def proxy_categories(request):
     path = request.path_params.get("path", "")
+    # Forward to gig service with /categories prefix
     return await proxy_request(request, services["gig"], f"/categories/{path}", auth_required=False)
 
 async def proxy_payments(request):
@@ -306,13 +310,13 @@ class LoggingMiddleware:
         if scope["type"] == "http":
             start_time = time.time()
             request = Request(scope, receive)
-            logger.info(f"{request.method} {request.url.path}")
+            logger.info(f"📥 INCOMING: {request.method} {request.url.path}")
             
             async def log_response(message):
                 if message["type"] == "http.response.start":
                     process_time = time.time() - start_time
                     status_code = message["status"]
-                    logger.info(f"Completed {request.method} {request.url.path} - {status_code} - {process_time:.3f}s")
+                    logger.info(f"📤 RESPONSE: {request.method} {request.url.path} - {status_code} - {process_time:.3f}s")
                 await send(message)
             
             await self.app(scope, receive, log_response)

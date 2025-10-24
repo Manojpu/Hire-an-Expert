@@ -127,7 +127,7 @@ const GigView = () => {
           try {
             console.log("Fetching expert profile for:", gigData.expert_id);
             const expertResponse = await fetch(
-              `http://localhost:8000/api/user_v2/users/firebase/${gigData.expert_id}`
+              `http://localhost:8000/api/user/users/firebase/${gigData.expert_id}`
             );
             if (expertResponse.ok) {
               const expertData = await expertResponse.json();

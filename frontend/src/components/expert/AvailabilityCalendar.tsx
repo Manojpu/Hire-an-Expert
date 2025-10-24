@@ -41,6 +41,7 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
 
   // Function to submit availability rules to the API
   const submitRulesToAPI = async (rules: AvailabilityRule[]) => {
+    console.log(`user: ${user}`);
     if (!user || !submitImmediately) return;
 
     setError(null);

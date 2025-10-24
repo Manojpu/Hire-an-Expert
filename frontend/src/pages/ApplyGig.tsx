@@ -36,7 +36,9 @@ const ApplyGig: React.FC = () => {
       setCatError(null);
       try {
         // Use correct backend port for gig-service (likely 8002 or as per your docker-compose)
-        const res = await fetch("http://localhost:8002/categories/categories/");
+        const res = await fetch(
+          "http://localhost:8000/api/categories/categories/"
+        );
         if (!res.ok) throw new Error("Failed to fetch categories");
         const data = await res.json();
         setCategories(data);
