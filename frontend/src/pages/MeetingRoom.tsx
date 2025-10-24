@@ -1,21 +1,30 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import AgoraRTC, { IAgoraRTCClient, ICameraVideoTrack, IMicrophoneAudioTrack } from 'agora-rtc-sdk-ng';
-import { Button } from '@/components/ui/button';
-import { Video, VideoOff, Mic, MicOff, PhoneOff } from 'lucide-react';
-import axios from 'axios';
+import React, { useEffect, useRef, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import AgoraRTC, {
+  IAgoraRTCClient,
+  ICameraVideoTrack,
+  IMicrophoneAudioTrack,
+} from "agora-rtc-sdk-ng";
+import { Button } from "@/components/ui/button";
+import { Video, VideoOff, Mic, MicOff, PhoneOff } from "lucide-react";
+import axios from "axios";
 
-const client: IAgoraRTCClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+const client: IAgoraRTCClient = AgoraRTC.createClient({
+  mode: "rtc",
+  codec: "vp8",
+});
 
 const MeetingRoom: React.FC = () => {
   const { bookingId } = useParams<{ bookingId: string }>();
   const navigate = useNavigate();
-  
+
   const localVideoRef = useRef<HTMLDivElement>(null);
   const remoteVideoRef = useRef<HTMLDivElement>(null);
-  
-  const [localAudioTrack, setLocalAudioTrack] = useState<IMicrophoneAudioTrack | null>(null);
-  const [localVideoTrack, setLocalVideoTrack] = useState<ICameraVideoTrack | null>(null);
+
+  const [localAudioTrack, setLocalAudioTrack] =
+    useState<IMicrophoneAudioTrack | null>(null);
+  const [localVideoTrack, setLocalVideoTrack] =
+    useState<ICameraVideoTrack | null>(null);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isJoined, setIsJoined] = useState(false);
@@ -27,16 +36,19 @@ const MeetingRoom: React.FC = () => {
       try {
         // Get booking details to retrieve channel name
         const bookingResponse = await axios.get(
-          `http://localhost:8003/bookings/${bookingId}`
+          `${import.meta.env.VITE_API_GATEWAY_URL}/bookings/${bookingId}`
         );
-        
-        const channelName = bookingResponse.data.meeting_link || `booking-${bookingId}`;
-        
+
+        const channelName =
+          bookingResponse.data.meeting_link || `booking-${bookingId}`;
+
         // Get Agora token from meeting service
         const tokenResponse = await axios.get(
-          `http://localhost:8007/api/agora/token?channel_name=${channelName}`
+          `${
+            import.meta.env.VITE_API_GATEWAY_URL
+          }/api/agora/token?channel_name=${channelName}`
         );
-        
+
         const { token, appId, uid } = tokenResponse.data;
 
         // Join Agora channel
@@ -44,7 +56,8 @@ const MeetingRoom: React.FC = () => {
         setIsJoined(true);
 
         // Create local tracks
-        const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+        const [audioTrack, videoTrack] =
+          await AgoraRTC.createMicrophoneAndCameraTracks();
         setLocalAudioTrack(audioTrack);
         setLocalVideoTrack(videoTrack);
 
@@ -57,37 +70,38 @@ const MeetingRoom: React.FC = () => {
         await client.publish([audioTrack, videoTrack]);
 
         // Handle remote users
-        client.on('user-published', async (user, mediaType) => {
+        client.on("user-published", async (user, mediaType) => {
           await client.subscribe(user, mediaType);
-          
-          if (mediaType === 'video') {
+
+          if (mediaType === "video") {
             const remoteVideoTrack = user.videoTrack;
             if (remoteVideoTrack && remoteVideoRef.current) {
               remoteVideoTrack.play(remoteVideoRef.current);
             }
           }
-          
-          if (mediaType === 'audio') {
+
+          if (mediaType === "audio") {
             const remoteAudioTrack = user.audioTrack;
             remoteAudioTrack?.play();
           }
-          
-          setRemoteUsers(prev => prev + 1);
+
+          setRemoteUsers((prev) => prev + 1);
         });
 
-        client.on('user-unpublished', (user, mediaType) => {
-          if (mediaType === 'video') {
-            setRemoteUsers(prev => prev - 1);
+        client.on("user-unpublished", (user, mediaType) => {
+          if (mediaType === "video") {
+            setRemoteUsers((prev) => prev - 1);
           }
         });
 
-        client.on('user-left', () => {
-          setRemoteUsers(prev => Math.max(0, prev - 1));
+        client.on("user-left", () => {
+          setRemoteUsers((prev) => Math.max(0, prev - 1));
         });
-
       } catch (err) {
-        console.error('Failed to join call:', err);
-        setError(err instanceof Error ? err.message : 'Failed to join the meeting');
+        console.error("Failed to join call:", err);
+        setError(
+          err instanceof Error ? err.message : "Failed to join the meeting"
+        );
       }
     };
 
@@ -126,7 +140,7 @@ const MeetingRoom: React.FC = () => {
     localAudioTrack?.close();
     localVideoTrack?.close();
     await client.leave();
-    navigate('/my-bookings');
+    navigate("/my-bookings");
   };
 
   if (error) {
@@ -135,7 +149,7 @@ const MeetingRoom: React.FC = () => {
         <div className="bg-white p-8 rounded-lg shadow-lg max-w-md">
           <h2 className="text-xl font-bold text-red-600 mb-4">Meeting Error</h2>
           <p className="text-gray-700 mb-6">{error}</p>
-          <Button onClick={() => navigate('/my-bookings')}>
+          <Button onClick={() => navigate("/my-bookings")}>
             Return to Bookings
           </Button>
         </div>
@@ -150,7 +164,9 @@ const MeetingRoom: React.FC = () => {
         <div className="container mx-auto flex justify-between items-center">
           <h1 className="text-xl font-semibold">Video Consultation</h1>
           <div className="text-sm text-gray-300">
-            {remoteUsers > 0 ? `${remoteUsers} participant(s)` : 'Waiting for others...'}
+            {remoteUsers > 0
+              ? `${remoteUsers} participant(s)`
+              : "Waiting for others..."}
           </div>
         </div>
       </div>
@@ -188,7 +204,7 @@ const MeetingRoom: React.FC = () => {
             )}
           </div>
           <div className="absolute bottom-4 left-4 bg-black bg-opacity-50 px-3 py-1 rounded text-white text-sm">
-            You {!isAudioEnabled && '(Muted)'}
+            You {!isAudioEnabled && "(Muted)"}
           </div>
         </div>
       </div>
@@ -198,22 +214,30 @@ const MeetingRoom: React.FC = () => {
         <div className="container mx-auto flex justify-center gap-4">
           <Button
             onClick={toggleAudio}
-            variant={isAudioEnabled ? 'default' : 'destructive'}
+            variant={isAudioEnabled ? "default" : "destructive"}
             size="lg"
             className="rounded-full w-14 h-14"
           >
-            {isAudioEnabled ? <Mic className="h-6 w-6" /> : <MicOff className="h-6 w-6" />}
+            {isAudioEnabled ? (
+              <Mic className="h-6 w-6" />
+            ) : (
+              <MicOff className="h-6 w-6" />
+            )}
           </Button>
-          
+
           <Button
             onClick={toggleVideo}
-            variant={isVideoEnabled ? 'default' : 'destructive'}
+            variant={isVideoEnabled ? "default" : "destructive"}
             size="lg"
             className="rounded-full w-14 h-14"
           >
-            {isVideoEnabled ? <Video className="h-6 w-6" /> : <VideoOff className="h-6 w-6" />}
+            {isVideoEnabled ? (
+              <Video className="h-6 w-6" />
+            ) : (
+              <VideoOff className="h-6 w-6" />
+            )}
           </Button>
-          
+
           <Button
             onClick={endCall}
             variant="destructive"

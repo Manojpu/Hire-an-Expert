@@ -109,7 +109,7 @@ const GigView = () => {
         }
 
         // Fallback to direct API call if mock data doesn't have this gig
-        const apiUrl = "http://localhost:8002/gigs/" + id;
+        const apiUrl = `${import.meta.env.VITE_API_GATEWAY_URL}/gigs/${id}`;
         console.log("Trying direct API call to:", apiUrl);
         const response = await fetch(apiUrl);
 

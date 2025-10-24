@@ -105,7 +105,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ channelName }) => {
         const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
         clientRef.current = client;
 
-        const res = await fetch(`http://localhost:8007/api/agora/token?channel_name=${channelName}`);
+        const res = await fetch(
+          `${
+            import.meta.env.VITE_API_GATEWAY_URL
+          }/api/agora/token?channel_name=${channelName}`
+        );
         const data = await res.json();
 
         console.log("🚀 Starting Agora call with channel:", channelName);
@@ -116,13 +120,15 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ channelName }) => {
           try {
             await client.subscribe(user, mediaType);
             console.log("✅ Subscribed to user:", user.uid, mediaType);
-            
+
             if (mediaType === "video" && user.videoTrack) {
               const playerElement = remoteVideoRef.current;
               if (playerElement) {
                 user.videoTrack.play(playerElement);
                 console.log("🎥 Playing remote video for user:", user.uid);
-                setRemoteUserCount(client.remoteUsers.filter(u => u.hasVideo).length);
+                setRemoteUserCount(
+                  client.remoteUsers.filter((u) => u.hasVideo).length
+                );
               }
             }
             if (mediaType === "audio" && user.audioTrack) {
@@ -137,7 +143,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ channelName }) => {
         client.on("user-unpublished", (user, mediaType) => {
           console.log("👋 User unpublished:", user.uid, mediaType);
           if (mediaType === "video") {
-            setRemoteUserCount(client.remoteUsers.filter(u => u.hasVideo).length);
+            setRemoteUserCount(
+              client.remoteUsers.filter((u) => u.hasVideo).length
+            );
           }
         });
 
@@ -150,7 +158,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ channelName }) => {
           console.log("👋 User left channel:", user.uid);
           setRemoteUserCount(client.remoteUsers.length);
           if (client.remoteUsers.length === 0 && remoteVideoRef.current) {
-            remoteVideoRef.current.innerHTML = "<p class='text-gray-500'>Waiting for others...</p>";
+            remoteVideoRef.current.innerHTML =
+              "<p class='text-gray-500'>Waiting for others...</p>";
           }
         });
 
@@ -163,34 +172,47 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ channelName }) => {
         const subscribeToRemoteUsers = async () => {
           const existingUsers = client.remoteUsers;
           console.log("👥 Checking remote users:", existingUsers.length);
-          
+
           for (const remoteUser of existingUsers) {
-            console.log("🔍 User UID:", remoteUser.uid, "hasVideo:", remoteUser.hasVideo, "hasAudio:", remoteUser.hasAudio);
-            
+            console.log(
+              "🔍 User UID:",
+              remoteUser.uid,
+              "hasVideo:",
+              remoteUser.hasVideo,
+              "hasAudio:",
+              remoteUser.hasAudio
+            );
+
             // Subscribe to already-published video
             if (remoteUser.hasVideo && remoteUser.videoTrack) {
               try {
                 await client.subscribe(remoteUser, "video");
                 remoteUser.videoTrack.play(remoteVideoRef.current!);
-                console.log("✅ Subscribed to already-published video from user:", remoteUser.uid);
+                console.log(
+                  "✅ Subscribed to already-published video from user:",
+                  remoteUser.uid
+                );
               } catch (error) {
                 console.error("❌ Error subscribing to existing video:", error);
               }
             }
-            
+
             // Subscribe to already-published audio
             if (remoteUser.hasAudio && remoteUser.audioTrack) {
               try {
                 await client.subscribe(remoteUser, "audio");
                 remoteUser.audioTrack.play();
-                console.log("✅ Subscribed to already-published audio from user:", remoteUser.uid);
+                console.log(
+                  "✅ Subscribed to already-published audio from user:",
+                  remoteUser.uid
+                );
               } catch (error) {
                 console.error("❌ Error subscribing to existing audio:", error);
               }
             }
           }
-          
-          setRemoteUserCount(existingUsers.filter(u => u.hasVideo).length);
+
+          setRemoteUserCount(existingUsers.filter((u) => u.hasVideo).length);
         };
 
         // Initial check immediately after join
@@ -203,7 +225,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ channelName }) => {
           recheckCount++;
           console.log(`🔄 Periodic recheck ${recheckCount}/${maxRechecks}`);
           await subscribeToRemoteUsers();
-          
+
           if (recheckCount >= maxRechecks) {
             clearInterval(recheckInterval!);
             console.log("⏹️ Periodic recheck completed");
@@ -211,15 +233,15 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ channelName }) => {
         }, 5000);
 
         // 4️⃣ Create and publish local tracks
-        [localAudioTrack, localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+        [localAudioTrack, localVideoTrack] =
+          await AgoraRTC.createMicrophoneAndCameraTracks();
         if (localVideoRef.current) {
           localVideoTrack.play(localVideoRef.current);
           console.log("🎥 Local video playing");
         }
-        
+
         await client.publish([localAudioTrack, localVideoTrack]);
         console.log("� Local tracks published");
-
       } catch (err) {
         console.error("❌ Agora join error:", err);
       }
@@ -230,13 +252,13 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ channelName }) => {
     // Cleanup
     return () => {
       console.log("🧹 Cleaning up Agora resources");
-      
+
       // Clear the periodic recheck interval
       if (recheckInterval) {
         clearInterval(recheckInterval);
         console.log("⏹️ Cleared periodic recheck interval");
       }
-      
+
       localAudioTrack?.close();
       localVideoTrack?.close();
       const client = clientRef.current;
@@ -265,7 +287,9 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({ channelName }) => {
           </div>
         </div>
         <div className="flex-1">
-          <div className="text-sm font-medium mb-2">Remote Video ({remoteUserCount} participant(s))</div>
+          <div className="text-sm font-medium mb-2">
+            Remote Video ({remoteUserCount} participant(s))
+          </div>
           <div
             ref={remoteVideoRef}
             className="w-full h-64 bg-gray-200 rounded-lg flex items-center justify-center"

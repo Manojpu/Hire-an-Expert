@@ -169,7 +169,9 @@ const BookConsultation = () => {
     try {
       const formattedDate = format(date, "yyyy-MM-dd");
       const response = await fetch(
-        `http://localhost:8000/api/bookings/gigs/${gigId}/available-slots?date=${formattedDate}`,
+        `${
+          import.meta.env.VITE_API_GATEWAY_URL
+        }/api/bookings/gigs/${gigId}/available-slots?date=${formattedDate}`,
         {
           headers: {
             Authorization: `Bearer ${await user?.getIdToken()}`,

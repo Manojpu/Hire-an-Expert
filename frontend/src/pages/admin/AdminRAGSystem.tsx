@@ -18,10 +18,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import axios from "axios";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 // API Configuration
-const RAG_API_BASE = "http://localhost:8000/api/rag";
+const RAG_API_BASE = `${import.meta.env.VITE_API_GATEWAY_URL}/api/rag`;
 
 interface Document {
   _id: string;

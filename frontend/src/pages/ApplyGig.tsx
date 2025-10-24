@@ -37,7 +37,7 @@ const ApplyGig: React.FC = () => {
       try {
         // Use correct backend port for gig-service (likely 8002 or as per your docker-compose)
         const res = await fetch(
-          "http://localhost:8000/api/categories/categories/"
+          `${import.meta.env.VITE_API_GATEWAY_URL}/api/categories/categories/`
         );
         if (!res.ok) throw new Error("Failed to fetch categories");
         const data = await res.json();
