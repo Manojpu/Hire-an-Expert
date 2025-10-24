@@ -39,6 +39,7 @@ class Config:
     FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
     # Additional CORS origins for development
     CORS_ORIGINS = [
+        "https://theadwise.me",
         "http://localhost:3000",
         "http://localhost:5173",  # Vite default
         "http://localhost:4173",  # Vite preview
