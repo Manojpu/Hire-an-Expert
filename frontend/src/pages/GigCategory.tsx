@@ -16,8 +16,11 @@ const GigRatingBadge: React.FC<{ gigId: string }> = ({ gigId }) => {
   const [rating, setRating] = useState({ average: 0, count: 0 });
 
   useEffect(() => {
-    reviewAnalyticsService.fetchGigRatingAnalytics(gigId)
-      .then(data => setRating({ average: data.average_rating, count: data.total_reviews }))
+    reviewAnalyticsService
+      .fetchGigRatingAnalytics(gigId)
+      .then((data) =>
+        setRating({ average: data.average_rating, count: data.total_reviews })
+      )
       .catch(() => setRating({ average: 0, count: 0 }));
   }, [gigId]);
 
@@ -34,9 +37,13 @@ const GigRatingBadge: React.FC<{ gigId: string }> = ({ gigId }) => {
     <div className="flex flex-col items-end gap-0.5">
       <div className="flex items-center gap-1">
         <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
-        <span className="text-lg font-bold text-foreground">{rating.average.toFixed(1)}</span>
+        <span className="text-lg font-bold text-foreground">
+          {rating.average.toFixed(1)}
+        </span>
       </div>
-      <span className="text-xs text-muted-foreground">{rating.count} review{rating.count !== 1 ? 's' : ''}</span>
+      <span className="text-xs text-muted-foreground">
+        {rating.count} review{rating.count !== 1 ? "s" : ""}
+      </span>
     </div>
   );
 };
@@ -276,7 +283,7 @@ const Category = () => {
                               {gig.currency} {gig.hourly_rate?.toLocaleString()}
                             </p>
                           </div>
-                          
+
                           {/* Rating Badge - Bottom Right */}
                           <div className="flex flex-col items-end">
                             <GigRatingBadge gigId={gig.id} />
