@@ -191,7 +191,8 @@ async def proxy_auth(request):
 
 async def proxy_user_v2(request):
     path = request.path_params.get("path", "")
-    return await proxy_request(request, services["user_v2"], f"/{path}")
+    # Public endpoints don't require authentication
+    return await proxy_request(request, services["user_v2"], f"/{path}", auth_required=False)
 
 async def proxy_users_legacy(request):
     """Legacy /users route - redirects to user-v2 service"""

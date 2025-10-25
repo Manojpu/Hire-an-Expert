@@ -83,7 +83,6 @@ const GigView = () => {
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsTotal, setReviewsTotal] = useState(0);
   const [contactingExpert, setContactingExpert] = useState(false);
-  const [expertProfile, setExpertProfile] = useState<any>(null);
 
   useEffect(() => {
     const fetchGig = async () => {
@@ -96,50 +95,13 @@ const GigView = () => {
 
         console.log("Fetching gig with ID:", id);
 
-        // Try to fetch using mock data first
-        try {
-          const response = await getGigById(id);
-          console.log("Received gig data:", response);
-          setGig(response);
-          setError("");
-          return;
-        } catch (mockErr) {
-          console.log("Mock data not found, trying API call");
-          // If mock data fails, we'll try a direct API call as fallback
-        }
-
-        // Fallback to direct API call if mock data doesn't have this gig
-        const apiUrl = `${import.meta.env.VITE_API_GATEWAY_URL}/gigs/${id}`;
-        console.log("Trying direct API call to:", apiUrl);
-        const response = await fetch(apiUrl);
-
-        if (!response.ok) {
-          throw new Error(`API returned status ${response.status}`);
-        }
-
-        const gigData = await response.json();
-        console.log("API returned gig data:", gigData);
+        // Fetch gig through the gigService which uses API Gateway
+        const gigData = await getGigById(id);
+        console.log("✅ Received gig data:", gigData);
         setGig(gigData);
         setError("");
-
-        // Fetch expert profile if expert_id is available
-        if (gigData.expert_id) {
-          try {
-            console.log("Fetching expert profile for:", gigData.expert_id);
-            const expertResponse = await fetch(
-              `${
-                import.meta.env.VITE_API_GATEWAY_URL
-              }/api/user/users/firebase/${gigData.expert_id}`
-            );
-            if (expertResponse.ok) {
-              const expertData = await expertResponse.json();
-              console.log("Expert profile data:", expertData);
-              setExpertProfile(expertData);
-            }
-          } catch (expertErr) {
-            console.warn("Could not fetch expert profile:", expertErr);
-          }
-        }
+        
+        // Expert data will be fetched by the separate useEffect below
       } catch (err) {
         console.error("Error fetching gig:", err);
         setError("Failed to load service details. Please try again later.");
@@ -163,9 +125,10 @@ const GigView = () => {
 
       try {
         setExpertLoading(true);
-        console.log("Fetching expert data for Firebase UID:", gig.expert_id);
+        console.log("Fetching expert data for user ID:", gig.expert_id);
 
-        const expertData = await userServiceAPI.getUserByFirebaseUid(
+        // expert_id is the user database ID, not Firebase UID
+        const expertData = await userServiceAPI.getUserById(
           gig.expert_id
         );
         console.log("Expert data loaded:", expertData);
@@ -234,42 +197,43 @@ const GigView = () => {
       return;
     }
 
-    // Check if gig has expert_id
-    if (!gig?.expert_id) {
-      alert("Expert information not available");
+    // Check if expert data is loaded
+    if (!expert) {
+      alert("Expert information is still loading. Please wait...");
       return;
     }
 
     // Check if user is trying to contact themselves
-    if (user.uid === gig.expert_id) {
+    if (user.uid === expert.firebase_uid) {
       alert("You cannot contact yourself");
       return;
     }
 
     try {
       setContactingExpert(true);
-      console.log(`💬 Initiating conversation with expert: ${gig.expert_id}`);
+      console.log(`💬 Initiating conversation with expert: ${expert.firebase_uid}`);
+      console.log(`Current user: ${user.uid}`);
 
-      // Create or get existing conversation
+      // Create or get existing conversation using Firebase UIDs
       const conversation = await messageService.getOrCreateConversation(
-        user.uid, // current user (sender)
-        gig.expert_id // expert (receiver)
+        user.uid, // current user's Firebase UID (sender)
+        expert.firebase_uid // expert's Firebase UID (receiver)
       );
 
       console.log(`✅ Conversation ready: ${conversation.id}`);
 
-      // Get expert name from profile or gig title
+      // Get expert name from expert data
       const expertName =
-        expertProfile?.name ||
-        expertProfile?.email?.split("@")[0] ||
-        gig.title ||
+        expert.name ||
+        expert.email?.split("@")[0] ||
+        gig?.title ||
         "Expert";
 
       // Navigate to messages page with the conversation ID as state
       navigate("/messages", {
         state: {
           conversationId: conversation.id,
-          expertId: gig.expert_id,
+          expertId: expert.firebase_uid, // Use Firebase UID for messaging
           expertName: expertName,
         },
         replace: true, // Use replace to prevent back button issues
@@ -650,12 +614,17 @@ const GigView = () => {
                   className="w-full"
                   size="lg"
                   onClick={handleContactExpert}
-                  disabled={contactingExpert || !user}
+                  disabled={contactingExpert || !user || expertLoading || !expert}
                 >
                   {contactingExpert ? (
                     <>
                       <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2" />
                       Connecting...
+                    </>
+                  ) : expertLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2" />
+                      Loading...
                     </>
                   ) : (
                     <>
