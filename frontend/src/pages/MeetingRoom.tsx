@@ -8,6 +8,7 @@ import AgoraRTC, {
 import { Button } from "@/components/ui/button";
 import { Video, VideoOff, Mic, MicOff, PhoneOff } from "lucide-react";
 import axios from "axios";
+import { useAuth } from "@/context/auth/AuthContext";
 
 const client: IAgoraRTCClient = AgoraRTC.createClient({
   mode: "rtc",
@@ -17,6 +18,7 @@ const client: IAgoraRTCClient = AgoraRTC.createClient({
 const MeetingRoom: React.FC = () => {
   const { bookingId } = useParams<{ bookingId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const localVideoRef = useRef<HTMLDivElement>(null);
   const remoteVideoRef = useRef<HTMLDivElement>(null);
@@ -31,77 +33,133 @@ const MeetingRoom: React.FC = () => {
   const [remoteUsers, setRemoteUsers] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
+  // Track refs to avoid stale cleanup and duplicate listeners
+  const audioTrackRef = useRef<IMicrophoneAudioTrack | null>(null);
+  const videoTrackRef = useRef<ICameraVideoTrack | null>(null);
+  const mountedRef = useRef(true);
+  const remoteUserIdsRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
+    mountedRef.current = true;
+
+    const setRemoteCount = () => {
+      if (mountedRef.current) setRemoteUsers(remoteUserIdsRef.current.size);
+    };
+
+    const parseChannelName = (data: any) => {
+      // Prefer explicit channel_name when provided
+      if (data?.channel_name && typeof data.channel_name === "string")
+        return data.channel_name;
+
+      // If meeting_link looks like a URL, try to derive a short segment; otherwise ignore it
+      const link = data?.meeting_link;
+      if (typeof link === "string") {
+        try {
+          const looksLikeUrl = /^https?:\/\//i.test(link);
+          if (looksLikeUrl) {
+            const u = new URL(link);
+            const last = u.pathname.split("/").filter(Boolean).pop();
+            if (last) return last;
+          } else if (link.includes("/")) {
+            const last = link.split("/").filter(Boolean).pop();
+            if (last) return last;
+          } else if (link.length < 64 && !/\s/.test(link)) {
+            return link;
+          }
+        } catch {
+          // fall through to default
+        }
+      }
+
+      // Fallback to booking-based channel
+      return `booking-${bookingId}`;
+    };
+
     const initializeCall = async () => {
       try {
-        // Get booking details to retrieve channel name
-        const bookingResponse = await axios.get(
-          `${import.meta.env.VITE_API_GATEWAY_URL}/bookings/${bookingId}`
+        const idToken = user ? await user.getIdToken() : null;
+        const headers = idToken ? { Authorization: `Bearer ${idToken}` } : {};
+
+        // Remove any existing listeners to avoid duplicates on re-entry
+        client.removeAllListeners();
+
+        // 1) Fetch booking -> resolve channel
+        const bookingResp = await axios.get(
+          `${import.meta.env.VITE_API_GATEWAY_URL}/api/bookings/${bookingId}`,
+          { headers }
         );
+        if (!bookingResp?.data)
+          throw new Error("Empty booking response from server");
 
-        const channelName =
-          bookingResponse.data.meeting_link || `booking-${bookingId}`;
+        const channelName = parseChannelName(bookingResp.data);
 
-        // Get Agora token from meeting service
-        const tokenResponse = await axios.get(
-          `${
-            import.meta.env.VITE_API_GATEWAY_URL
-          }/api/agora/token?channel_name=${channelName}`
+        // 2) Get agora token
+        const tokenResp = await axios.get(
+          `${import.meta.env.VITE_API_GATEWAY_URL}/api/agora/token`,
+          { params: { channel_name: channelName }, headers }
         );
+        const { token, appId, uid } = tokenResp.data || {};
+        if (!token || !appId) {
+          throw new Error("Invalid Agora token response");
+        }
 
-        const { token, appId, uid } = tokenResponse.data;
-
-        // Join Agora channel
-        await client.join(appId, channelName, token, uid);
+        // 3) Join channel
+        await client.join(appId, channelName, token, uid ?? null);
         setIsJoined(true);
 
-        // Create local tracks
-        const [audioTrack, videoTrack] =
-          await AgoraRTC.createMicrophoneAndCameraTracks();
+        // 4) Create & publish local tracks
+        const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+        audioTrackRef.current = audioTrack;
+        videoTrackRef.current = videoTrack;
         setLocalAudioTrack(audioTrack);
         setLocalVideoTrack(videoTrack);
 
-        // Play local video
         if (localVideoRef.current) {
           videoTrack.play(localVideoRef.current);
         }
-
-        // Publish local tracks
         await client.publish([audioTrack, videoTrack]);
 
-        // Handle remote users
-        client.on("user-published", async (user, mediaType) => {
-          await client.subscribe(user, mediaType);
-
-          if (mediaType === "video") {
-            const remoteVideoTrack = user.videoTrack;
-            if (remoteVideoTrack && remoteVideoRef.current) {
-              remoteVideoTrack.play(remoteVideoRef.current);
-            }
-          }
-
-          if (mediaType === "audio") {
-            const remoteAudioTrack = user.audioTrack;
-            remoteAudioTrack?.play();
-          }
-
-          setRemoteUsers((prev) => prev + 1);
+        // 5) Remote events (use user join/left for count; publish for media)
+        client.on("user-joined", (u) => {
+          remoteUserIdsRef.current.add(String(u.uid));
+          setRemoteCount();
         });
 
-        client.on("user-unpublished", (user, mediaType) => {
-          if (mediaType === "video") {
-            setRemoteUsers((prev) => prev - 1);
+        client.on("user-left", (u) => {
+          remoteUserIdsRef.current.delete(String(u.uid));
+          setRemoteCount();
+        });
+
+        client.on("user-published", async (u, mediaType) => {
+          await client.subscribe(u, mediaType);
+          if (mediaType === "video" && u.videoTrack && remoteVideoRef.current) {
+            u.videoTrack.play(remoteVideoRef.current);
+          }
+          if (mediaType === "audio" && u.audioTrack) {
+            u.audioTrack.play();
           }
         });
 
-        client.on("user-left", () => {
-          setRemoteUsers((prev) => Math.max(0, prev - 1));
+        client.on("user-unpublished", (u, mediaType) => {
+          // No count change here; count is tracked on join/left
+          if (mediaType === "video" && remoteVideoRef.current) {
+            // Video element will be cleared automatically when next video plays
+          }
         });
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to join call:", err);
-        setError(
-          err instanceof Error ? err.message : "Failed to join the meeting"
-        );
+        const status = err?.response?.status;
+        if (status === 404) {
+          setError("Meeting not found. The booking may be invalid or expired.");
+        } else if (status === 401 || status === 403) {
+          setError("You are not authorized to join this meeting.");
+        } else if (err?.name === "NotAllowedError") {
+          setError("Please allow microphone/camera permissions and try again.");
+        } else if (err?.message) {
+          setError(err.message);
+        } else {
+          setError("Failed to join the meeting");
+        }
       }
     };
 
@@ -109,37 +167,59 @@ const MeetingRoom: React.FC = () => {
       initializeCall();
     }
 
-    // Cleanup function
     return () => {
-      if (localAudioTrack) {
-        localAudioTrack.close();
-      }
-      if (localVideoTrack) {
-        localVideoTrack.close();
-      }
-      client.leave();
+      mountedRef.current = false;
+      try {
+        client.removeAllListeners();
+      } catch {}
+      try {
+        const tracks = [audioTrackRef.current, videoTrackRef.current].filter(
+          Boolean
+        ) as (IMicrophoneAudioTrack | ICameraVideoTrack)[];
+        if (tracks.length) client.unpublish(tracks).catch(() => {});
+      } catch {}
+      try {
+        audioTrackRef.current?.close();
+        videoTrackRef.current?.close();
+      } catch {}
+      audioTrackRef.current = null;
+      videoTrackRef.current = null;
+      remoteUserIdsRef.current.clear();
+      client.leave().catch(() => {});
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookingId]);
+    // Include user in deps to ensure token header is available when user resolves
+  }, [bookingId, user]);
 
   const toggleVideo = async () => {
-    if (localVideoTrack) {
-      await localVideoTrack.setEnabled(!isVideoEnabled);
-      setIsVideoEnabled(!isVideoEnabled);
+    const track = videoTrackRef.current || localVideoTrack;
+    if (track) {
+      await track.setEnabled(!isVideoEnabled);
+      setIsVideoEnabled((v) => !v);
     }
   };
 
   const toggleAudio = async () => {
-    if (localAudioTrack) {
-      await localAudioTrack.setEnabled(!isAudioEnabled);
-      setIsAudioEnabled(!isAudioEnabled);
+    const track = audioTrackRef.current || localAudioTrack;
+    if (track) {
+      await track.setEnabled(!isAudioEnabled);
+      setIsAudioEnabled((v) => !v);
     }
   };
 
   const endCall = async () => {
-    localAudioTrack?.close();
-    localVideoTrack?.close();
-    await client.leave();
+    try {
+      const tracks = [audioTrackRef.current, videoTrackRef.current].filter(
+        Boolean
+      ) as (IMicrophoneAudioTrack | ICameraVideoTrack)[];
+      if (tracks.length) await client.unpublish(tracks);
+    } catch {}
+    try {
+      audioTrackRef.current?.close();
+      videoTrackRef.current?.close();
+    } catch {}
+    audioTrackRef.current = null;
+    videoTrackRef.current = null;
+    await client.leave().catch(() => {});
     navigate("/my-bookings");
   };
 
@@ -217,6 +297,7 @@ const MeetingRoom: React.FC = () => {
             variant={isAudioEnabled ? "default" : "destructive"}
             size="lg"
             className="rounded-full w-14 h-14"
+            disabled={!isJoined}
           >
             {isAudioEnabled ? (
               <Mic className="h-6 w-6" />
@@ -230,6 +311,7 @@ const MeetingRoom: React.FC = () => {
             variant={isVideoEnabled ? "default" : "destructive"}
             size="lg"
             className="rounded-full w-14 h-14"
+            disabled={!isJoined}
           >
             {isVideoEnabled ? (
               <Video className="h-6 w-6" />
